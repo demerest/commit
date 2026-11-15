@@ -120,6 +120,8 @@ ok("crumble breaks after dwell + recorded",C.PLATS[8].dead===true&&C.run.dead.in
 ok("break spawns shards + drops you",C.shards.length>0&&C.body.y<cr[1]);
 settle();
 ok("crumble fall lands you below",C.state==="ready"&&C.body.y<cr[1]);
+for(let i=0;i<230;i++)tick(16.7);
+ok("crumble reforms after cooldown (no softlock)",C.PLATS[8].dead===false&&C.run.dead.indexOf(8)<0);
 C.resetRun();
 ok("reset rebuilds crumbled platforms",C.PLATS[8].dead===false&&C.run.dead.length===0);
 C.setBody(cr[0]+cr[2]/2-9,cr[1]);

@@ -16,12 +16,12 @@ is synthesized at runtime; master mute ♪ / M).**
 
 | Module | Responsibility |
 |---|---|
-| Constants | All tuning values from GDD §15 in one place (incl. `AIM_TIME`, `CRUMBLE_TIME`, `BOUNCE_V`) |
+| Constants | All tuning values from GDD §15 in one place (incl. `AIM_TIME`, `CRUMBLE_TIME`, `BOUNCE_V`, `RESPAWN_TIME`) |
 | Level | Authoring tables `[x,top,w,type]` → static solid rects with `crumble`/`bounce` flags |
 | Physics | `step(body)` — the **single** integrator used by flight AND preview; handles land/bounce/wall/bonk |
 | Preview | Clones the body, runs `step()` ≤ 900 times, returns dots + **all** contacts (bounce hops + final) |
 | Fuse | Aim countdown; auto-commits the drawn arc on expiry, cancels if sub-threshold |
-| Crumble | Per-visit dwell timer on cracked platforms; shatters + drops the player; persisted in `run.dead` |
+| Crumble | Per-visit dwell timer; shatters + drops the player; auto-reforms after `RESPAWN_TIME` (no softlock); transient `run.dead` |
 | Input | Pointer Events (capture, relative drag) + keyboard aim FSM |
 | FX | Pooled dust, shards, confetti, floats, shake, flash, squash timers |
 | Render | One pass: altitude sky → parallax → grid → solids (crumble/bounce) → trail → preview → body+fuse → FX → rail |
@@ -54,8 +54,9 @@ simulation and cancel any active aim; `document.hidden` pauses the same way.
   "run":  { "launches": 0, "falls": 0, "biggest": 0, "time": 0, "started": false, "dead": [] },
   "life": { "best": 0, "bestTime": null, "summits": 0, "launches": 0, "falls": 0, "seen": false } }
 ```
-`run.dead` lists crumbled platform indices (rebuilt on reset). Saved on every landing, win,
-reset, crumble, tab-hide, and unload. `save()` writes `safePos` — the last **grounded**
+`run.dead` lists platforms currently mid-reform; each auto-rebuilds after `RESPAWN_TIME`
+(and instantly on reset), so a broken stepping-stone never blocks the climb. Saved on every
+landing, win, reset, crumble, reform, tab-hide, and unload. `save()` writes `safePos` — the last **grounded**
 position, updated only on landing/reset/load — never an airborne one, so resume is always
 safe even if the tab closes mid-flight. If no `commit.v2` exists, lifetime records are
 migrated from `commit.v1`.
@@ -486,7 +487,7 @@ lastT=performance.now();requestAnimationFrame(frameLoop);
 Automated: serve the folder over HTTP and open `test.html` — it drives the game through
 the `window.__COMMIT__` manual-clock hook and asserts the matrix below, including a
 solver that proves **all 36 rest-to-rest jumps (bounce chains included) are solvable at
-≤ 98 % power** using the real integrator. Last full run: **71/71 pass** in both standard and
+≤ 98 % power** using the real integrator. Last full run: **72/72 pass** in both standard and
 `prefers-reduced-motion` modes (headless Chrome).
 
 | # | Test | Expected |

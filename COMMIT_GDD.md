@@ -102,6 +102,7 @@ World units are pixels at logical resolution; **y is up**; 10 px = 1 m.
 | `AIM_TIME` | 3.0 s | Aim fuse — auto-commits the drawn arc on expiry |
 | `CRUMBLE_TIME` | 1.6 s | Standing this long on a cracked platform breaks it |
 | `BOUNCE_V` | 800 px/s | Upward relaunch speed on a teal spring (keeps `vx`) |
+| `RESPAWN_TIME` | 3.0 s | A crumbled platform reforms after this cooldown (no softlock) |
 
 Collision outcomes (axis-separated, X then Y, per substep):
 
@@ -178,7 +179,8 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 - **Aim fuse:** a draining ring around the square (blue → amber → red), pulsing and ticking
   in the last second; on expiry it commits the drawn arc for you.
 - **Crumble platforms:** cracked amber→red edges, spreading fissures, jitter and trickling
-  dust as they fail, then a shard burst. Gone for the run.
+  dust as they fail, then a shard burst. They reform after a 3 s cooldown — a dashed ghost
+  with a filling teal edge counts down — so a broken stepping-stone never blocks the climb.
 - **Bounce springs:** teal top edge + upward chevrons, compressing on impact; the preview
   marks each hop with a teal ring + chevron and continues the arc to the landing.
 - **Parallax:** 80 deterministic twinkling specks at 0.35× camera depth.
@@ -230,6 +232,7 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 | Aim fuse | Draining ring blue→amber→red, ticks, urgent pulse; auto-launch on expiry |
 | Crumble warning | Cracks spread, edge amber→red, jitter, dust trickle, creaks |
 | Crumble break | Shard burst + shatter sound + shake; you drop straight down |
+| Crumble reform | Dashed ghost + filling teal edge, then a teal spark burst + rising shimmer |
 | Bounce | Pad compresses, teal spark burst, pitch-rising boing; arc shows the hop |
 | Idle > 2.2 s, 0 launches | Pulsing "drag anywhere · release to commit" |
 | Summit | Confetti + overlay + lifetime records updated |
@@ -268,6 +271,7 @@ guarded so a sound failure can never break the simulation.
 | `FALL_MIN` | 250 | 150–400 | How often the game calls it a "fall" |
 | `AIM_TIME` | 3.0 | 2.0–5.0 | Hesitation pressure; lower = harder |
 | `CRUMBLE_TIME` | 1.6 | 1.0–2.5 | How long a cracked ledge holds you |
+| `RESPAWN_TIME` | 3.0 | 2.0–6.0 | How fast a crumbled ledge reforms |
 | `BOUNCE_V` | 800 | 700–900 | Spring lift; re-verify chains if changed |
 | Platform widths | per level | ≥ 28 | Primary difficulty dial |
 | Camera lerp | 6 / 10 | 4–12 | Fall visibility vs. motion comfort |
@@ -288,4 +292,4 @@ leaderboard, second tower with moving ceilings. None required for the core exper
 6. Refresh resumes the run; erase requires confirmation; lifetime records survive erase.
 7. Zero network requests, zero image/audio assets, zero runtime errors.
 8. The aim fuse auto-commits a valid drawn arc on expiry; a sub-threshold aim cancels instead.
-9. Crumbled platforms persist for the run, drop the player honestly, and rebuild on reset.
+9. Crumbled platforms drop the player honestly and reform after a cooldown (never a softlock); reset rebuilds them instantly.

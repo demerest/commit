@@ -4,7 +4,7 @@
 /* ---------- constants ---------- */
 const VW=480,VH=800,DT=1/120,G=2200,MAXV=950,MINV=90,KDRAG=3.2,
 CH=18,SUMMIT=5080,FALL_MIN=250,VFALL=-1600,
-AIM_TIME=3.0,CRUMBLE_TIME=1.6,BOUNCE_V=800;
+AIM_TIME=3.0,CRUMBLE_TIME=1.6,BOUNCE_V=800,RESPAWN_TIME=3.0;
 const COL={plat:"#1c2436",edge:"#43547c",ink:"#e9edf4",dim:"#8b93a7",line:"#26304a",
 blue:"#5aa7ff",green:"#57e389",amber:"#ffb454",red:"#ff5d5d",spring:"#3fe0c5"};
 const RM=matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -31,12 +31,12 @@ const CEIL=[[0,2400,250],[0,3200,200],[300,3380,180]];
 const SOLIDS=[{x:-60,y:-60,w:VW+120,h:60,ground:true},
 {x:-60,y:0,w:60,h:SUMMIT+900,wall:true},{x:VW,y:0,w:60,h:SUMMIT+900,wall:true}];
 const PLATS=[];
-P.forEach(([x,t,w,ty],i)=>{const s={x,y:t-16,w,h:16,idx:i,crumble:ty===1,bounce:ty===2,dead:false,bounceT:0};PLATS.push(s);SOLIDS.push(s);});
+P.forEach(([x,t,w,ty],i)=>{const s={x,y:t-16,w,h:16,idx:i,crumble:ty===1,bounce:ty===2,dead:false,bounceT:0,respawnT:0};PLATS.push(s);SOLIDS.push(s);});
 for(const[x,t,w]of CEIL)SOLIDS.push({x,y:t-16,w,h:16,ceil:true});
 const GOAL={x:180,y:SUMMIT-16,w:120,h:16,goal:true};SOLIDS.push(GOAL);
 const SECTIONS=[[60,"I · FIRST STEPS"],[1760,"II · THE NEEDLES"],[2860,"III · OVERHANG"],[4000,"IV · THE THROAT"],[4980,"V · SUMMIT"]];
 const NOTES=[[240,60,"DRAG ANYWHERE TO AIM"],[240,180,"RELEASE = COMMIT"],[240,430,"AIM FAST · THE FUSE COMMITS FOR YOU"],
-[240,1150,"CRACKED PLATFORMS CRUMBLE · KEEP MOVING"],[240,2430,"TEAL PADS BOUNCE YOU · READ THE FULL ARC"]];
+[240,1150,"CRACKED PLATFORMS CRUMBLE THEN REFORM · KEEP MOVING"],[240,2430,"TEAL PADS BOUNCE YOU · READ THE FULL ARC"]];
 const STARS=[];{let s=13;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
 for(let i=0;i<80;i++)STARS.push({x:rnd()*VW,y:rnd()*(SUMMIT*.4+VH),r:rnd()*1.4+.4,p:rnd()*6.28});}
 /* ---------- state ---------- */
@@ -68,7 +68,7 @@ life.seen=!!life.seen;}
 function load(){let d=LS.get("commit.v2");
 if(!d){const old=LS.get("commit.v1");if(old&&old.life){life={...life,...old.life};sanitize();}return;}
 if(d.life)life={...life,...d.life};if(d.run)run={...run,...d.run};sanitize();
-for(const i of run.dead)PLATS[i].dead=true;
+for(const i of run.dead){PLATS[i].dead=true;PLATS[i].respawnT=RESPAWN_TIME;}
 if(Number.isFinite(d.x)&&Number.isFinite(d.y)&&d.y>=0&&d.y<=SUMMIT){
 body.x=Math.min(Math.max(d.x,0),VW-CH);body.y=d.y;}
 body.on=findGround(body.x,body.y);safePos.x=body.x;safePos.y=body.y;
@@ -112,6 +112,7 @@ case"bonk":tone(330,.09,"square",.07,170);break;
 case"bounce":{const f=300*(1+(o.chain||0)*.16);tone(f,.16,"sine",.1,f*2.4);noiseHit(.07,.05,1200,"bandpass");}break;
 case"crack":noiseHit(.09,.05+(o.stage||0)*.02,420+(o.stage||0)*260,"bandpass");tone(150+(o.stage||0)*60,.06,"square",.03);break;
 case"shatter":noiseHit(.34,.16,300);tone(90,.34,"sawtooth",.1,38);tone(520,.12,"square",.05,120);break;
+case"reform":tone(420,.18,"sine",.05,880);noiseHit(.1,.03,1600,"bandpass");break;
 case"fall":tone(540,.55,"sawtooth",.08,80);break;
 case"win":[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.22,"triangle",.09),i*95));break;
 case"ui":tone(880,.03,"sine",.035);break;
@@ -182,7 +183,7 @@ life.best=Math.max(life.best,body.y);safePos.x=body.x;safePos.y=body.y;save();
 if(ev.s.goal)win();}
 else{spawnDust(ev.x,ev.y,4,ev.t==="bonk"?COL.amber:COL.dim);sfx(ev.t==="bonk"?"bonk":"wall");if(!RM)shake=Math.max(shake,2.5);}}
 /* ---------- crumble ---------- */
-function breakPlatform(s){s.dead=true;if(run.dead.indexOf(s.idx)<0)run.dead.push(s.idx);
+function breakPlatform(s){s.dead=true;s.respawnT=RESPAWN_TIME;if(run.dead.indexOf(s.idx)<0)run.dead.push(s.idx);
 spawnShards(s);sfx("shatter");if(!RM)shake=Math.max(shake,9);
 if(body.on===s){body.on=null;body.vx=0;body.vy=0;body.grounded=false;
 state="flight";aim=null;stopHum();launchY=body.y;flightContacts.length=0;trail.length=0;bounceChain=0;}
@@ -194,6 +195,14 @@ const stage=p>=.82?3:p>=.55?2:p>=.28?1:0;
 if(stage>crumbleStage){crumbleStage=stage;sfx("crack",{stage});}
 if(p>.25&&Math.random()<dt*p*26)spawnDust(s.x+Math.random()*s.w,s.y+s.h,1,COL.amber);
 if(crumbleT>=CRUMBLE_TIME)breakPlatform(s);}}
+/* cracked platforms reform after a cooldown so the climb is never permanently blocked */
+function updateRespawn(dt){let changed=false;
+for(const s of PLATS){if(s.dead&&s.crumble&&s.respawnT>0){
+s.respawnT-=dt;
+if(s.respawnT<=0){s.respawnT=0;s.dead=false;
+const k=run.dead.indexOf(s.idx);if(k>=0)run.dead.splice(k,1);
+spawnDust(s.x+s.w/2,s.y+s.h,RM?4:8,COL.spring);sfx("reform");changed=true;}}}
+if(changed)save();}
 /* ---------- fx ---------- */
 function spawnDust(x,y,n,c){if(RM)n=Math.ceil(n/2);
 for(let i=0;i<n;i++)parts.push({x,y,vx:(Math.random()-.5)*220,vy:Math.random()*160+20,t:0,life:.5+Math.random()*.3,c});
@@ -220,7 +229,7 @@ if(!RM)for(let i=0;i<90;i++)confetti.push({x:body.x+CH/2,y:body.y+20,vx:(Math.ra
 sfx("win");openOv("win");}
 function resetRun(){body.x=VW/2-CH/2;body.y=0;body.vx=0;body.vy=0;body.grounded=true;
 state="ready";aim=null;stopHum();run={launches:0,falls:0,biggest:0,time:0,started:false,dead:[]};
-for(const s of PLATS){s.dead=false;s.bounceT=0;}
+for(const s of PLATS){s.dead=false;s.bounceT=0;s.respawnT=0;}
 body.on=findGround(body.x,body.y);crumbleT=0;crumbleStage=0;bounceChain=0;aimT=AIM_TIME;
 safePos.x=body.x;safePos.y=body.y;
 trail.length=0;floats.length=0;confetti.length=0;shards.length=0;flightContacts.length=0;flash=0;shake=0;
@@ -298,7 +307,13 @@ const SY=wy=>VH-(wy-camY);
 function rr(x,y,w,h,r){ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x,y,w,h,r);else ctx.rect(x,y,w,h);}
 function drawPlatform(s,now){
 const sy=SY(s.y+s.h);if(sy>VH+20||sy+s.h<-20)return;
-if(s.dead)return;
+if(s.dead){
+if(s.crumble&&s.respawnT>0){const f=1-clamp01(s.respawnT/RESPAWN_TIME);
+ctx.save();ctx.globalAlpha=.26+.12*Math.sin(now*.006);
+ctx.strokeStyle=COL.edge;ctx.lineWidth=1;ctx.setLineDash([4,4]);
+ctx.strokeRect(s.x+.5,sy+.5,s.w-1,s.h-1);ctx.setLineDash([]);
+ctx.globalAlpha=.85;ctx.fillStyle=COL.spring;ctx.fillRect(s.x,sy,s.w*f,2);ctx.restore();}
+return;}
 let jx=0,jy=0,prog=0;
 if(s.crumble&&body.on===s&&crumbleT>0){prog=clamp01(crumbleT/CRUMBLE_TIME);
 if(!RM){jx=(Math.random()-.5)*prog*3;jy=(Math.random()-.5)*prog*2;}}
@@ -436,6 +451,7 @@ if(aimT<=0){const v=aimV();
 if(v&&v.m>=MINV){sfx("forced");launch(v);}
 else{aim=null;state="ready";stopHum();spawnDust(body.x+CH/2,body.y+CH/2,3,COL.dim);sfx("puff");}}}
 updateCrumble(dt);
+updateRespawn(dt);
 const target=clampCam(body.y-VH*.38);
 camY+=(target-camY)*Math.min(1,dt*(state==="flight"?10:6));
 landT=Math.max(0,landT-dt);launchT=Math.max(0,launchT-dt);
@@ -470,5 +486,5 @@ get aimT(){return aimT},get crumbleT(){return crumbleT},get bounceChain(){return
 get trail(){return trail},get parts(){return parts},get shards(){return shards},get confetti(){return confetti},get floats(){return floats},
 get overlayOpen(){return overlayOpen},get flightContacts(){return flightContacts},get flightContact(){return flightContacts[0]||null},get safePos(){return safePos},
 SOLIDS,PLATS,GOAL,P,CEIL,RM,snd:SND,skyAt,
-C:{VW,VH,DT,G,MAXV,MINV,KDRAG,CH,SUMMIT,FALL_MIN,VFALL,AIM_TIME,CRUMBLE_TIME,BOUNCE_V}};
+C:{VW,VH,DT,G,MAXV,MINV,KDRAG,CH,SUMMIT,FALL_MIN,VFALL,AIM_TIME,CRUMBLE_TIME,BOUNCE_V,RESPAWN_TIME}};
 })();

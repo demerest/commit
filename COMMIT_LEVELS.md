@@ -10,7 +10,8 @@
 - Bounds: floor top at `y=0` (full width), solid walls at `x<0` and `x>480`.
 - Ceilings are 16 px-thick solids; their **underside** is the bonk surface.
 - Goal: `[180, 5080, 120]`, flagged `goal: true`. Landing on it wins.
-- Crumbled platforms stay dead for the run (persisted in `run.dead`); reset/erase rebuilds them.
+- Crumbled platforms reform after `RESPAWN_TIME = 3.0 s` (a dashed ghost + filling teal edge
+  counts down), so a broken stepping-stone never softlocks the climb; reset/erase rebuilds instantly.
 
 ## 2. Reachability Math (used to verify every gap)
 
