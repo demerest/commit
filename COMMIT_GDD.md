@@ -1,5 +1,5 @@
 # COMMIT — Game Design Document
-**Version 1.1 · Single-file HTML/JS/CSS · No images · Procedural audio only · No dependencies**
+**Version 2.0 · HTML + CSS + JS (three files) · No images · Procedural audio only · No dependencies**
 
 > A tower. A square. No air control.
 > Draw an arc, release, and live with exactly what you drew.
@@ -99,16 +99,21 @@ World units are pixels at logical resolution; **y is up**; 10 px = 1 m.
 | `VMAX_FALL` | −1600 px/s | Terminal velocity (also guarantees no tunneling) |
 | `FALL_MIN` | 250 px | A landing this far below launch counts as a **fall** |
 | `SUMMIT` | 5080 px | Goal altitude (508 m) |
+| `AIM_TIME` | 3.0 s | Aim fuse — auto-commits the drawn arc on expiry |
+| `CRUMBLE_TIME` | 1.6 s | Standing this long on a cracked platform breaks it |
+| `BOUNCE_V` | 800 px/s | Upward relaunch speed on a teal spring (keeps `vx`) |
 
 Collision outcomes (axis-separated, X then Y, per substep):
 
 | Contact | Result |
 |---|---|
 | Top of solid while descending | **Land.** All velocity zeroed, grounded |
+| Top of a **spring** while descending | **Bounce.** `vy = +800`, keep `vx`, stay airborne |
 | Side of solid / wall | `vx = 0`, keep falling straight down |
 | Underside of solid | **Bonk.** `vy = 0`, keep horizontal drift, fall |
 
-There is no bounce, friction, ice, or hazard. Geometry is the entire antagonist.
+No friction, ice, or instant-death hazard. Geometry, gravity and the fuse are the antagonists;
+the springs are the only mercy.
 
 ## 7. Failure Economy
 
@@ -127,10 +132,10 @@ Five sections, one summit. Full geometry and reachability math: `COMMIT_LEVELS.m
 
 | # | Name | Altitude | Platform width | Teaches / tests |
 |---|---|---|---|---|
-| I | First Steps | 0–170 m | 100–150 px | Drag, power, angle; generous catches |
-| II | The Needles | 170–278 m | 64–84 px | Precision; first ceiling forces a flat arc |
-| III | Overhang | 278–390 m | 46–60 px | Three ceilings; planning under constraints |
-| IV | The Throat | 390–508 m | 28–36 px | Near-max-power chains, ±23 px landing tolerance |
+| I | First Steps | 0–168 m | 100–150 px | Drag, power, angle; first crumble teaches "keep moving" |
+| II | The Needles | 168–282 m | 64–84 px | Precision; first ceiling; first mandatory bounce chain |
+| III | Overhang | 282–395 m | 46–60 px | Two ceilings; crumble ledges; planning under constraints |
+| IV | The Throat | 395–508 m | 30–40 px | Near-max-power chains; second bounce chain; crumble gates |
 | V | Summit | 508 m | 120 px | Mercy at the top. Flag. Silence. |
 
 ## 9. Difficulty Curve
@@ -165,10 +170,17 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 | `green` | `#57e389` | Success: landing ring, summit, win stats |
 | `amber` | `#ffb454` | Warning: ceiling edges, best-height tick |
 | `red` | `#ff5d5d` | Consequence: fall flash, drop popup, erase button |
+| `spring` | `#3fe0c5` | Bounce pads, bounce-hop markers in the preview |
 
 ### World rendering
-- **Sky:** two-stop vertical gradient that lerps with altitude — cold blue-black at the
-  floor to a bruised warm dawn near the summit. The climb literally changes the light.
+- **Sky:** three-stop vertical gradient keyed to altitude — cold navy at the floor, steel
+  teal, violet dusk, then a warm rose dawn at the summit. The climb literally changes the light.
+- **Aim fuse:** a draining ring around the square (blue → amber → red), pulsing and ticking
+  in the last second; on expiry it commits the drawn arc for you.
+- **Crumble platforms:** cracked amber→red edges, spreading fissures, jitter and trickling
+  dust as they fail, then a shard burst. Gone for the run.
+- **Bounce springs:** teal top edge + upward chevrons, compressing on impact; the preview
+  marks each hop with a teal ring + chevron and continues the arc to the landing.
 - **Parallax:** 80 deterministic twinkling specks at 0.35× camera depth.
 - **Grid:** faint 10 m lines, labeled every 50 m; section titles stenciled in the world.
 - **Character:** 18 px rounded white square, two dark eyes that look toward the aim
@@ -215,6 +227,10 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 | Hard land | Squash + shake scaled to impact |
 | Counted fall | Red flash + `−Xm` popup + fall counter ticks |
 | Wall / bonk | Gray / amber sparks + micro-shake |
+| Aim fuse | Draining ring blue→amber→red, ticks, urgent pulse; auto-launch on expiry |
+| Crumble warning | Cracks spread, edge amber→red, jitter, dust trickle, creaks |
+| Crumble break | Shard burst + shatter sound + shake; you drop straight down |
+| Bounce | Pad compresses, teal spark burst, pitch-rising boing; arc shows the hop |
 | Idle > 2.2 s, 0 launches | Pulsing "drag anywhere · release to commit" |
 | Summit | Confetti + overlay + lifetime records updated |
 
@@ -250,6 +266,9 @@ guarded so a sound failure can never break the simulation.
 | `KDRAG` | 3.2 | 2.6–4.0 | Drag length for full power |
 | `MINV` | 90 | 60–140 | Accidental-launch forgiveness |
 | `FALL_MIN` | 250 | 150–400 | How often the game calls it a "fall" |
+| `AIM_TIME` | 3.0 | 2.0–5.0 | Hesitation pressure; lower = harder |
+| `CRUMBLE_TIME` | 1.6 | 1.0–2.5 | How long a cracked ledge holds you |
+| `BOUNCE_V` | 800 | 700–900 | Spring lift; re-verify chains if changed |
 | Platform widths | per level | ≥ 28 | Primary difficulty dial |
 | Camera lerp | 6 / 10 | 4–12 | Fall visibility vs. motion comfort |
 
@@ -261,10 +280,12 @@ leaderboard, second tower with moving ceilings. None required for the core exper
 
 ## 17. Design Acceptance Criteria
 
-1. Preview contact point matches real flight contact point exactly (same code path).
+1. Preview contact points match real flight contacts exactly, including bounce hops (same code path).
 2. A release above threshold can never be cancelled, including off-canvas release.
 3. A fall never teleports; height lost equals height physically dropped.
-4. Every mandatory jump is solvable at ≤ 98% of max speed with ≥ 15 px ceiling margin.
+4. Every mandatory jump (and bounce chain) is solvable at ≤ 98% of max speed with ≥ 15 px ceiling margin.
 5. First-time player understands drag/release within 10 seconds without reading docs.
 6. Refresh resumes the run; erase requires confirmation; lifetime records survive erase.
 7. Zero network requests, zero image/audio assets, zero runtime errors.
+8. The aim fuse auto-commits a valid drawn arc on expiry; a sub-threshold aim cancels instead.
+9. Crumbled platforms persist for the run, drop the player honestly, and rebuild on reset.

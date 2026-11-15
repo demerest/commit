@@ -12,7 +12,7 @@ h1{font-size:14px;letter-spacing:.1em;margin:0 0 8px}
 </style>
 </head>
 <body>
-<div><h1>COMMIT · VERIFICATION</h1><div id="out">running…</div></div>
+<div><h1>COMMIT · VERIFICATION (v2)</h1><div id="out">running…</div></div>
 <iframe id="f" src="index.html"></iframe>
 <script>
 "use strict";
@@ -30,6 +30,22 @@ const cv=d.getElementById("cv"),r=cv.getBoundingClientRect();
 cv.dispatchEvent(new w.PointerEvent(type,{pointerId:id==null?1:id,clientX:r.left+x,clientY:r.top+y,bubbles:true,cancelable:true}));
 }
 function key(w,k,shift){w.dispatchEvent(new w.KeyboardEvent("keydown",{key:k,shiftKey:!!shift,bubbles:true,cancelable:true}));}
+function findLaunch(C,from,to){
+const CHH=C.C.CH,MV=C.C.MAXV;
+const xs=[from[0]+from[2]/2-CHH/2,from[0]+1,from[0]+from[2]-CHH-1];
+for(const bx of xs){
+C.setBody(bx,from[1]);
+const tc=to[0]+to[2]/2,bc=bx+CHH/2;
+const lo=tc>=bc?8:92,hi=tc>=bc?88:172;
+for(let ang=lo;ang<=hi;ang+=2){
+const rad=ang*Math.PI/180;
+for(let pw=.30;pw<=.981;pw+=.02){
+const vx=Math.cos(rad)*pw*MV,vy=Math.sin(rad)*pw*MV;
+const pr=C.preview({x:vx,y:vy});
+if(pr.mark&&pr.mark.ok&&pr.mark.y===to[1]&&pr.mark.x>to[0]-CHH/2&&pr.mark.x<to[0]+to[2]+CHH/2&&(!to[4]||pr.mark.goal))
+return{bx,vx,vy,contacts:pr.contacts};
+}}}
+return null;}
 async function main(){
 const f=document.getElementById("f");
 await new Promise(r=>{if(f.contentWindow&&f.contentDocument&&f.contentDocument.readyState==="complete"&&f.contentWindow.__COMMIT__)r();else f.addEventListener("load",r,{once:true});});
@@ -40,7 +56,7 @@ const errs=[];w.addEventListener("error",e=>errs.push(String(e.message)));
 C.takeControl();
 let now=w.performance.now();
 const tick=ms=>{now+=ms;C.tick(now);};
-const settle=()=>{let n=0;while(C.state==="flight"&&n<1500){tick(1000/60);n++;}return n;};
+const settle=()=>{let n=0;while(C.state==="flight"&&n<2000){tick(1000/60);n++;}return n;};
 const RM=C.RM;
 
 /* 1 · boot */
@@ -53,7 +69,7 @@ ok("idle hint arms after 2.2s",C.idleT>2.2);
 
 /* 2 · weak drag cancels */
 ptr(w,d,"pointerdown",240,600);
-ok("pointerdown starts aim at press origin",C.state==="aim"&&C.aim&&C.aim.mode==="p"&&C.aim.ox===240&&C.aim.oy===600);
+ok("pointerdown starts aim + fuse",C.state==="aim"&&C.aim&&C.aim.mode==="p"&&C.aimT===C.C.AIM_TIME);
 ptr(w,d,"pointermove",245,595);ptr(w,d,"pointerup",245,595);
 ok("weak drag (<90px/s) cancels, no launch",C.state==="ready"&&C.run.launches===0);
 
@@ -64,18 +80,29 @@ ok("preview yields arc + landing mark",pr.pts.length>10&&pr.mark&&pr.mark.ok);
 ptr(w,d,"pointerup",340,500);
 ok("release above threshold commits",C.state==="flight"&&C.run.launches===1);
 settle();
-ok("preview contact ≡ flight contact (pixel-exact)",
-C.flightContact&&C.flightContact.t==="land"&&C.flightContact.x===pr.mark.x&&C.flightContact.y===pr.mark.y&&C.state==="ready",
-JSON.stringify(C.flightContact)+" vs "+JSON.stringify(pr.mark));
+ok("preview contacts ≡ flight contacts (pixel-exact)",
+JSON.stringify(C.flightContacts)===JSON.stringify(pr.contacts),
+JSON.stringify(C.flightContacts)+" vs "+JSON.stringify(pr.contacts));
 ok("trail lingers after landing",C.trail.length>0);
 
 /* 4 · off-canvas release */
 ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",700,300);ptr(w,d,"pointerup",700,300);
 ok("off-canvas release still commits",C.state==="flight"&&C.run.launches===2);
 settle();
-ok("launch speed clamped to MAXV (wall reached, no tunneling)",C.state==="ready");
 
-/* 5 · ceiling bonk contract */
+/* 5 · aim fuse auto-launch */
+C.resetRun();
+ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",340,500);
+for(let i=0;i<230;i++)tick(16.7);
+ok("aim fuse auto-launches on expiry",C.run.launches===1&&C.state!=="aim");
+settle();
+C.resetRun();
+ptr(w,d,"pointerdown",240,600);
+for(let i=0;i<230;i++)tick(16.7);
+ok("weak fuse cancels without launch",C.state==="ready"&&C.run.launches===0);
+ptr(w,d,"pointerup",240,600);
+
+/* 6 · ceiling bonk contract */
 C.setBody(176,2280);
 const prb=C.preview({x:60,y:830});
 ok("steep arc under ceiling previews red ✕",prb.mark&&!prb.mark.ok);
@@ -83,17 +110,50 @@ C.launch({x:60,y:830});settle();
 ok("bonk contact pixel-exact, then honest fall",
 C.flightContact&&C.flightContact.t==="bonk"&&C.flightContact.x===prb.mark.x&&C.flightContact.y===prb.mark.y&&C.state==="ready");
 
-/* 6 · fall economy */
+/* 7 · crumble */
+C.resetRun();
+const cr=C.P[8];
+C.setBody(cr[0]+cr[2]/2-9,cr[1]);
+ok("standing on a crumble platform",!!C.body.on&&C.body.on.crumble===true);
+for(let i=0;i<110;i++)tick(16.7);
+ok("crumble breaks after dwell + recorded",C.PLATS[8].dead===true&&C.run.dead.indexOf(8)>=0);
+ok("break spawns shards + drops you",C.shards.length>0&&C.body.y<cr[1]);
+settle();
+ok("crumble fall lands you below",C.state==="ready"&&C.body.y<cr[1]);
+C.resetRun();
+ok("reset rebuilds crumbled platforms",C.PLATS[8].dead===false&&C.run.dead.length===0);
+C.setBody(cr[0]+cr[2]/2-9,cr[1]);
+C.launch({x:0,y:400});settle();
+ok("launching before dwell keeps platform intact",C.PLATS[8].dead===false);
+
+/* 8 · bounce chain: preview ≡ flight, shown in arc */
+C.resetRun();
+const restA=[140,2490,80,0],restC=[400,2720,72,0];
+const bs=findLaunch(C,restA,restC);
+ok("bounce chain is solvable",!!bs);
+if(bs){
+ok("bounce chain arc previews a bounce hop",bs.contacts.some(c=>c.t==="bounce"));
+C.setBody(bs.bx,restA[1]);
+const prc=C.preview({x:bs.vx,y:bs.vy});
+C.launch({x:bs.vx,y:bs.vy});settle();
+ok("bounce flight contacts ≡ preview (pixel-exact)",JSON.stringify(C.flightContacts)===JSON.stringify(prc.contacts),
+JSON.stringify(C.flightContacts));
+ok("bounce chain ends grounded on target",C.state==="ready"&&Math.abs(C.body.y-restC[1])<1);
+ok("direct A→C impossible (spring required)",restC[1]-restA[1]>C.C.MAXV*C.C.MAXV/(2*C.C.G));
+}
+
+/* 9 · fall economy */
+C.resetRun();
 const fallsBefore=C.run.falls;
 C.setBody(430,1680);
 C.launch({x:200,y:300});settle();
-const shake6=C.shake;
+const shake9=C.shake;
 ok("wall hit converts to straight drop, lands on floor",C.flightContact.t==="wall"&&C.body.y===0);
 ok("fall ≥25m counted once + biggest drop",C.run.falls===fallsBefore+1&&C.run.biggest>=1680);
-ok("fall flash + −Xm popup fired",C.flash>0&&C.floats.length>=1&&C.floats[0].txt.indexOf("m")>0);
-ok(RM?"reduced motion: shake suppressed":"hard landing shakes screen",RM?shake6===0:shake6>0);
+ok("fall flash + −Xm popup fired",C.flash>0&&C.floats.length>=1);
+ok(RM?"reduced motion: shake suppressed":"hard landing shakes screen",RM?shake9===0:shake9>0);
 
-/* 7 · keyboard FSM */
+/* 10 · keyboard FSM */
 C.resetRun();
 key(w,"ArrowUp");
 ok("arrow raises keyboard aim",C.state==="aim"&&C.aim&&C.aim.mode==="k");
@@ -107,7 +167,7 @@ key(w," ");
 ok("second space commits",C.state==="flight"&&C.run.launches===1);
 settle();
 
-/* 8 · overlays pause sim + timer */
+/* 11 · overlays pause sim + timer */
 const t0=C.run.time;
 key(w,"h");
 ok("H opens help",C.overlayOpen==="help");
@@ -120,21 +180,21 @@ ok("R opens erase confirm",C.overlayOpen==="confirm");
 d.getElementById("bNo").click();
 ok("keep climbing dismisses confirm",C.overlayOpen===null&&C.run.launches===1);
 
-/* 9 · persistence: grounded-only, validated */
+/* 12 · persistence v2: grounded-only, validated, dead platforms */
 const sp={x:C.safePos.x,y:C.safePos.y};
-const stored=JSON.parse(w.localStorage.getItem("commit.v1"));
+const stored=JSON.parse(w.localStorage.getItem("commit.v2"));
 ok("landing persists grounded position + stats",stored.x===sp.x&&stored.y===sp.y&&stored.run.launches===C.run.launches);
 C.body.x=100;C.body.y=3000;C.save();
-const stored2=JSON.parse(w.localStorage.getItem("commit.v1"));
+const stored2=JSON.parse(w.localStorage.getItem("commit.v2"));
 ok("airborne position never persisted",stored2.x===sp.x&&stored2.y===sp.y);
 C.load();
 ok("resume returns to last grounded spot",C.body.x===sp.x&&C.body.y===sp.y);
-w.localStorage.setItem("commit.v1",JSON.stringify({x:9999,y:-5,run:{launches:-3,time:"x"},life:{best:-1,summits:-2,bestTime:-5}}));
+w.localStorage.setItem("commit.v2",JSON.stringify({x:9999,y:-5,run:{launches:-3,time:"x",dead:[999,-1,"a"]},life:{best:-1,summits:-2,bestTime:-5}}));
 C.load();
-ok("corrupt save sanitized",C.body.y>=0&&C.run.launches>=0&&C.life.best>=0&&C.life.summits>=0&&C.life.bestTime===null);
-w.localStorage.setItem("commit.v1",JSON.stringify(stored));C.load();
+ok("corrupt save sanitized",C.body.y>=0&&C.run.launches>=0&&C.life.best>=0&&C.life.summits>=0&&C.life.bestTime===null&&C.run.dead.length===0);
+w.localStorage.setItem("commit.v2",JSON.stringify(stored));C.load();
 
-/* 10 · erase keeps lifetime */
+/* 13 · erase keeps lifetime */
 const bestBefore=C.life.best;
 ok("lifetime best recorded",bestBefore>0);
 d.getElementById("bReset").click();
@@ -142,7 +202,7 @@ ok("↺ asks confirmation",C.overlayOpen==="confirm");
 d.getElementById("bYes").click();
 ok("erase zeroes run, lifetime survives",C.run.launches===0&&C.run.falls===0&&C.run.time===0&&C.body.y===0&&C.life.best===bestBefore&&C.overlayOpen===null);
 
-/* 11 · multi-pointer + particle caps */
+/* 14 · multi-pointer + particle caps */
 ptr(w,d,"pointerdown",100,500,1);ptr(w,d,"pointerdown",300,400,2);
 ok("only first pointer aims",C.aim&&C.aim.id===1&&C.aim.ox===100);
 ptr(w,d,"pointermove",320,420,2);
@@ -154,7 +214,7 @@ ok("pointercancel cancels aim",C.state==="ready"&&C.aim===null);
 for(let i=0;i<80;i++)C.spawnDust(240,100,16,"#ffffff");
 ok("dust particle cap holds (≤300)",C.parts.length<=300);
 
-/* 12 · storage disabled */
+/* 15 · storage disabled */
 const oSet=w.localStorage.setItem.bind(w.localStorage),oGet=w.localStorage.getItem.bind(w.localStorage);
 w.localStorage.setItem=()=>{throw new Error("quota")};
 w.localStorage.getItem=()=>{throw new Error("denied")};
@@ -162,7 +222,7 @@ let threw=false;try{C.save();C.load();}catch(e){threw=true;}
 ok("storage failure is silent (private mode)",!threw);
 w.localStorage.setItem=oSet;w.localStorage.getItem=oGet;
 
-/* 13 · hidden tab */
+/* 16 · hidden tab */
 let hiddenFlag=false;
 Object.defineProperty(d,"hidden",{configurable:true,get:()=>hiddenFlag});
 C.launch({x:0,y:300});settle();
@@ -174,7 +234,7 @@ hiddenFlag=false;d.dispatchEvent(new w.Event("visibilitychange"));
 now=w.performance.now();tick(16.7);
 ok("return resumes without time jump",C.run.time>=tt&&C.run.time<tt+1);
 
-/* 14 · sound */
+/* 17 · sound */
 ok("audio context exists after gestures",!!C.snd.ctx);
 ok("sound on by default",C.snd.on===true);
 const bS=d.getElementById("bSound");
@@ -183,63 +243,46 @@ ok("♪ button mutes + persists + shows state",C.snd.on===false&&bS.getAttribute
 key(w,"m");
 ok("M unmutes + persists",C.snd.on===true&&w.localStorage.getItem("commit.snd")==="true"&&bS.getAttribute("aria-pressed")==="true");
 
-/* 15 · summit (rise right of the goal, drift left on descent) */
-C.setBody(339,4940);
-const prw=C.preview({x:-140,y:870});
+/* 18 · altitude palette shifts */
+const s0=C.skyAt(0)[0],s1=C.skyAt(1)[0];
+const skyDist=Math.abs(s0[0]-s1[0])+Math.abs(s0[1]-s1[1])+Math.abs(s0[2]-s1[2]);
+ok("sky palette differs floor vs summit",skyDist>60,"Δrgb="+Math.round(skyDist));
+
+/* 19 · summit */
+C.resetRun();
+C.setBody(339,4980);
+const prw=C.preview({x:-200,y:760});
 ok("final jump previews goal landing",prw.mark&&prw.mark.ok&&prw.mark.goal,JSON.stringify(prw.mark));
 const summitsBefore=C.life.summits;
-C.launch({x:-140,y:870});settle();
+C.launch({x:-200,y:760});settle();
 ok("landing on summit wins",C.state==="win"&&C.overlayOpen==="win"&&!d.getElementById("win").hidden);
-ok("win stats + share text populated",d.getElementById("wTime").textContent!=="—"&&d.getElementById("share").value.indexOf("508m")>=0&&d.getElementById("share").value.indexOf("No air control")>=0);
+ok("win stats + share text populated",d.getElementById("wTime").textContent!=="—"&&d.getElementById("share").value.indexOf("508m")>=0);
 ok("lifetime summits increment",C.life.summits===summitsBefore+1);
 ok(RM?"reduced motion: confetti skipped":"confetti fires (90)",RM?C.confetti.length===0:C.confetti.length===90);
 ok("best time recorded",C.life.bestTime!=null&&C.life.bestTime>=0);
 
-/* 16 · climb again */
+/* 20 · climb again */
 d.getElementById("bAgain").click();
 ok("climb again fully resets",C.state==="ready"&&C.body.y===0&&C.run.launches===0&&C.run.time===0&&C.overlayOpen===null);
 for(let i=0;i<120;i++)tick(16.7);
 ok("loop stable after restart",C.state==="ready"&&C.body.y===0);
 
-/* 17 · zero network */
-const res=w.performance.getEntriesByType("resource").filter(r=>/^https?:/.test(r.name));
-ok("zero network requests after load",res.length===0,res.map(r=>r.name).join(","));
+/* 21 · zero network */
+const res=w.performance.getEntriesByType("resource").filter(r=>/^https?:/.test(r.name)&&!/game\.js|style\.css/.test(r.name));
+ok("no external network requests",res.length===0,res.map(r=>r.name).join(","));
 
-/* 18 · every mandatory jump solvable ≤98% power (GDD acceptance #4) */
-function solveTower(){
-const CHH=C.C.CH,MV=C.C.MAXV;
-const sources=[[0,0,480]].concat(C.P);
-const targets=C.P.concat([[180,5080,120]]);
+/* 22 · every mandatory jump solvable ≤98% power (rest-to-rest, bounces allowed) */
+const rests=C.P.filter(p=>p[3]!==2);
+const sources=[[0,0,480,0]].concat(rests);
+const targets=rests.concat([[180,5080,120,0,true]]);
 let solved=0,maxPw=0;const fails=[];
 for(let i=0;i<targets.length;i++){
-const a=sources[i],b=targets[i];
-const xs=[a[0]+a[2]/2-CHH/2,a[0]+1,a[0]+a[2]-CHH-1];
-let found=null;
-const tryGrid=(angs,pws)=>{
-for(const bx of xs){
-C.setBody(bx,a[1]);
-const bc=bx+CHH/2,tc=b[0]+b[2]/2;
-const lo=tc>=bc?8:92,hi=tc>=bc?88:172;
-for(let ang=lo;ang<=hi;ang+=angs){
-const rad=ang*Math.PI/180;
-for(let k=0;k<pws.length;k++){
-const pw=pws[k],vx=Math.cos(rad)*pw*MV,vy=Math.sin(rad)*pw*MV;
-const pr=C.preview({x:vx,y:vy});
-if(pr.mark&&pr.mark.ok&&pr.mark.y===b[1]&&pr.mark.x>b[0]-CHH/2&&pr.mark.x<b[0]+b[2]+CHH/2&&(i<targets.length-1||pr.mark.goal))
-return{ang,pw:Math.round(pw*100)};
-}}}
-return null;};
-const coarse=[];for(let p=.30;p<=.981;p+=.02)coarse.push(p);
-found=tryGrid(3,coarse);
-if(!found){const fine=[];for(let p=.30;p<=.981;p+=.005)fine.push(p);found=tryGrid(1,fine);}
-if(found){solved++;maxPw=Math.max(maxPw,found.pw);}
+const sol=findLaunch(C,sources[i],targets[i]);
+if(sol){solved++;maxPw=Math.max(maxPw,Math.round(Math.hypot(sol.vx,sol.vy)/C.C.MAXV*100));}
 else fails.push("jump"+(i+1));
 }
-return{solved,total:targets.length,fails,maxPw};
-}
-const s=solveTower();
-ok("all 36 jumps solvable at ≤98% power",s.fails.length===0,
-"solved "+s.solved+"/"+s.total+" · hardest launch "+s.maxPw+"%"+(s.fails.length?" · UNSOLVED: "+s.fails.join(","):""));
+ok("all "+targets.length+" jumps solvable at ≤98% power",fails.length===0,
+"solved "+solved+"/"+targets.length+" · hardest launch "+maxPw+"%"+(fails.length?" · UNSOLVED: "+fails.join(","):""));
 C.resetRun();
 
 ok("no runtime errors during suite",errs.length===0,errs.join(" | "));

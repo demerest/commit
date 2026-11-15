@@ -1,31 +1,33 @@
-# COMMIT — Implementation Guide & Complete Build
-**Stack: one `index.html`. Vanilla JS + Canvas 2D + CSS + Web Audio. Zero dependencies,
-zero network requests, zero image assets, zero audio files (every sound is synthesized
-at runtime; master mute ♪ / M).**
+# COMMIT — Implementation Guide (v2)
+**Stack: `index.html` + `style.css` + `game.js`. Vanilla JS + Canvas 2D + CSS + Web Audio.
+Zero dependencies, zero network requests, zero image assets, zero audio files (every sound
+is synthesized at runtime; master mute ♪ / M).**
 
 ## 1. Constraint Compliance
 
 | Constraint | How it is satisfied |
 |---|---|
-| HTML/JS/CSS only | Single file, no imports, no build step |
+| HTML/JS/CSS only | Three plain files, no imports, no modules, no build step |
 | No generated images | Every visual is a runtime Canvas/CSS primitive; system font stack |
 | No generated audio | No audio files or generated assets; every sound is synthesized at runtime (oscillators + filtered noise). Master mute (♪ / M) persisted; context created on first gesture, suspended on tab-hide; silence at summit |
-| Runnable anywhere | Open the file directly (`file://`); `localStorage` wrapped in try/catch |
+| Runnable anywhere | Open `index.html` directly (`file://`); classic script + stylesheet load locally; `localStorage` wrapped in try/catch |
 
-## 2. Architecture (one IIFE, eleven modules)
+## 2. Architecture (`game.js`, one IIFE)
 
 | Module | Responsibility |
 |---|---|
-| Constants | All tuning values from GDD §15 in one place |
-| Level | Authoring tables → static solid rects (built once) |
-| Physics | `step(body)` — the **single** integrator used by flight AND preview |
-| Preview | Clones the body, runs `step()` ≤ 480 times, returns dots + contact marker |
+| Constants | All tuning values from GDD §15 in one place (incl. `AIM_TIME`, `CRUMBLE_TIME`, `BOUNCE_V`) |
+| Level | Authoring tables `[x,top,w,type]` → static solid rects with `crumble`/`bounce` flags |
+| Physics | `step(body)` — the **single** integrator used by flight AND preview; handles land/bounce/wall/bonk |
+| Preview | Clones the body, runs `step()` ≤ 900 times, returns dots + **all** contacts (bounce hops + final) |
+| Fuse | Aim countdown; auto-commits the drawn arc on expiry, cancels if sub-threshold |
+| Crumble | Per-visit dwell timer on cracked platforms; shatters + drops the player; persisted in `run.dead` |
 | Input | Pointer Events (capture, relative drag) + keyboard aim FSM |
-| FX | Pooled particles, confetti, floats, shake, flash, squash timers |
-| Render | One pass: sky → parallax → grid → solids → trail → preview → body → FX → rail |
+| FX | Pooled dust, shards, confetti, floats, shake, flash, squash timers |
+| Render | One pass: altitude sky → parallax → grid → solids (crumble/bounce) → trail → preview → body+fuse → FX → rail |
 | UI/HUD | DOM overlays, cached `textContent` updates, toast |
-| Persistence | Versioned `localStorage` with validation + in-memory fallback |
-| Sound | Lazy `AudioContext` on first gesture; synthesized SFX, aim hum, altitude wind bed; master mute |
+| Persistence | Versioned `localStorage` (`commit.v2`) with validation + in-memory fallback; migrates v1 lifetime |
+| Sound | Lazy `AudioContext` on first gesture; synthesized SFX, aim hum, fuse ticks, altitude wind bed; master mute |
 | Loop | Single rAF, fixed-timestep accumulator (dt clamp 0.25 s) |
 
 ### Determinism & the Commit Contract
@@ -46,26 +48,29 @@ backing store scaled by `min(devicePixelRatio, 2)`; all drawing stays in logical
 `ready → aim(pointer|keyboard) → flight → ready` · `flight → win` · overlays pause the
 simulation and cancel any active aim; `document.hidden` pauses the same way.
 
-### Persistence schema (`commit.v1`)
+### Persistence schema (`commit.v2`)
 ```json
 { "x": 231, "y": 0,
-  "run":  { "launches": 0, "falls": 0, "biggest": 0, "time": 0, "started": false },
+  "run":  { "launches": 0, "falls": 0, "biggest": 0, "time": 0, "started": false, "dead": [] },
   "life": { "best": 0, "bestTime": null, "summits": 0, "launches": 0, "falls": 0, "seen": false } }
 ```
-Saved on every landing, win, reset, tab-hide, and unload. `save()` writes `safePos` —
-the last **grounded** position, updated only on landing/reset/load — never an airborne
-one, so resume is always safe even if the tab closes mid-flight.
+`run.dead` lists crumbled platform indices (rebuilt on reset). Saved on every landing, win,
+reset, crumble, tab-hide, and unload. `save()` writes `safePos` — the last **grounded**
+position, updated only on landing/reset/load — never an airborne one, so resume is always
+safe even if the tab closes mid-flight. If no `commit.v2` exists, lifetime records are
+migrated from `commit.v1`.
 
 ### Performance budget
-≤ 2 substeps/frame typical; preview ≤ 480 steps × 40 solids only while aiming; ~120 draw
-calls/frame; particle caps (300 dust, 90 confetti). Comfortable on low-end mobile.
+≤ 2 substeps/frame typical; preview ≤ 900 steps × ~42 solids only while aiming; ~130 draw
+calls/frame; particle caps (300 dust, 140 shards, 90 confetti). Comfortable on low-end mobile.
 
-## 3. Complete Build — save as `index.html` and open it
+## 3. Reference build (historical v1.0)
 
-> **Note (v1.1):** the canonical build is the repository's `index.html`. It extends the
-> v1.0 reference block below with the procedural Sound module, `safePos` grounded-only
-> persistence, lifetime-stat sanitizing on load, and a `window.__COMMIT__` manual-clock
-> test hook used by `test.html`. Gameplay constants and physics are unchanged.
+> **Note (v2.0):** the canonical build is split across `index.html`, `style.css`, and
+> `game.js` in this repository. The single-file block below is the **historical v1.0
+> reference** (no fuse/crumble/bounce, old tower). It is kept for provenance only — do not
+> copy it over the current files. v2 adds the Fuse, Crumble and Bounce modules, the altitude
+> sky keyframes, `commit.v2` persistence, and the `window.__COMMIT__` manual-clock test hook.
 
 ```html
 <!doctype html>
@@ -480,9 +485,9 @@ lastT=performance.now();requestAnimationFrame(frameLoop);
 
 Automated: serve the folder over HTTP and open `test.html` — it drives the game through
 the `window.__COMMIT__` manual-clock hook and asserts the matrix below, including a
-solver that proves **all 36 mandatory jumps are solvable at ≤ 98 % power** using the real
-integrator. Last full run: **58/58 pass** in both standard and `prefers-reduced-motion`
-modes (headless Chrome).
+solver that proves **all 36 rest-to-rest jumps (bounce chains included) are solvable at
+≤ 98 % power** using the real integrator. Last full run: **71/71 pass** in both standard and
+`prefers-reduced-motion` modes (headless Chrome).
 
 | # | Test | Expected |
 |---|---|---|
