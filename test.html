@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>COMMIT · verification harness</title>
+<style>
+body{background:#07090f;color:#e9edf4;font-family:ui-monospace,Menlo,Consolas,monospace;margin:16px;display:flex;gap:16px;align-items:flex-start}
+#out{white-space:pre-wrap;font-size:12px;line-height:1.7;max-width:640px}
+#out .fail{color:#ff5d5d}
+iframe{width:480px;height:800px;border:1px solid #26304a;flex:none}
+h1{font-size:14px;letter-spacing:.1em;margin:0 0 8px}
+</style>
+</head>
+<body>
+<div><h1>COMMIT · VERIFICATION</h1><div id="out">running…</div></div>
+<iframe id="f" src="index.html"></iframe>
+<script>
+"use strict";
+const out=document.getElementById("out");
+let passN=0,failN=0;const lines=[];
+function ok(name,cond,extra){
+const line=(cond?"PASS":"FAIL")+" · "+name+(extra?" · "+extra:"");
+lines.push(line);cond?passN++:failN++;
+out.innerHTML=lines.map(l=>l.startsWith("FAIL")?'<span class="fail">'+l+"</span>":l).join("\n")
++"\n\nSUMMARY: "+passN+" passed, "+failN+" failed";
+document.title=failN?"FAIL "+failN:"ALL PASS "+passN;
+}
+function ptr(w,d,type,x,y,id){
+const cv=d.getElementById("cv"),r=cv.getBoundingClientRect();
+cv.dispatchEvent(new w.PointerEvent(type,{pointerId:id==null?1:id,clientX:r.left+x,clientY:r.top+y,bubbles:true,cancelable:true}));
+}
+function key(w,k,shift){w.dispatchEvent(new w.KeyboardEvent("keydown",{key:k,shiftKey:!!shift,bubbles:true,cancelable:true}));}
+async function main(){
+const f=document.getElementById("f");
+await new Promise(r=>{if(f.contentWindow&&f.contentDocument&&f.contentDocument.readyState==="complete"&&f.contentWindow.__COMMIT__)r();else f.addEventListener("load",r,{once:true});});
+const w=f.contentWindow,d=f.contentDocument;
+if(!w.__COMMIT__){ok("game hook present",false,"iframe blocked? serve over HTTP");return;}
+const C=w.__COMMIT__;
+const errs=[];w.addEventListener("error",e=>errs.push(String(e.message)));
+C.takeControl();
+let now=w.performance.now();
+const tick=ms=>{now+=ms;C.tick(now);};
+const settle=()=>{let n=0;while(C.state==="flight"&&n<1500){tick(1000/60);n++;}return n;};
+const RM=C.RM;
+
+/* 1 · boot */
+ok("boot: help overlay on first run",C.overlayOpen==="help"&&!d.getElementById("help").hidden);
+ok("boot: ready at 0m",C.state==="ready"&&C.body.y===0);
+C.closeOv();
+ok("boot: begin closes help, seen persisted",C.overlayOpen===null&&C.life.seen===true);
+for(let i=0;i<150;i++)tick(16.7);
+ok("idle hint arms after 2.2s",C.idleT>2.2);
+
+/* 2 · weak drag cancels */
+ptr(w,d,"pointerdown",240,600);
+ok("pointerdown starts aim at press origin",C.state==="aim"&&C.aim&&C.aim.mode==="p"&&C.aim.ox===240&&C.aim.oy===600);
+ptr(w,d,"pointermove",245,595);ptr(w,d,"pointerup",245,595);
+ok("weak drag (<90px/s) cancels, no launch",C.state==="ready"&&C.run.launches===0);
+
+/* 3 · commit contract: preview ≡ flight */
+ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",340,500);
+const pr=C.preview({x:320,y:320});
+ok("preview yields arc + landing mark",pr.pts.length>10&&pr.mark&&pr.mark.ok);
+ptr(w,d,"pointerup",340,500);
+ok("release above threshold commits",C.state==="flight"&&C.run.launches===1);
+settle();
+ok("preview contact ≡ flight contact (pixel-exact)",
+C.flightContact&&C.flightContact.t==="land"&&C.flightContact.x===pr.mark.x&&C.flightContact.y===pr.mark.y&&C.state==="ready",
+JSON.stringify(C.flightContact)+" vs "+JSON.stringify(pr.mark));
+ok("trail lingers after landing",C.trail.length>0);
+
+/* 4 · off-canvas release */
+ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",700,300);ptr(w,d,"pointerup",700,300);
+ok("off-canvas release still commits",C.state==="flight"&&C.run.launches===2);
+settle();
+ok("launch speed clamped to MAXV (wall reached, no tunneling)",C.state==="ready");
+
+/* 5 · ceiling bonk contract */
+C.setBody(176,2280);
+const prb=C.preview({x:60,y:830});
+ok("steep arc under ceiling previews red ✕",prb.mark&&!prb.mark.ok);
+C.launch({x:60,y:830});settle();
+ok("bonk contact pixel-exact, then honest fall",
+C.flightContact&&C.flightContact.t==="bonk"&&C.flightContact.x===prb.mark.x&&C.flightContact.y===prb.mark.y&&C.state==="ready");
+
+/* 6 · fall economy */
+const fallsBefore=C.run.falls;
+C.setBody(430,1680);
+C.launch({x:200,y:300});settle();
+const shake6=C.shake;
+ok("wall hit converts to straight drop, lands on floor",C.flightContact.t==="wall"&&C.body.y===0);
+ok("fall ≥25m counted once + biggest drop",C.run.falls===fallsBefore+1&&C.run.biggest>=1680);
+ok("fall flash + −Xm popup fired",C.flash>0&&C.floats.length>=1&&C.floats[0].txt.indexOf("m")>0);
+ok(RM?"reduced motion: shake suppressed":"hard landing shakes screen",RM?shake6===0:shake6>0);
+
+/* 7 · keyboard FSM */
+C.resetRun();
+key(w,"ArrowUp");
+ok("arrow raises keyboard aim",C.state==="aim"&&C.aim&&C.aim.mode==="k");
+const p0=C.kb.p;key(w,"ArrowLeft",true);const a1=C.kb.a;
+ok("shift = quarter-rate fine aim",Math.abs(p0-0.622)<1e-9&&Math.abs(a1-65.55)<1e-9);
+key(w,"Escape");
+ok("esc cancels keyboard aim",C.state==="ready"&&C.aim===null);
+key(w," ");
+ok("first space raises arc",C.state==="aim"&&C.aim.mode==="k");
+key(w," ");
+ok("second space commits",C.state==="flight"&&C.run.launches===1);
+settle();
+
+/* 8 · overlays pause sim + timer */
+const t0=C.run.time;
+key(w,"h");
+ok("H opens help",C.overlayOpen==="help");
+for(let i=0;i<60;i++)tick(16.7);
+ok("timer frozen while overlay open",C.run.time===t0);
+key(w,"Escape");
+ok("esc closes help",C.overlayOpen===null);
+key(w,"r");
+ok("R opens erase confirm",C.overlayOpen==="confirm");
+d.getElementById("bNo").click();
+ok("keep climbing dismisses confirm",C.overlayOpen===null&&C.run.launches===1);
+
+/* 9 · persistence: grounded-only, validated */
+const sp={x:C.safePos.x,y:C.safePos.y};
+const stored=JSON.parse(w.localStorage.getItem("commit.v1"));
+ok("landing persists grounded position + stats",stored.x===sp.x&&stored.y===sp.y&&stored.run.launches===C.run.launches);
+C.body.x=100;C.body.y=3000;C.save();
+const stored2=JSON.parse(w.localStorage.getItem("commit.v1"));
+ok("airborne position never persisted",stored2.x===sp.x&&stored2.y===sp.y);
+C.load();
+ok("resume returns to last grounded spot",C.body.x===sp.x&&C.body.y===sp.y);
+w.localStorage.setItem("commit.v1",JSON.stringify({x:9999,y:-5,run:{launches:-3,time:"x"},life:{best:-1,summits:-2,bestTime:-5}}));
+C.load();
+ok("corrupt save sanitized",C.body.y>=0&&C.run.launches>=0&&C.life.best>=0&&C.life.summits>=0&&C.life.bestTime===null);
+w.localStorage.setItem("commit.v1",JSON.stringify(stored));C.load();
+
+/* 10 · erase keeps lifetime */
+const bestBefore=C.life.best;
+ok("lifetime best recorded",bestBefore>0);
+d.getElementById("bReset").click();
+ok("↺ asks confirmation",C.overlayOpen==="confirm");
+d.getElementById("bYes").click();
+ok("erase zeroes run, lifetime survives",C.run.launches===0&&C.run.falls===0&&C.run.time===0&&C.body.y===0&&C.life.best===bestBefore&&C.overlayOpen===null);
+
+/* 11 · multi-pointer + particle caps */
+ptr(w,d,"pointerdown",100,500,1);ptr(w,d,"pointerdown",300,400,2);
+ok("only first pointer aims",C.aim&&C.aim.id===1&&C.aim.ox===100);
+ptr(w,d,"pointermove",320,420,2);
+ok("second pointer move ignored",C.aim.cx===100&&C.aim.cy===500);
+ptr(w,d,"pointerup",320,420,2);
+ok("second pointer release ignored",C.state==="aim");
+ptr(w,d,"pointercancel",100,500,1);
+ok("pointercancel cancels aim",C.state==="ready"&&C.aim===null);
+for(let i=0;i<80;i++)C.spawnDust(240,100,16,"#ffffff");
+ok("dust particle cap holds (≤300)",C.parts.length<=300);
+
+/* 12 · storage disabled */
+const oSet=w.localStorage.setItem.bind(w.localStorage),oGet=w.localStorage.getItem.bind(w.localStorage);
+w.localStorage.setItem=()=>{throw new Error("quota")};
+w.localStorage.getItem=()=>{throw new Error("denied")};
+let threw=false;try{C.save();C.load();}catch(e){threw=true;}
+ok("storage failure is silent (private mode)",!threw);
+w.localStorage.setItem=oSet;w.localStorage.getItem=oGet;
+
+/* 13 · hidden tab */
+let hiddenFlag=false;
+Object.defineProperty(d,"hidden",{configurable:true,get:()=>hiddenFlag});
+C.launch({x:0,y:300});settle();
+const tt=C.run.time;
+hiddenFlag=true;d.dispatchEvent(new w.Event("visibilitychange"));
+for(let i=0;i<60;i++)tick(16.7);
+ok("hidden tab freezes timer",C.run.time===tt);
+hiddenFlag=false;d.dispatchEvent(new w.Event("visibilitychange"));
+now=w.performance.now();tick(16.7);
+ok("return resumes without time jump",C.run.time>=tt&&C.run.time<tt+1);
+
+/* 14 · sound */
+ok("audio context exists after gestures",!!C.snd.ctx);
+ok("sound on by default",C.snd.on===true);
+const bS=d.getElementById("bSound");
+bS.click();
+ok("♪ button mutes + persists + shows state",C.snd.on===false&&bS.getAttribute("aria-pressed")==="false"&&w.localStorage.getItem("commit.snd")==="false"&&bS.classList.contains("off"));
+key(w,"m");
+ok("M unmutes + persists",C.snd.on===true&&w.localStorage.getItem("commit.snd")==="true"&&bS.getAttribute("aria-pressed")==="true");
+
+/* 15 · summit (rise right of the goal, drift left on descent) */
+C.setBody(339,4940);
+const prw=C.preview({x:-140,y:870});
+ok("final jump previews goal landing",prw.mark&&prw.mark.ok&&prw.mark.goal,JSON.stringify(prw.mark));
+const summitsBefore=C.life.summits;
+C.launch({x:-140,y:870});settle();
+ok("landing on summit wins",C.state==="win"&&C.overlayOpen==="win"&&!d.getElementById("win").hidden);
+ok("win stats + share text populated",d.getElementById("wTime").textContent!=="—"&&d.getElementById("share").value.indexOf("508m")>=0&&d.getElementById("share").value.indexOf("No air control")>=0);
+ok("lifetime summits increment",C.life.summits===summitsBefore+1);
+ok(RM?"reduced motion: confetti skipped":"confetti fires (90)",RM?C.confetti.length===0:C.confetti.length===90);
+ok("best time recorded",C.life.bestTime!=null&&C.life.bestTime>=0);
+
+/* 16 · climb again */
+d.getElementById("bAgain").click();
+ok("climb again fully resets",C.state==="ready"&&C.body.y===0&&C.run.launches===0&&C.run.time===0&&C.overlayOpen===null);
+for(let i=0;i<120;i++)tick(16.7);
+ok("loop stable after restart",C.state==="ready"&&C.body.y===0);
+
+/* 17 · zero network */
+const res=w.performance.getEntriesByType("resource").filter(r=>/^https?:/.test(r.name));
+ok("zero network requests after load",res.length===0,res.map(r=>r.name).join(","));
+
+/* 18 · every mandatory jump solvable ≤98% power (GDD acceptance #4) */
+function solveTower(){
+const CHH=C.C.CH,MV=C.C.MAXV;
+const sources=[[0,0,480]].concat(C.P);
+const targets=C.P.concat([[180,5080,120]]);
+let solved=0,maxPw=0;const fails=[];
+for(let i=0;i<targets.length;i++){
+const a=sources[i],b=targets[i];
+const xs=[a[0]+a[2]/2-CHH/2,a[0]+1,a[0]+a[2]-CHH-1];
+let found=null;
+const tryGrid=(angs,pws)=>{
+for(const bx of xs){
+C.setBody(bx,a[1]);
+const bc=bx+CHH/2,tc=b[0]+b[2]/2;
+const lo=tc>=bc?8:92,hi=tc>=bc?88:172;
+for(let ang=lo;ang<=hi;ang+=angs){
+const rad=ang*Math.PI/180;
+for(let k=0;k<pws.length;k++){
+const pw=pws[k],vx=Math.cos(rad)*pw*MV,vy=Math.sin(rad)*pw*MV;
+const pr=C.preview({x:vx,y:vy});
+if(pr.mark&&pr.mark.ok&&pr.mark.y===b[1]&&pr.mark.x>b[0]-CHH/2&&pr.mark.x<b[0]+b[2]+CHH/2&&(i<targets.length-1||pr.mark.goal))
+return{ang,pw:Math.round(pw*100)};
+}}}
+return null;};
+const coarse=[];for(let p=.30;p<=.981;p+=.02)coarse.push(p);
+found=tryGrid(3,coarse);
+if(!found){const fine=[];for(let p=.30;p<=.981;p+=.005)fine.push(p);found=tryGrid(1,fine);}
+if(found){solved++;maxPw=Math.max(maxPw,found.pw);}
+else fails.push("jump"+(i+1));
+}
+return{solved,total:targets.length,fails,maxPw};
+}
+const s=solveTower();
+ok("all 36 jumps solvable at ≤98% power",s.fails.length===0,
+"solved "+s.solved+"/"+s.total+" · hardest launch "+s.maxPw+"%"+(s.fails.length?" · UNSOLVED: "+s.fails.join(","):""));
+C.resetRun();
+
+ok("no runtime errors during suite",errs.length===0,errs.join(" | "));
+out.innerHTML+="\n\n"+(RM?"MODE: prefers-reduced-motion":"MODE: standard")+" · DONE";
+}
+main().catch(e=>ok("harness crashed",false,String(e&&e.stack||e)));
+</script>
+</body>
+</html>
