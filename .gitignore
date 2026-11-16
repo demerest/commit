@@ -2,6 +2,5 @@
 Thumbs.db
 desktop.ini
 .DS_Store
-# Local-only dev tooling (never deployed to Pages)
-editor.html
-js/editor.js
+# editor.html + js/editor.js ARE committed (dev tool) but excluded from the
+# Pages deploy by .github/workflows/pages.yml (whitelist publish).

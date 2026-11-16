@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>COMMIT · level editor (local only)</title>
+<style>
+:root{--bg:#07090f;--panel:#0e1320;--ink:#e9edf4;--dim:#8b93a7;--line:#26304a;--blue:#5aa7ff;--green:#57e389;--amber:#ffb454;--red:#ff5d5d;--spring:#3fe0c5;--ice:#bfe3ff}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:ui-monospace,Menlo,Consolas,monospace}
+[hidden]{display:none!important}
+#wrap{display:grid;grid-template-columns:1fr 320px;height:100vh}
+#left{position:relative;min-width:0;min-height:0}
+canvas{position:absolute;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none}
+#side{background:var(--panel);border-left:1px solid var(--line);padding:12px;overflow-y:auto;font-size:12px;min-height:0}
+h1{font-size:14px;letter-spacing:.08em;margin-bottom:8px}
+h1 span{color:var(--green)}
+.row{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+label{display:block;color:var(--dim);margin:6px 0 2px;font-size:11px;letter-spacing:.06em}
+input,select,textarea{width:100%;background:#0a0f1c;color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:5px 6px;font:inherit;font-size:12px}
+textarea{height:70px;resize:vertical}
+button{background:var(--blue);color:#06101f;border:1px solid var(--blue);border-radius:4px;padding:6px 8px;font:inherit;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.05em}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
+button.danger{background:var(--red);border-color:var(--red);color:#20060a}
+button:hover{filter:brightness(1.1)}
+#issues{margin-top:8px;white-space:pre-wrap;font-size:11px;line-height:1.6;color:var(--dim)}
+#issues .bad{color:var(--red)}
+#issues .good{color:var(--green)}
+.hint{color:var(--dim);font-size:10.5px;line-height:1.6;margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+#gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--dim);font-size:13px;text-align:center;padding:20px}
+</style>
+</head>
+<body>
+<div id="gate" hidden>This is a local development tool.<br>Open it from file:// or http://localhost only.</div>
+<div id="wrap">
+<div id="left"><canvas id="cv"></canvas></div>
+<div id="side">
+<h1>COMMIT<span>.</span> EDITOR</h1>
+<div class="row"><select id="lvl"></select><button id="bNew" class="ghost">NEW</button></div>
+<label>NAME / TAG</label>
+<div class="row"><input id="fName"><input id="fTag"></div>
+<label>SUMMIT (px) · GOAL x,w</label>
+<div class="row"><input id="fSummit" type="number"><input id="fGoalX" type="number"><input id="fGoalW" type="number"></div>
+<label>SELECTED PLATFORM (x, top, width, type)</label>
+<div class="row"><input id="pX" type="number"><input id="pT" type="number"><input id="pW" type="number"><select id="pTy"><option value="0">solid</option><option value="1">crumble</option><option value="2">bounce</option><option value="3">ice</option></select></div>
+<div class="row"><button id="bAddP" class="ghost">+ PLATFORM</button><button id="bAddC" class="ghost">+ CEILING</button><button id="bDel" class="danger">DELETE</button></div>
+<label>SECTIONS (json [[y,"name"],…])</label>
+<textarea id="fSec"></textarea>
+<label>NOTES (json [[x,y,"text"],…])</label>
+<textarea id="fNotes"></textarea>
+<div class="row"><button id="bValidate">VALIDATE</button><button id="bExport">EXPORT</button><button id="bImport" class="ghost">IMPORT</button></div>
+<input id="file" type="file" accept=".js,.json" hidden>
+<div id="issues"></div>
+<div class="hint">drag = move · drag right edge = width · double-click empty = add platform · wheel = pan · click ceiling to select · Del = delete · 0-3 = type.<br>Export downloads a <b>tower-N.js</b> descriptor; drop it in <b>levels/</b> and add a &lt;script&gt; tag in index.html.</div>
+</div>
+</div>
+<script src="js/core.js"></script>
+<script src="js/levels.js"></script>
+<script src="levels/tower-1.js"></script>
+<script src="levels/tower-2.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/editor.js"></script>
+</body>
+</html>
