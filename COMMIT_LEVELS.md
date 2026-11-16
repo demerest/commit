@@ -1,6 +1,31 @@
-# COMMIT — Level Design & Geometry (v2.1 · two towers)
+# COMMIT — Level Design & Geometry (v2.2 · two towers)
 **Companion to `COMMIT_GDD.md` · All coordinates in logical px · y-up · 10 px = 1 m**
-**Source of truth: `js/levels.js` (data). This doc explains the math and intent.**
+**Source of truth: one descriptor file per tower, `levels/tower-N.js`. This doc explains the math and intent.**
+
+## 0. Descriptor format (the "certain format")
+
+Each tower lives in its own file `levels/tower-N.js`, a classic script whose body is a single
+call registering a JSON object:
+
+```js
+COMMIT_LEVEL({ "id":2, "name":"TOWER 2", "tag":"THE ICE ASCENT", "summit":5600,
+  "goal":[240,120],
+  "plats":[[x,topY,width,type], …],   // type 0 solid · 1 crumble · 2 bounce · 3 ice
+  "ceil":[[x,topY,width], …],
+  "sections":[[y,"I · NAME"], …],
+  "notes":[[x,y,"TEXT"], …] });
+```
+
+The argument is plain JSON (the editor parses/exports exactly this). `js/levels.js` is only the
+*engine* (`COMMIT_LEVEL` registrar + `buildLevel`); it holds no data. `index.html` loads the
+engine then each descriptor as classic `<script>` tags, so the game still runs from `file://`
+with zero fetch. To add a tower: drop `levels/tower-N.js` and add one `<script>` tag.
+
+**Authoring tool:** `editor.html` (+ `js/editor.js`) is a **local-only** web level editor
+(gitignored, never deployed; also origin-gated to `file://`/localhost). Open it locally, pick or
+import a tower, drag platforms / resize / set type, edit ceilings/goal/summit/notes, press
+**VALIDATE** (runs the real `step()`/`preview()` solver + invariants), then **EXPORT** to download
+a `tower-N.js` descriptor.
 
 ## 1. Conventions
 
@@ -12,7 +37,7 @@
 - Ceilings are 16 px-thick solids; their **underside** is the bonk surface.
 - Goal per tower: T1 `[180, 5080, 120]`, T2 `[240, 5600, 120]`, flagged `goal: true`.
 - Crumbled platforms reform after `RESPAWN_TIME = 3.0 s`; reset/erase rebuilds instantly.
-- Each tower = one `LEVELS` entry `{id,name,tag,summit,goal,plats,ceil,sections,notes}`.
+- Each tower = one descriptor (§0) registered into `LEVELS` as `{id,name,tag,summit,goal,plats,ceil,sections,notes}`.
 
 ## 2. Reachability Math (used to verify every gap)
 

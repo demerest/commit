@@ -17,16 +17,18 @@ CSS + Web Audio. Zero dependencies, zero network requests, zero image assets, ze
 | File | Responsibility |
 |---|---|
 | `js/core.js` | Tuning constants (incl. `ICE_V`, `ICE_RAMP`), palette (`ice` token), math, sky keyframes, `LS` storage helper |
-| `js/levels.js` | **Data-driven towers** (`LEVELS`); `buildLevel(n)` builds solids/platforms/goal/sections/notes/stars; type flags `0/1/2/3` |
+| `js/levels.js` | Level **engine**: `COMMIT_LEVEL()` registrar + `LEVELS` + `buildLevel(n)`; holds no data |
+| `levels/tower-N.js` | **Descriptors** (one per tower): a single `COMMIT_LEVEL({…json…})` call; classic scripts so `file://` works with zero fetch |
 | `js/audio.js` | Lazy `AudioContext`; synthesized SFX (incl. ice chime/scrape/slip, unlock triad), aim hum, wind bed; master mute |
 | `js/fx.js` | Pooled dust/spray/shards/confetti/floats, shake, flash, squash timers |
 | `js/sim.js` | `step()` single integrator; preview; aim/launch; land/bounce; crumble + reform; **ice drift** (`updateIce`); run stats |
 | `js/render.js` | Canvas sizing + one render pass (sky→parallax→grid→solids incl. ice→trail→preview→body+fuse→FX→rail) |
 | `js/ui.js` | DOM overlays, HUD cache, toast, **tower picker**, tower tag |
 | `js/main.js` | Persistence v3, **level switching/unlock**, win/reset, input, loop, boot, `__COMMIT__` hook |
+| `editor.html` + `js/editor.js` | **Local-only** visual level editor (gitignored, origin-gated). Loads the real `sim.js` so VALIDATE uses the same `step()`/`preview()`; exports/imports descriptors |
 
-Adding a tower = append a `LEVELS` entry; adding a mechanic = a new type flag + a branch in
-`sim`/`render`. Game modes can wrap the same sim later.
+Adding a tower = drop `levels/tower-N.js` + one `<script>` tag (or author it in the local editor);
+adding a mechanic = a new type flag + a branch in `sim`/`render`. Game modes can wrap the same sim later.
 
 | Concern | Responsibility |
 |---|---|

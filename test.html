@@ -285,7 +285,7 @@ for(let i=0;i<120;i++)tick(16.7);
 ok("loop stable after restart",C.state==="ready"&&C.body.y===0);
 
 /* 21 · zero network */
-const res=w.performance.getEntriesByType("resource").filter(r=>/^https?:/.test(r.name)&&!/\/js\/|style\.css/.test(r.name));
+const res=w.performance.getEntriesByType("resource").filter(r=>/^https?:/.test(r.name)&&!/\/js\/|\/levels\/|style\.css/.test(r.name));
 ok("no external network requests",res.length===0,res.map(r=>r.name).join(","));
 
 /* 22 · tower 1 solver */

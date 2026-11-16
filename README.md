@@ -55,8 +55,13 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   focused classic scripts in `js/` (`core`, `levels`, `audio`, `fx`, `sim`, `render`, `ui`,
   `main`). Every visual is a Canvas 2D primitive; every sound is synthesized at runtime with
   Web Audio. No images, no audio files, no network requests. Works from `file://`.
-- **Data-driven levels.** `js/levels.js` holds each tower as plain data (`[x, top, width, type]`,
-  type `0` solid `1` crumble `2` bounce `3` ice). Adding a tower or mechanic is a data/type edit.
+- **Data-driven levels.** Each tower is a separate descriptor `levels/tower-N.js` — a single
+  `COMMIT_LEVEL({…json…})` call (`[x, top, width, type]`, type `0` solid `1` crumble `2` bounce
+  `3` ice). `js/levels.js` is just the loader/engine. Adding a tower = drop a descriptor + one
+  `<script>` tag. Format spec: `COMMIT_LEVELS.md` §0.
+- **Local level editor.** `editor.html` is a dev-only visual editor (drag/resize/type platforms,
+  ceilings, goal, notes; live solver validation; export/import descriptors). It is gitignored and
+  origin-gated, so it never ships to the public site — open it locally to author towers.
 - **The Commit Contract:** preview ≡ simulation, pixel-exact, including wall hits, ceiling
   bonks and bounce hops (green/ice ring = landing, red ✕ = strike, teal ring = bounce).
 - **Honest failure economy:** falls ≥ 25 m flash red and float a `−Xm` popup; your last
@@ -75,6 +80,13 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
 
 Open `index.html` directly in any modern browser — no server, no build step, works offline
 from `file://` (classic scripts + stylesheet, no modules).
+
+### Level editor (local only)
+
+Open `editor.html` locally (double-click, or serve the folder and visit `/editor.html`). It is
+**not deployed** — gitignored and gated to `file://`/localhost. Pick a tower or import a
+descriptor, edit visually, **VALIDATE** (real-integrator solver + design invariants), then
+**EXPORT** a `tower-N.js` to drop into `levels/` (and add a `<script>` tag in `index.html`).
 
 ## Verification
 
