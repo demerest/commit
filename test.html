@@ -12,7 +12,7 @@ h1{font-size:14px;letter-spacing:.1em;margin:0 0 8px}
 </style>
 </head>
 <body>
-<div><h1>COMMIT · VERIFICATION (v3 · two towers)</h1><div id="out">running…</div></div>
+<div><h1>COMMIT · VERIFICATION (v4 · three towers)</h1><div id="out">running…</div></div>
 <iframe id="f" src="index.html"></iframe>
 <script>
 "use strict";
@@ -30,34 +30,60 @@ const cv=d.getElementById("cv"),r=cv.getBoundingClientRect();
 cv.dispatchEvent(new w.PointerEvent(type,{pointerId:id==null?1:id,clientX:r.left+x,clientY:r.top+y,bubbles:true,cancelable:true}));
 }
 function key(w,k,shift){w.dispatchEvent(new w.KeyboardEvent("keydown",{key:k,shiftKey:!!shift,bubbles:true,cancelable:true}));}
-function findLaunch(C,from,to){
-const CHH=C.C.CH,MV=C.C.MAXV;
-const xs=[from[0]+from[2]/2-CHH/2,from[0]+1,from[0]+from[2]-CHH-1];
+function rectAt(C,p,t){if(p[3]===4||p[3]===5){const s=C.PLATS[C.P.indexOf(p)];const o=C.moverXY(s,t);return[o.x,o.y+16,p[2]];}return p;}
+/* Phase-aware jump search. fi/ti are platform indices (-1 = floor / goal). When a mover is involved,
+   sample launch phases over its period and demand a ±0.12s phase window still lands (not frame-perfect). */
+function findLaunch(C,fi,ti){
+const CHH=C.C.CH,MV=C.C.MAXV,G=C.C.G;
+const fp=fi<0?[0,0,480,0]:C.P[fi];
+const tp=ti<0?[C.GOAL.x,C.C.SUMMIT,C.GOAL.w,0,true]:C.P[ti];
+const fm=fp[3]===4||fp[3]===5,tm=tp[3]===4||tp[3]===5;
+const per=fm?(fp[5]||2.4):tm?(tp[5]||2.4):0;
+const phases=per?[0,per*.25,per*.5,per*.75,per*.125,per*.375,per*.625,per*.875]:[0];
+const spring=C.P.some(p=>p[3]===2&&p[1]>fp[1]&&p[1]<tp[1]);
+for(const ph of phases){
+C.setWorldT(ph);
+const fr=rectAt(C,fp,ph),tr=rectAt(C,tp,ph);
+/* prune only direct jumps: a spring or a descending lift can do the lifting */
+const dyLo=(tp[3]===5?tp[1]-(tp[4]||60):tr[1])-(fp[3]===5?fp[1]+(fp[4]||60):fr[1]);
+const vyNeed=spring?0:Math.sqrt(2*G*Math.max(0,dyLo));
+const xs=[fr[0]+fr[2]/2-CHH/2,fr[0]+1,fr[0]+fr[2]-CHH-1];
 for(const bx of xs){
-C.setBody(bx,from[1]);
-const tc=to[0]+to[2]/2,bc=bx+CHH/2;
+C.setBody(bx,fr[1]);
+const tc=tr[0]+tr[2]/2,bc=bx+CHH/2;
 const lo=Math.min(tc>=bc?8:92,90),hi=Math.max(tc>=bc?88:172,90);
 for(let ang=lo;ang<=hi;ang+=2){
-const rad=ang*Math.PI/180;
-for(let pw=.30;pw<=.981;pw+=.02){
-const vx=Math.cos(rad)*pw*MV,vy=Math.sin(rad)*pw*MV;
+const rad=ang*Math.PI/180,sin=Math.sin(rad);
+if(sin*.98*MV<vyNeed)continue;
+const pw0=Math.max(.30,Math.ceil(vyNeed/(sin*MV)/.02)*.02);
+for(let pw=pw0;pw<=.981;pw+=.02){
+const vx=Math.cos(rad)*pw*MV,vy=sin*pw*MV;
 const pr=C.preview({x:vx,y:vy});
-if(pr.mark&&pr.mark.ok&&pr.mark.y===to[1]&&pr.mark.x>to[0]-CHH/2&&pr.mark.x<to[0]+to[2]+CHH/2&&(!to[4]||pr.mark.goal))
-return{bx,vx,vy,contacts:pr.contacts};
+if(pr.mark&&pr.mark.ok&&(ti<0?pr.mark.goal:pr.mark.idx===ti)&&pr.mark.x>tr[0]-CHH/2&&pr.mark.x<tr[0]+tr[2]+CHH/2){
+if(per){let tol=true;
+for(const d of[-.12,.12]){C.setWorldT(ph+d);
+const tr2=rectAt(C,tp,ph+d);
+const p2=C.preview({x:vx,y:vy});
+if(!(p2.mark&&p2.mark.ok&&(ti<0?p2.mark.goal:p2.mark.idx===ti)&&p2.mark.x>tr2[0]-CHH/2&&p2.mark.x<tr2[0]+tr2[2]+CHH/2))tol=false;}
+C.setWorldT(ph);
+if(!tol)continue;}
+return{bx,vx,vy,contacts:pr.contacts,ph};
 }}}
+}}
 return null;}
 function solveTower(C,label){
-const rests=C.P.filter(p=>p[3]!==2);
-const sources=[[0,0,480,0]].concat(rests);
-const targets=rests.concat([[C.GOAL.x,C.C.SUMMIT,C.GOAL.w,0,true]]);
+const restIdx=[];C.P.forEach((p,i)=>{if(p[3]!==2)restIdx.push(i);});
+const n=restIdx.length+1;
 let solved=0,maxPw=0;const fails=[];
-for(let i=0;i<targets.length;i++){
-const sol=findLaunch(C,sources[i],targets[i]);
+for(let i=0;i<n;i++){
+const fi=i===0?-1:restIdx[i-1];
+const ti=i<restIdx.length?restIdx[i]:-1;
+const sol=findLaunch(C,fi,ti);
 if(sol){solved++;maxPw=Math.max(maxPw,Math.round(Math.hypot(sol.vx,sol.vy)/C.C.MAXV*100));}
 else fails.push("jump"+(i+1));
 }
-ok(label+": all "+targets.length+" jumps solvable at ≤98% power",fails.length===0,
-"solved "+solved+"/"+targets.length+" · hardest "+maxPw+"%"+(fails.length?" · UNSOLVED: "+fails.join(","):""));
+ok(label+": all "+n+" jumps solvable at ≤98% power",fails.length===0,
+"solved "+solved+"/"+n+" · hardest "+maxPw+"%"+(fails.length?" · UNSOLVED: "+fails.join(","):""));
 return fails.length===0;}
 async function main(){
 const f=document.getElementById("f");
@@ -146,7 +172,7 @@ ok("launching before dwell keeps platform intact",C.PLATS[8].dead===false);
 /* 8 · bounce chain */
 C.resetRun();
 const restA=[140,2490,80,0],restC=[400,2720,72,0];
-const bs=findLaunch(C,restA,restC);
+const bs=findLaunch(C,17,19);
 ok("bounce chain is solvable",!!bs);
 if(bs){
 ok("bounce chain arc previews a bounce hop",bs.contacts.some(c=>c.t==="bounce"));
@@ -294,13 +320,16 @@ C.resetRun();
 
 /* 23 · level switching */
 key(w,"h");
-ok("tower picker lists both towers",d.getElementById("towers").children.length===2);
+ok("tower picker lists all three towers",d.getElementById("towers").children.length===3);
 ok("tower 2 button enabled after unlock",!d.getElementById("towers").children[1].disabled);
+ok("tower 3 button locked before T2 summit",d.getElementById("towers").children[2].disabled);
 key(w,"Escape");
 C.setLevel(2);
 ok("switch to tower 2 (560m)",C.level===2&&C.C.SUMMIT===5600&&C.body.y===0);
 ok("tower tag updated",d.getElementById("towerTag").textContent.indexOf("TOWER 2")===0);
 ok("tower 2 has ice platforms",C.P.some(p=>p[3]===3));
+C.setLevel(3);
+ok("locked tower 3 cannot be entered",C.level===2);
 C.setLevel(1);
 ok("switch back to tower 1 restores its run",C.level===1&&C.C.SUMMIT===5080);
 C.setLevel(2);
@@ -308,7 +337,7 @@ C.setLevel(2);
 /* 24 · ice mechanics (tower 2) */
 C.resetRun();
 const ice=C.P[4],srcI=C.P[3];
-const is=findLaunch(C,srcI,ice);
+const is=findLaunch(C,3,4);
 ok("ice landing is solvable",!!is);
 if(is){
 C.setBody(is.bx,srcI[1]);
@@ -327,7 +356,7 @@ C.setBody(ice[0]+ice[2]/2-9,ice[1]);
 const xv=C.body.x;
 for(let i=0;i<60;i++)tick(16.7);
 ok("straight-down landing stands still on ice",C.body.slide===0&&C.body.x===xv&&C.state==="ready");
-const iw=findLaunch(C,srcI,ice);
+const iw=findLaunch(C,3,4);
 if(iw){
 C.setBody(iw.bx,srcI[1]);C.launch({x:iw.vx,y:iw.vy});settle();
 for(let i=0;i<240;i++)tick(16.7);
@@ -336,7 +365,7 @@ settle();
 ok("walk-off lands below (no teleport)",C.state==="ready"&&C.body.y<ice[1]);
 }
 C.resetRun();
-const ip=findLaunch(C,srcI,ice);
+const ip=findLaunch(C,3,4);
 if(ip){
 C.setBody(ip.bx,srcI[1]);C.launch({x:ip.vx,y:ip.vy});settle();
 C.save();
@@ -352,13 +381,77 @@ solveTower(C,"T2");
 C.resetRun();
 
 /* 26 · tower 2 summit */
-const fin=findLaunch(C,C.P[39],[C.GOAL.x,C.C.SUMMIT,C.GOAL.w,0,true]);
+const fin=findLaunch(C,39,-1);
 ok("T2 final jump previews goal",!!fin&&fin.contacts[fin.contacts.length-1].goal);
 const sb2=C.life.summits[2]||0;
 if(fin){C.setBody(fin.bx,C.P[39][1]);C.launch({x:fin.vx,y:fin.vy});}
 settle();
 ok("T2 summit wins",C.state==="win"&&C.life.summits[2]===sb2+1);
 ok("T2 share text uses 560m",d.getElementById("share").value.indexOf("560m")>=0);
+ok("T2 summit unlocks tower 3 + NEXT shown",C.life.unlocked===3&&!d.getElementById("bNext").hidden&&!d.getElementById("winUnlock").hidden);
+C.closeOv();
+
+/* 27 · tower 3 movers */
+C.setLevel(3);
+ok("switch to tower 3 (600m)",C.level===3&&C.C.SUMMIT===6000);
+ok("tower tag updated to T3",d.getElementById("towerTag").textContent.indexOf("TOWER 3")===0);
+ok("T3 has horizontal + vertical movers",C.P.some(p=>p[3]===4)&&C.P.some(p=>p[3]===5));
+C.resetRun();
+const ms=C.PLATS[3];
+C.setWorldT(0);
+const r0=C.moverXY(ms,0);
+C.setBody(r0.x+ms.w/2-9,r0.y+16);
+ok("standing on a horizontal mover",C.body.on===ms);
+const off0=C.body.x-r0.x;
+for(let i=0;i<30;i++)tick(16.7);
+ok("mover carries you (x tracks platform)",C.state==="ready"&&Math.abs(C.body.x-C.moverXY(ms,C.worldT).x-off0)<.01);
+for(let i=0;i<90;i++)tick(16.7);
+ok("carry holds through the reversal",C.state==="ready"&&Math.abs(C.body.x-C.moverXY(ms,C.worldT).x-off0)<.01);
+C.launch({x:0,y:400});
+ok("launch from mover discards carry (contract)",C.body.vx===0&&C.body.vy===400);
+settle();
+const vs=C.PLATS[15];
+C.setWorldT(0);const v0=C.moverXY(vs,0);
+C.setBody(v0.x+vs.w/2-9,v0.y+16);
+for(let i=0;i<40;i++)tick(16.7);
+ok("vertical mover carries y",C.state==="ready"&&Math.abs(C.body.y-(C.moverXY(vs,C.worldT).y+16))<.01);
+C.resetRun();
+const mj=findLaunch(C,2,3);
+ok("jump onto a mover is solvable (phase-aware)",!!mj);
+if(mj){
+C.setWorldT(mj.ph);C.setBody(mj.bx,C.P[2][1]);
+const prm=C.preview({x:mj.vx,y:mj.vy});
+C.launch({x:mj.vx,y:mj.vy});settle();
+ok("mover flight contacts ≡ preview (pixel-exact)",JSON.stringify(C.flightContacts)===JSON.stringify(prm.contacts));
+ok("flight lands on the mover",C.body.on&&C.body.on.idx===3);
+}
+C.resetRun();
+C.setWorldT(0);const rr=C.moverXY(ms,0);
+C.setBody(rr.x+ms.w-6,rr.y+16);
+const offE=C.body.x-rr.x;
+for(let i=0;i<120;i++)tick(16.7);
+ok("carry preserves edge overhang (no relative slide)",C.state==="ready"&&C.body.on&&C.body.on.idx===3&&Math.abs(C.body.x-C.moverXY(ms,C.worldT).x-offE)<.01);
+C.resetRun();
+C.setWorldT(0);const r1=C.moverXY(ms,0);
+C.setBody(r1.x+10,r1.y+16);C.save();
+const stM=JSON.parse(w.localStorage.getItem("commit.v3"));
+ok("world clock persisted with the run",stM.runs[3].wt===C.worldT);
+C.setWorldT(7);C.load();
+ok("resume restores mover phase + footing",C.worldT===stM.runs[3].wt&&C.body.on&&C.body.on.idx===3);
+C.resetRun();
+
+/* 28 · tower 3 solver */
+solveTower(C,"T3");
+C.resetRun();
+
+/* 29 · tower 3 summit */
+const fin3=findLaunch(C,41,-1);
+ok("T3 final jump previews goal",!!fin3&&fin3.contacts[fin3.contacts.length-1].goal);
+const sb3=C.life.summits[3]||0;
+if(fin3){C.setWorldT(fin3.ph);C.setBody(fin3.bx,C.P[41][1]);C.launch({x:fin3.vx,y:fin3.vy});}
+settle();
+ok("T3 summit wins",C.state==="win"&&C.life.summits[3]===sb3+1);
+ok("T3 share text uses 600m",d.getElementById("share").value.indexOf("600m")>=0);
 ok("last tower hides NEXT",d.getElementById("bNext").hidden);
 C.closeOv();
 

@@ -1,4 +1,4 @@
-# COMMIT — Level Design & Geometry (v2.2 · two towers)
+# COMMIT — Level Design & Geometry (v2.3 · three towers)
 **Companion to `COMMIT_GDD.md` · All coordinates in logical px · y-up · 10 px = 1 m**
 **Source of truth: one descriptor file per tower, `levels/tower-N.js`. This doc explains the math and intent.**
 
@@ -8,9 +8,11 @@ Each tower lives in its own file `levels/tower-N.js`, a classic script whose bod
 call registering a JSON object:
 
 ```js
-COMMIT_LEVEL({ "id":2, "name":"TOWER 2", "tag":"THE ICE ASCENT", "summit":5600,
+COMMIT_LEVEL({ "id":3, "name":"TOWER 3", "tag":"THE CLOCKWORK SPIRE", "summit":6000,
   "goal":[240,120],
-  "plats":[[x,topY,width,type], …],   // type 0 solid · 1 crumble · 2 bounce · 3 ice
+  "plats":[[x,topY,width,type], …],   // type 0 solid · 1 crumble · 2 bounce · 3 ice · 4 move·h · 5 move·v
+  // movers append three params: [x,topY,width,4|5, amp, period, phase]
+  //   x/topY = oscillation CENTRE · amp px · period s (≤3) · phase 0..1 of a cycle
   "ceil":[[x,topY,width], …],
   "sections":[[y,"I · NAME"], …],
   "notes":[[x,y,"TEXT"], …] });
@@ -32,11 +34,12 @@ a `tower-N.js` descriptor.
 
 - Platforms are authored as `[x, topY, width, type]`; the solid rect is `{x, y: topY−16, w, h: 16}`.
 - **Type:** `0/N` solid · `1/C` crumble (breaks after `CRUMBLE_TIME = 1.6 s`) · `2/B` bounce
-  (auto-launch at `BOUNCE_V = 800 px/s`, keeping `vx`) · `3/I` **ice** (drift, see §2).
+  (auto-launch at `BOUNCE_V = 800 px/s`, keeping `vx`) · `3/I` **ice** (drift, see §2) ·
+  `4/H` **mover·horizontal** · `5/V` **mover·vertical** (ping-pong, see §2).
 - Character is an 18×18 AABB; `body.y` is its feet.
 - Bounds: floor top at `y=0` (full width), solid walls at `x<0` and `x>480`.
 - Ceilings are 16 px-thick solids; their **underside** is the bonk surface.
-- Goal per tower: T1 `[180, 5080, 120]`, T2 `[240, 5600, 120]`, flagged `goal: true`.
+- Goal per tower: T1 `[180, 5080, 120]`, T2 `[240, 5600, 120]`, T3 `[240, 6000, 120]`, flagged `goal: true`.
 - Crumbled platforms reform after `RESPAWN_TIME = 3.0 s`; reset/erase rebuilds instantly.
 - Each tower = one descriptor (§0) registered into `LEVELS` as `{id,name,tag,summit,goal,plats,ceil,sections,notes}`.
 
@@ -75,6 +78,29 @@ monotonic in x (all leftward or all rightward). A chain that reverses direction 
 `(edgeDistance − ~10px ramp) / 42 + 0.5`. A centre landing on an 80 px ice gives ~1.2 s to
 commit — enough to aim, not enough to dawdle. Straight-down (`vx=0`) landings never drift, the
 fair counter. Ice widths in T2 are ≥ 40 (gates) to 110 (teachers) to keep that window honest.
+
+**Mover math.** Position is a triangle wave on the shared world clock:
+`offset(t) = amp · tri(t/period + phase)`, `tri` ∈ [−1,1] with constant speed
+`4·amp/period` (px/s). Horizontal movers translate `x`; vertical lifts translate `top`.
+The rider is carried **exactly** (relative offset frozen — you can overhang an edge and stay
+on); launching discards the carry, so the Commit Contract holds from a moving origin.
+The preview clones the world clock, therefore the arc meets the platform *where it will be*.
+
+- **Period ≤ 3.0 s** (= `AIM_TIME`): any phase is reachable within one fuse, so waiting for
+  the machine is always a legal strategy.
+- **Lift speed ≤ ~100 px/s** (`4·amp/period`): faster lifts close the ±0.12 s fairness window
+  the solver demands on every mover jump. T3 lifts run 80–93 px/s.
+- **Mandatory elevator chain** `A → E(vertical) → C`: `E_low − A ≤ 160` (board at the bottom),
+  `C − E_high ≤ 160` (leave at the top), `C − A > 205` (the ride is the only way up).
+  Worked chain (II): A 2600 → E 2790±70 (low 2720, high 2860) → C 3020. Board descending near
+  the low stop, ride ~1.5 s, launch at the high stop.
+- **Horizontal gate** ("the machine comes to you"): max direct `dx` at dy 140 ≈ 212 px
+  (vy≈820, vx≈441 at 95%). Place the launch pad and the mover's *far* stop farther apart than
+  that, and its *near* stop within reach — the jump exists only in a phase window. Worked gate
+  (II): pad 13 centre ≤111 → mover 14 sweep x∈[270,410] (nearest landing centre 261 ⇒ dx 150 ✓,
+  farthest 401 ⇒ dx 290 ✗, static-at-base 331 ⇒ dx 220 ✗). ~1 s of the 2.6 s cycle is legal.
+- **Sweeps inside the walls:** `x−amp ≥ 0` and `x+amp+w ≤ 480` (horizontal); `top−amp ≥ 0`
+  (vertical). The editor rejects violations.
 
 ## 3. Geometry — Section I · First Steps (0–168 m)
 
@@ -151,7 +177,10 @@ purpose — the last emotion should be relief, not a coin flip.
 5. **Alternate sides** — never stack a platform directly above its predecessor (§2).
 6. **Bounce chains monotonic in x** (§2); an ice rest after a spring must be wide enough to commit (~1 s).
 7. Target visible from the launch pad; never a blind jump, frame-perfect input, or RNG.
-8. Re-run the `test.html` solver after any edit — it proves all 36 T1 + 40 T2 rest-to-rest jumps solvable.
+8. **Movers:** period ≤ 3 s; sweep inside the walls; lift speed ≤ ~100 px/s; elevator chains
+   obey the low/high dy bounds (§2); every mover jump must survive ±0.12 s of launch-phase shift.
+9. Re-run the `test.html` solver after any edit — it proves all 36 T1 + 40 T2 + 42 T3
+   rest-to-rest jumps solvable (or press VALIDATE in the local editor).
 
 ## 9. Tower Sketch
 
@@ -206,3 +235,47 @@ the spring carries `vx` onto wide ice (80 px) so you land drifting and must comm
 
 The summit is offset to x 240 (right of pad 40) so the final arc is a genuine left-to-right
 decision, not a vertical hop.
+
+## 11. Tower 3 · The Clockwork Spire (600 m) — full geometry
+
+Strict zig-zag with **movers** (`H` horizontal, `V` vertical; params = amp/period/phase).
+42 platforms + summit, 2 ceilings, 1 mandatory elevator ride (19→20→21), 1 mandatory
+horizontal gate (13→14), 1 bounce chain onto a moving catch (33→34→35).
+
+| # | x | top | w | type | | # | x | top | w | type |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 60 | 120 | 150 | N | | 22 | 300 | 3160 | 64 | **C** |
+| 2 | 270 | 250 | 140 | N | | 23 | 120 | 3300 | 64 | N |
+| 3 | 90 | 380 | 130 | N | | 24 | 300 | 3440 | 64 | **H** 60/2.4/0 |
+| 4 | 280 | 510 | 120 | **H** 60/2.4/0 | | 25 | 120 | 3580 | 60 | **I** |
+| 5 | 100 | 640 | 120 | N | | 26 | 300 | 3720 | 60 | N |
+| 6 | 290 | 780 | 110 | **I** | | 27 | 110 | 3860 | 60 | **H** 70/2.6/.5 |
+| 7 | 120 | 920 | 110 | N | | 28 | 300 | 4000 | 56 | **C** |
+| 8 | 300 | 1060 | 100 | **H** 70/2.6/.5 | | 29 | 120 | 4140 | 56 | N |
+| 9 | 130 | 1200 | 100 | **C** | | 30 | 300 | 4320 | 56 | **V** 60/2.6/0 |
+| 10 | 300 | 1340 | 100 | N | | 31 | 120 | 4460 | 52 | **I** |
+| 11 | 110 | 1480 | 90 | **I** | | 32 | 300 | 4600 | 48 | N |
+| 12 | 300 | 1620 | 90 | N | | 33 | 120 | 4740 | 48 | N (A) |
+| 13 | 40 | 1760 | 80 | N | | 34 | 240 | 4850 | 56 | **B** |
+| 14 | 340 | 1900 | 70 | **H** 70/2.6/0 | | 35 | 340 | 4970 | 72 | **H** 60/2.4/0 (C) |
+| 15 | 110 | 2040 | 76 | N | | 36 | 180 | 5110 | 44 | N |
+| 16 | 280 | 2180 | 76 | **V** 70/2.8/0 | | 37 | 320 | 5250 | 40 | **I** |
+| 17 | 110 | 2320 | 76 | N | | 38 | 140 | 5390 | 40 | N |
+| 18 | 300 | 2460 | 72 | **I** | | 39 | 320 | 5530 | 40 | **V** 60/2.6/.5 |
+| 19 | 120 | 2600 | 72 | N (A) | | 40 | 150 | 5670 | 36 | **C** |
+| 20 | 280 | 2790 | 72 | **V** 70/3/0 (E) | | 41 | 320 | 5810 | 36 | N |
+| 21 | 120 | 3020 | 72 | N (C) | | 42 | 180 | 5940 | 36 | N |
+| | | | | | | **GOAL** | 240 | 6000 | 120 | |
+
+Ceilings: `[0,3460,220]` (underside 3444 over pad 23 — exit right before rising 126 px) and
+`[280,3880,200]` (underside 3864 over pad 26 — exit left). Both force flat arcs; the second
+launches toward a *moving* catch (27) that sweeps x∈[40,180].
+
+Elevator ride: 19 (A, 2600) → 20 (E, 2790±70 ⇒ 2720–2860) → 21 (C, 3020). C−A = 420 > 205,
+so the lift is mandatory; board near the low stop, jump at the high stop (dy 160 both ways).
+
+Bounce chain: 33 (A, 4740) → 34 (spring, 4850) → 35 (C mover, 4970; 230 px above A). All
+rightward; the spring keeps `vx` and the catch sweeps x∈[280,400] — the preview draws the hop
+and the magenta ring where the catch will be.
+
+The summit is offset to x 240 (right of pad 42) so the final arc is a real decision.

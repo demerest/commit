@@ -5,7 +5,7 @@ CH=18,FALL_MIN=250,VFALL=-1600,
 AIM_TIME=3.0,CRUMBLE_TIME=1.6,BOUNCE_V=800,RESPAWN_TIME=3.0,
 ICE_V=42,ICE_RAMP=0.5;
 const COL={plat:"#1c2436",edge:"#43547c",ink:"#e9edf4",dim:"#8b93a7",line:"#26304a",
-blue:"#5aa7ff",green:"#57e389",amber:"#ffb454",red:"#ff5d5d",spring:"#3fe0c5",ice:"#bfe3ff"};
+blue:"#5aa7ff",green:"#57e389",amber:"#ffb454",red:"#ff5d5d",spring:"#3fe0c5",ice:"#bfe3ff",mover:"#d17bff"};
 const RM=matchMedia("(prefers-reduced-motion: reduce)").matches;
 const clamp01=v=>Math.max(0,Math.min(1,v)), lerp=(a,b,t)=>a+(b-a)*t;
 const $=id=>document.getElementById(id);

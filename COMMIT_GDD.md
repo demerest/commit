@@ -1,5 +1,5 @@
 # COMMIT — Game Design Document
-**Version 2.1 · HTML + CSS + modular JS (`js/`) · No images · Procedural audio only · No dependencies**
+**Version 2.2 · HTML + CSS + modular JS (`js/`) · No images · Procedural audio only · No dependencies**
 
 > A tower. A square. No air control.
 > Draw an arc, release, and live with exactly what you drew.
@@ -14,7 +14,7 @@
 | Session length | 30 s (one bad jump) → 20 min (full climb) |
 | Viewport | Fixed logical 480×800, uniformly scaled, portrait-first |
 | Input | Pointer (mouse/touch/pen) + full keyboard fallback |
-| Win condition | Land on a tower's summit (T1 508 m, T2 560 m); clearing unlocks the next tower |
+| Win condition | Land on a tower's summit (T1 508 m, T2 560 m, T3 600 m); clearing unlocks the next tower |
 | Lose condition | None. You fall for real. That is worse. |
 | Assets | Zero files. Everything is drawn with Canvas 2D primitives and synthesized with Web Audio at runtime |
 | Sound | Procedural only — no audio files, no generated audio assets. On by default, one-tap mute (♪ / M). Silence at the summit (see §12) |
@@ -61,7 +61,10 @@ GROUND → AIM (drag / keys) → read the dotted arc → RELEASE
   timestep, gravity, clamp, and collision rules used by the real flight.
 - The preview terminates at the **first contact** and marks it:
   - **green ring** — you will land here (feet on a surface);
+  - **ice-blue / magenta ring** — same, but the surface is ice / a moving platform;
   - **red ✕** — you will strike a wall or ceiling here and drop.
+- Against movers the arc simulates the platform's *future* motion on the same world clock,
+  so the ring sits where the platform **will be** when you arrive.
 - A live **power %** readout sits beside the character.
 - This contract is the product. Any tuning change must keep preview ≡ simulation.
 
@@ -98,7 +101,7 @@ World units are pixels at logical resolution; **y is up**; 10 px = 1 m.
 | `CH` | 18 px | Character size (AABB) |
 | `VMAX_FALL` | −1600 px/s | Terminal velocity (also guarantees no tunneling) |
 | `FALL_MIN` | 250 px | A landing this far below launch counts as a **fall** |
-| `SUMMIT` | per tower | Goal altitude (T1 5080, T2 5600 px) |
+| `SUMMIT` | per tower | Goal altitude (T1 5080, T2 5600, T3 6000 px) |
 | `AIM_TIME` | 3.0 s | Aim fuse — auto-commits the drawn arc on expiry |
 | `CRUMBLE_TIME` | 1.6 s | Standing this long on a cracked platform breaks it |
 | `BOUNCE_V` | 800 px/s | Upward relaunch speed on a teal spring (keeps `vx`) |
@@ -113,6 +116,7 @@ Collision outcomes (axis-separated, X then Y, per substep):
 | Top of solid while descending | **Land.** All velocity zeroed, grounded |
 | Top of a **spring** while descending | **Bounce.** `vy = +800`, keep `vx`, stay airborne |
 | Top of **ice** while descending | **Land + drift.** `vy = 0`; slide dir = sign of entry `vx` (0 if straight down) |
+| Top of a **mover** while descending | **Land + carry.** Velocity zeroed; the platform then carries you exactly (no relative slide) |
 | Side of solid / wall | `vx = 0`, keep falling straight down |
 | Underside of solid | **Bonk.** `vy = 0`, keep horizontal drift, fall |
 
@@ -121,6 +125,13 @@ i.e. in the direction you were travelling at landing. A straight-down landing (`
 still. Drift ramps in over `ICE_RAMP` then holds `ICE_V`; reaching the far edge walks you off
 into an honest fall (keeping the small drift `vx`). Launching discards the drift, so the Commit
 Contract holds: the arc is exactly what you drew from your current (sliding) position.
+
+**Mover rule (Tower 3+):** magenta platforms ping-pong at constant speed (`4·amp/period`,
+period ≤ 3 s so every phase is reachable inside one aim fuse). Standing on one, you are
+carried exactly — even over the edge; you leave only by launching, and the launch **discards
+the carry**, so the arc is exactly what you drew. Horizontal movers slide you sideways;
+vertical lifts raise and lower you (ride up, jump at the top). A lift that presses you into
+a ceiling drops you honestly. The preview knows all of this: it runs the same world clock.
 
 Geometry, gravity, the fuse and the slide are the antagonists; the springs are the only mercy.
 There is no instant-death hazard.
@@ -138,8 +149,9 @@ There is no instant-death hazard.
 
 ## 8. Tower Structure
 
-Two towers (more planned). Each has five sections and a summit. Full geometry and
-reachability/bounce/ice math: `COMMIT_LEVELS.md`. Levels are pure data in `js/levels.js`.
+Three towers (more planned). Each has five sections and a summit. Full geometry and
+reachability/bounce/ice/mover math: `COMMIT_LEVELS.md`. Levels are pure data in
+`levels/tower-N.js` descriptors; `js/levels.js` is only the engine.
 
 **Tower 1 · First Ascent (508 m)** — the original climb.
 
@@ -161,10 +173,23 @@ reachability/bounce/ice math: `COMMIT_LEVELS.md`. Levels are pure data in `js/le
 | IV | Whiteout | 409–560 m | 36–48 px | Narrow ice gates; ice under a ceiling; crumble gates |
 | V | Summit | 560 m | 120 px | Mercy at the top, offset so the last arc is a real decision |
 
+**Tower 3 · The Clockwork Spire (600 m)** — the machine tower: moving platforms plus every
+prior mechanic.
+
+| # | Name | Altitude | Platform width | Teaches / tests |
+|---|---|---|---|---|
+| I | Conveyor | 0–162 m | 90–150 px | First horizontal movers (wide, forgiving); ice + crumble recall |
+| II | Elevators | 162–302 m | 72–80 px | A mover that only comes to you at the right phase; first vertical lift; mandatory elevator ride (230 px+ gain) |
+| III | Clockwork Overhang | 302–446 m | 56–64 px | Ceilings over moving launch pads; flat arcs off a sliding origin |
+| IV | Escapement | 446–600 m | 36–52 px | Spring chain onto a *moving* catch; narrow ice; timed lift gates; crumble gates |
+| V | Summit | 600 m | 120 px | Mercy at the top, offset right of the last pad |
+
 Design invariants for every tower (enforced by the solver): consecutive platforms alternate
 sides (a platform directly above another is unreachable — you'd bonk its underside); bounce
 chains keep one horizontal direction (bounce preserves `vx`); `dy ≤ 160`, required speed
-≤ 98%, ceiling margin ≥ 15 px.
+≤ 98%, ceiling margin ≥ 15 px. Mover additions: sweeps stay inside the walls; period ≤ 3 s
+(the fuse window); elevator chains satisfy `low−A ≤ 160`, `C−high ≤ 160`, `C−A > 205`; every
+mover jump must survive a ±0.12 s launch-phase shift (fair timing, never frame-perfect).
 
 ## 9. Difficulty Curve
 
@@ -200,6 +225,7 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 | `red` | `#ff5d5d` | Consequence: fall flash, drop popup, erase button |
 | `spring` | `#3fe0c5` | Bounce pads, bounce-hop markers in the preview |
 | `ice` | `#bfe3ff` | Ice top edge, sheen, drift chevrons, ice landing ring, spray |
+| `mover` | `#d17bff` | Moving platforms: top edge, travel track, direction chevrons, mover landing ring, carry dust |
 
 ### World rendering
 - **Sky:** three-stop vertical gradient keyed to altitude — cold navy at the floor, steel
@@ -214,6 +240,9 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 - **Ice:** pale `ice` top edge over a blue-black slab, diagonal sheen + a moving gloss streak;
   while occupied, horizontal chevrons point the drift direction and the square leans into the
   slide, kicking pale spray backwards. The preview's landing ring turns ice-blue on ice.
+- **Movers:** magenta top edge over a violet-black slab with a thin outline; a dashed travel
+  track with end stops shows the whole sweep; chevrons point the current direction of travel;
+  the square leans into the carry. The preview's landing ring turns magenta on a mover.
 - **Parallax:** 80 deterministic twinkling specks at 0.35× camera depth.
 - **Grid:** faint 10 m lines, labeled every 50 m; section titles stenciled in the world.
 - **Character:** 18 px rounded white square, two dark eyes that look toward the aim
@@ -227,6 +256,7 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 |---|---|---|
 | Dust burst | Launch / land / wall / bonk | ≤ 16 particles, 0.5–0.8 s |
 | Ice spray | Sliding on ice (backwards from feet) | ≤ 2 / tick, 0.3–0.55 s, `ice` |
+| Mover dust | Landing on a mover | ≤ 16 particles, `mover` |
 | Flight trail | Every 2nd substep airborne | 22 fading squares |
 | Screen shake | Land impact > 650 px/s | ≤ 11 px, exp decay 6/s |
 | Red flash | Counted fall | α ≤ 0.45, exp decay 3/s |
@@ -270,6 +300,9 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 | Ice land | Glassy impact-pitched chime + high-pass shimmer; spray burst; chevrons appear |
 | Ice slide | Quiet high-pass scrape loop while drifting; square leans; spray trails |
 | Ice walk-off | Soft descending slip blip, then honest fall (fall alarm if ≥ 25 m) |
+| Mover land | Impact thud + mechanical clank (pitch varies with impact) + magenta dust |
+| Mover reversal | Direction-pitched tick-tock blip under your feet (520 Hz one way, 390 Hz the other) |
+| Lift crush | A vertical lift pressing you into a solid drops you with a bonk blip |
 | Tower unlock | Rising triad + ice-blue "TOWER N UNLOCKED" line on the win screen |
 | Idle > 2.2 s, 0 launches | Pulsing "drag anywhere · release to commit" |
 | Summit | Confetti + overlay + lifetime records updated |
@@ -312,14 +345,17 @@ guarded so a sound failure can never break the simulation.
 | `BOUNCE_V` | 800 | 700–900 | Spring lift; re-verify chains if changed |
 | `ICE_V` | 42 | 25–70 | Drift speed; higher = less time to commit on ice |
 | `ICE_RAMP` | 0.5 | 0.2–1.0 | Grace period after an ice landing before full drift |
+| Mover `amp` | per platform | 10–90 | Sweep half-width; bigger = more travel, more timing pressure |
+| Mover `period` | per platform | 0.6–3.0 | Full cycle; must stay ≤ the 3 s fuse so every phase is aimable |
 | Platform widths | per level | ≥ 28 | Primary difficulty dial |
 | Camera lerp | 6 / 10 | 4–12 | Fall visibility vs. motion comfort |
 
 ## 16. Scope Guard
 
-**Shipped:** two towers (T1 36 platforms, T2 40), crumble/bounce/ice, ceilings, stats,
-per-tower persistence, tower select + unlock, share. Modular `js/` + data-driven `levels.js`
-so new towers/mechanics/modes are additive.
+**Shipped:** three towers (T1 36 platforms, T2 40, T3 42), crumble/bounce/ice/movers,
+ceilings, stats, per-tower persistence (incl. mover phase), tower select + unlock, share,
+local level editor with real-integrator validation. Modular `js/` + data-driven
+`levels/tower-N.js` so new towers/mechanics/modes are additive.
 **Candidates (not built):** daily seeded tower, ghost of your best run, launch-count
 leaderboard, moving ceilings, alternate game modes. None required for the core experience.
 
@@ -337,3 +373,5 @@ leaderboard, moving ceilings, alternate game modes. None required for the core e
 10. Ice drifts you the way you came in; a straight-down landing stands still; walking off is an honest fall; launching discards drift (preview ≡ flight from the sliding position).
 11. Clearing a tower unlocks the next; locked towers cannot be entered; each tower keeps its own run and lifetime records are shared; switching never loses progress.
 12. Every rest-to-rest jump in every tower is solvable at ≤ 98% power (solver), with no same-x vertical stacks and single-direction bounce chains.
+13. Movers carry the rider exactly (through reversals and edge overhang); launching discards carry; preview ≡ flight against moving platforms, pixel-exact; the world clock persists so refresh restores phase + footing.
+14. Every mover-involved jump survives a ±0.12 s launch-phase shift (fair timing); mover periods ≤ 3 s; sweeps stay inside the walls; mandatory elevator rides satisfy the low/high dy bounds.

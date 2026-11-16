@@ -1,31 +1,41 @@
 /* COMMIT — simulation. The Commit Contract: preview() and flight share step(), pixel-exact.
-   Ice rule: landing drifts you the way you came in (sign of vx); a straight-down landing stands still. */
+   Ice rule: landing drifts you the way you came in (sign of vx); a straight-down landing stands still.
+   Movers ride a shared fixed-step world clock (worldT); step(b,t) reads their rects purely, so the
+   preview simulates the same future platform motion the flight will meet. Launch discards carry. */
 "use strict";
 const body={x:VW/2-CH/2,y:0,vx:0,vy:0,grounded:true,on:null,slide:0,slideT:0};
 let state="ready",aim=null;const kb={a:65,p:.6};
 let run={launches:0,falls:0,biggest:0,time:0,started:false,dead:[],slide:0};
-let launchY=0,bounceChain=0,crumbleT=0,crumbleStage=0,aimT=AIM_TIME,lastTickSec=99,idleT=0,stepN=0;
+let launchY=0,bounceChain=0,crumbleT=0,crumbleStage=0,aimT=AIM_TIME,lastTickSec=99,idleT=0,stepN=0,worldT=0;
 const flightContacts=[];
-function findGround(x,y){for(const s of SOLIDS){if(s.dead||s.wall)continue;
-if(Math.abs((s.y+s.h)-y)<.6&&x<s.x+s.w&&x+CH>s.x)return s;}return null;}
+/* ---------- movers: constant-speed ping-pong, pure functions of the world clock ---------- */
+function tri(u){u=((u%1)+1)%1;return u<.5?4*u-1:3-4*u;}
+function moverXY(s,t){const o=tri(t/s.period+s.phase)*s.amp;
+return s.move===4?{x:s.bx+o,y:s.by}:{x:s.bx,y:s.by+o};}
+function moverV(s,t){const u=((t/s.period+s.phase)%1+1)%1;const sp=4*s.amp/s.period*(u<.5?1:-1);
+return s.move===4?{x:sp,y:0}:{x:0,y:sp};}
+function rectOf(s,t){if(!s.move)return s;const o=moverXY(s,t);return{x:o.x,y:o.y,w:s.w,h:s.h};}
+function findGround(x,y){for(const s of SOLIDS){if(s.dead||s.wall)continue;const r=rectOf(s,worldT);
+if(Math.abs((r.y+r.h)-y)<.6&&x<r.x+r.w&&x+CH>r.x)return s;}return null;}
 /* ---------- physics (shared by flight and preview) ---------- */
-function hit(b,s){return b.x<s.x+s.w&&b.x+CH>s.x&&b.y<s.y+s.h&&b.y+CH>s.y}
-function step(b){b.vy-=G*DT;if(b.vy<VFALL)b.vy=VFALL;let ev=null;
+function hitR(b,r){return b.x<r.x+r.w&&b.x+CH>r.x&&b.y<r.y+r.h&&b.y+CH>r.y}
+function step(b,t){b.vy-=G*DT;if(b.vy<VFALL)b.vy=VFALL;let ev=null;
 b.x+=b.vx*DT;
-for(const s of SOLIDS){if(s.dead)continue;if(hit(b,s)){
-if(b.vx>0)b.x=s.x-CH;else if(b.vx<0)b.x=s.x+s.w;
+for(const s of SOLIDS){if(s.dead)continue;const r=rectOf(s,t);if(hitR(b,r)){
+if(b.vx>0)b.x=r.x-CH;else if(b.vx<0)b.x=r.x+r.w;
 if(b.vx!==0){b.vx=0;ev={t:"wall",x:b.x+CH/2,y:b.y+CH/2};}}}
 b.y+=b.vy*DT;b.grounded=false;
-for(const s of SOLIDS){if(s.dead)continue;if(hit(b,s)){
-if(b.vy<=0){b.y=s.y+s.h;
+for(const s of SOLIDS){if(s.dead)continue;const r=rectOf(s,t);if(hitR(b,r)){
+if(b.vy<=0){b.y=r.y+r.h;
 if(s.bounce){b.vy=BOUNCE_V;ev={t:"bounce",s,x:b.x+CH/2,y:b.y};}
 else{b.vy=0;b.grounded=true;ev={t:"land",s};}}
-else{b.y=s.y-CH;b.vy=0;ev={t:"bonk",x:b.x+CH/2,y:b.y+CH};}}}
+else{b.y=r.y-CH;b.vy=0;ev={t:"bonk",x:b.x+CH/2,y:b.y+CH};}}}
 return ev;}
-function contactOf(b,ev){return{x:b.x+CH/2,y:b.y+(ev.t==="land"||ev.t==="bounce"?0:CH/2),t:ev.t,ok:ev.t==="land",goal:!!(ev.s&&ev.s.goal)};}
+function contactOf(b,ev){return{x:b.x+CH/2,y:b.y+(ev.t==="land"||ev.t==="bounce"?0:CH/2),t:ev.t,ok:ev.t==="land",
+goal:!!(ev.s&&ev.s.goal),ice:!!(ev.s&&ev.s.ice),move:(ev.s&&ev.s.move)||0,idx:ev.s&&ev.s.idx!=null?ev.s.idx:-1};}
 function preview(v){const b={x:body.x,y:body.y,vx:v.x,vy:v.y,grounded:false};
-const pts=[],contacts=[];let mark=null;
-for(let i=0;i<900;i++){const ev=step(b);
+const pts=[],contacts=[];let mark=null,t=worldT;
+for(let i=0;i<900;i++){t+=DT;const ev=step(b,t);
 if(i%3===0)pts.push({x:b.x+CH/2,y:b.y+CH/2});
 if(ev){const c=contactOf(b,ev);contacts.push(c);mark=c;if(ev.t!=="bounce")break;}
 if(b.y<-80)break;}
@@ -42,7 +52,7 @@ state="flight";aim=null;launchY=body.y;trail.length=0;launchT=.18;flightContacts
 run.launches++;life.launches++;run.started=true;idleT=0;stopHum();stopSlide();
 spawnDust(body.x+CH/2,body.y,6,COL.dim);sfx("launch");}
 function simStep(){if(state!=="flight")return;
-const pv=body.vy,pvx=body.vx,ev=step(body);stepN++;
+const pv=body.vy,pvx=body.vx,ev=step(body,worldT);stepN++;
 if(stepN%2===0){trail.push({x:body.x+CH/2,y:body.y+CH/2});if(trail.length>22)trail.shift();}
 if(!ev)return;
 flightContacts.push(contactOf(body,ev));
@@ -52,6 +62,7 @@ if(ev.t==="land"){const impact=Math.abs(pv);
 body.vx=0;body.vy=0;state="ready";landT=.18;body.on=ev.s;crumbleT=0;crumbleStage=0;bounceChain=0;
 body.slide=ev.s.ice?(pvx>0?1:pvx<0?-1:0):0;body.slideT=0;run.slide=body.slide;
 if(ev.s.ice){sfx("ice",{impact});spawnSpray(body.x+CH/2,body.y,body.slide||1);if(body.slide)startSlide();}
+else if(ev.s.move){spawnDust(body.x+CH/2,body.y,Math.min(16,4+impact/120),COL.mover);sfx("land",{impact});sfx("move",{impact});}
 else{spawnDust(body.x+CH/2,body.y,Math.min(16,4+impact/120),COL.dim);sfx("land",{impact});}
 if(impact>650&&!RM)shake=Math.min(11,(impact-650)/80);
 const drop=launchY-body.y;
@@ -93,3 +104,16 @@ if(body.x+CH<=s.x||body.x>=s.x+s.w){
 body.on=null;body.grounded=false;body.vx=body.slide*v;body.vy=0;body.slide=0;body.slideT=0;
 state="flight";aim=null;stopHum();stopSlide();launchY=body.y;flightContacts.length=0;trail.length=0;bounceChain=0;
 sfx("slip");save();}}}
+/* ---------- movers: carry the rider each fixed step (exact carry — no relative slide).
+   A vertical lift that presses you into a solid drops you honestly. ---------- */
+function dropRider(vx,vy,sound){body.on=null;body.grounded=false;body.vx=vx;body.vy=vy;body.slide=0;body.slideT=0;
+state="flight";aim=null;stopHum();stopSlide();launchY=body.y;flightContacts.length=0;trail.length=0;bounceChain=0;
+sfx(sound);save();}
+function groundStep(){const s=body.on;
+if((state==="ready"||state==="aim")&&s&&s.move&&!s.dead){
+const a=moverXY(s,worldT-DT),b=moverXY(s,worldT);
+const va=moverV(s,worldT-DT),vb=moverV(s,worldT);
+if(va.x!==vb.x||va.y!==vb.y)sfx("reverse",{dir:vb.x||vb.y});
+if(s.move===4)body.x+=b.x-a.x;else body.y=b.y+s.h;
+if(s.move===5){for(const o of SOLIDS){if(o===s||o.dead||o.wall||o.ground)continue;
+if(hitR(body,rectOf(o,worldT))){dropRider(0,0,"bonk");return;}}}}}

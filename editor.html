@@ -42,7 +42,8 @@ button:hover{filter:brightness(1.1)}
 <label>SUMMIT (px) · GOAL x,w</label>
 <div class="row"><input id="fSummit" type="number"><input id="fGoalX" type="number"><input id="fGoalW" type="number"></div>
 <label>SELECTED PLATFORM (x, top, width, type)</label>
-<div class="row"><input id="pX" type="number"><input id="pT" type="number"><input id="pW" type="number"><select id="pTy"><option value="0">solid</option><option value="1">crumble</option><option value="2">bounce</option><option value="3">ice</option></select></div>
+<div class="row"><input id="pX" type="number"><input id="pT" type="number"><input id="pW" type="number"><select id="pTy"><option value="0">solid</option><option value="1">crumble</option><option value="2">bounce</option><option value="3">ice</option><option value="4">move·h</option><option value="5">move·v</option></select></div>
+<div class="row" id="moverRow" hidden><input id="pAmp" type="number" title="amplitude px"><input id="pPer" type="number" step="0.1" title="period s (≤3)"><input id="pPh" type="number" step="0.05" title="phase 0..1"></div>
 <div class="row"><button id="bAddP" class="ghost">+ PLATFORM</button><button id="bAddC" class="ghost">+ CEILING</button><button id="bDel" class="danger">DELETE</button></div>
 <label>SECTIONS (json [[y,"name"],…])</label>
 <textarea id="fSec"></textarea>
@@ -51,13 +52,14 @@ button:hover{filter:brightness(1.1)}
 <div class="row"><button id="bValidate">VALIDATE</button><button id="bExport">EXPORT</button><button id="bImport" class="ghost">IMPORT</button></div>
 <input id="file" type="file" accept=".js,.json" hidden>
 <div id="issues"></div>
-<div class="hint">drag = move · drag right edge = width · double-click empty = add platform · wheel = pan · click ceiling to select · Del = delete · 0-3 = type.<br>Export downloads a <b>tower-N.js</b> descriptor; drop it in <b>levels/</b> and add a &lt;script&gt; tag in index.html.</div>
+<div class="hint">drag = move · drag right edge = width · double-click empty = add platform · wheel = pan · click ceiling to select · Del = delete · 0-5 = type.<br>Movers (4/5): x/top = oscillation centre; amp px · period s (≤3, the fuse window) · phase 0..1. Dashed line = travel track.<br>Export downloads a <b>tower-N.js</b> descriptor; drop it in <b>levels/</b> and add a &lt;script&gt; tag in index.html.</div>
 </div>
 </div>
 <script src="js/core.js"></script>
 <script src="js/levels.js"></script>
 <script src="levels/tower-1.js"></script>
 <script src="levels/tower-2.js"></script>
+<script src="levels/tower-3.js"></script>
 <script src="js/sim.js"></script>
 <script src="js/editor.js"></script>
 </body>

@@ -41,6 +41,8 @@ case"shatter":noiseHit(.34,.16,300);tone(90,.34,"sawtooth",.1,38);tone(520,.12,"
 case"reform":tone(420,.18,"sine",.05,880);noiseHit(.1,.03,1600,"bandpass");break;
 case"ice":{const i=o.impact||0;tone(900+i/4,.14,"sine",.06,2200+i/3);noiseHit(.09,.045,4200,"highpass");}break;
 case"slip":tone(520,.22,"sine",.06,140);noiseHit(.12,.04,2600,"highpass");break;
+case"move":{const i=o.impact||0;tone(190,.1,"square",.05,120);tone(760+i/6,.05,"sine",.04);noiseHit(.07,.05,900,"bandpass");}break;
+case"reverse":tone(o.dir>0?520:390,.05,"square",.035);break;
 case"fall":tone(540,.55,"sawtooth",.08,80);break;
 case"win":[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.22,"triangle",.09),i*95));break;
 case"ui":tone(880,.03,"sine",.035);break;

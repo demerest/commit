@@ -7,15 +7,16 @@ const host=location.hostname;
 const local=location.protocol==="file:"||host==="localhost"||host==="127.0.0.1"||host==="[::1]"||host==="";
 if(!local){document.getElementById("gate").hidden=false;document.getElementById("wrap").style.display="none";return;}
 const cv=$("cv"),ctx=cv.getContext("2d");
-const TY=["solid","crumble","bounce","ice"];
-const TCOL=[COL.edge,"#8a6a3a",COL.spring,COL.ice];
+const TY=["solid","crumble","bounce","ice","move·h","move·v"];
+const TCOL=[COL.edge,"#8a6a3a",COL.spring,COL.ice,COL.mover,COL.mover];
 let ed=null,sel=null,camY=-100,scale=1,drag=null;
 const clone=o=>JSON.parse(JSON.stringify(o));
 function rebuild(){
 LVL=ed;SUMMIT=ed.summit;P=ed.plats;CEIL=ed.ceil;SECTIONS=ed.sections;NOTES=ed.notes;
 SOLIDS.length=0;PLATS.length=0;
 SOLIDS.push({x:-60,y:-60,w:VW+120,h:60,ground:true},{x:-60,y:0,w:60,h:SUMMIT+900,wall:true},{x:VW,y:0,w:60,h:SUMMIT+900,wall:true});
-P.forEach(([x,t,w,ty],i)=>{const s={x,y:t-16,w,h:16,idx:i,crumble:ty===1,bounce:ty===2,ice:ty===3,dead:false};PLATS.push(s);SOLIDS.push(s);});
+P.forEach(([x,t,w,ty,amp,per,ph],i)=>{const s={x,y:t-16,w,h:16,idx:i,crumble:ty===1,bounce:ty===2,ice:ty===3,
+move:ty===4?4:ty===5?5:0,bx:x,by:t-16,amp:amp||60,period:per||2.4,phase:ph||0,dead:false};PLATS.push(s);SOLIDS.push(s);});
 for(const[x,t,w]of CEIL)SOLIDS.push({x,y:t-16,w,h:16,ceil:true});
 GOAL={x:ed.goal[0],y:SUMMIT-16,w:ed.goal[1],h:16,goal:true};SOLIDS.push(GOAL);}
 const SY=wy=>cv.height-(wy-camY)*scale;
@@ -34,9 +35,19 @@ ctx.globalAlpha=1;
 const gy=SY(0);if(gy<cv.height){ctx.fillStyle=COL.plat;ctx.fillRect(0,gy,cv.width,cv.height-gy);ctx.fillStyle=COL.edge;ctx.fillRect(0,gy,cv.width,2);}
 ctx.fillStyle=COL.plat;ctx.fillRect(0,0,4*scale,cv.height);ctx.fillRect(cv.width-4*scale,0,4*scale,cv.height);
 for(const[x,t,w]of ed.ceil){const sy=SY(t);ctx.fillStyle=COL.plat;ctx.fillRect(x*scale,sy,w*scale,16*scale);ctx.fillStyle=COL.amber;ctx.fillRect(x*scale,sy,w*scale,2);}
-ed.plats.forEach(([x,t,w,ty],i)=>{const sy=SY(t);
-ctx.fillStyle=ty===3?"#152232":COL.plat;ctx.fillRect(x*scale,sy,w*scale,16*scale);
+ed.plats.forEach(([x,t,w,ty,amp],i)=>{const sy=SY(t);
+if(ty===4||ty===5){const a=amp||60;
+ctx.save();ctx.strokeStyle=COL.mover;ctx.globalAlpha=.35;ctx.lineWidth=1;ctx.setLineDash([3,5]);
+if(ty===4){const ty2=sy+8*scale;ctx.beginPath();ctx.moveTo((x-a)*scale,ty2);ctx.lineTo((x+a+w)*scale,ty2);ctx.stroke();}
+else{const tx=(x+w/2)*scale;ctx.beginPath();ctx.moveTo(tx,SY(t+a));ctx.lineTo(tx,SY(t-a));ctx.stroke();}
+ctx.setLineDash([]);ctx.restore();}
+ctx.fillStyle=ty===3?"#152232":ty===4||ty===5?"#1b1230":COL.plat;ctx.fillRect(x*scale,sy,w*scale,16*scale);
 ctx.fillStyle=TCOL[ty];ctx.fillRect(x*scale,sy,w*scale,2);
+if(ty===4||ty===5){ctx.fillStyle=COL.mover;const cx=(x+w/2)*scale,cy=sy+9*scale;
+ctx.beginPath();
+if(ty===4){ctx.moveTo(cx-6,cy-3);ctx.lineTo(cx-2,cy);ctx.lineTo(cx-6,cy+3);ctx.moveTo(cx+6,cy-3);ctx.lineTo(cx+2,cy);ctx.lineTo(cx+6,cy+3);}
+else{ctx.moveTo(cx-3,cy+2);ctx.lineTo(cx,cy-2);ctx.lineTo(cx+3,cy+2);ctx.moveTo(cx-3,cy+6);ctx.lineTo(cx,cy+2);ctx.lineTo(cx+3,cy+6);}
+ctx.closePath();ctx.fill();}
 if(sel&&sel.kind==="p"&&sel.idx===i){ctx.strokeStyle=COL.blue;ctx.lineWidth=2;ctx.strokeRect(x*scale-1,sy-1,w*scale+2,16*scale+2);
 ctx.fillStyle=COL.blue;ctx.fillRect(x*scale+w*scale-3,sy,6,16*scale);}});
 if(sel&&sel.kind==="c"){const[x,t,w]=ed.ceil[sel.idx];const sy=SY(t);ctx.strokeStyle=COL.blue;ctx.lineWidth=2;ctx.strokeRect(x*scale-1,sy-1,w*scale+2,16*scale+2);}
@@ -49,49 +60,84 @@ for(const[nx,ny,txt]of ed.notes){const sy=SY(ny);if(sy>-10&&sy<cv.height+10)ctx.
 ctx.textAlign="left";ctx.font="700 12px ui-monospace,monospace";
 for(const[wy,name]of ed.sections){const sy=SY(wy);if(sy>-10&&sy<cv.height+10)ctx.fillText(name,8,sy);}
 }
-/* ---------- validation with the real integrator ---------- */
-function findLaunchEd(from,to){
-const xs=[from[0]+from[2]/2-CH/2,from[0]+1,from[0]+from[2]-CH-1];
-for(const bx of xs){body.x=bx;body.y=from[1];
-const tc=to[0]+to[2]/2,bc=bx+CH/2;
+/* ---------- validation with the real integrator (phase-aware for movers) ---------- */
+function rectAtEd(p,t){if(p[3]===4||p[3]===5){const s=PLATS[ed.plats.indexOf(p)];const o=moverXY(s,t);return[o.x,o.y+16,p[2]];}return p;}
+function findLaunchEd(fi,ti){
+const fp=fi<0?[0,0,VW,0]:ed.plats[fi];
+const tp=ti<0?[ed.goal[0],ed.summit,ed.goal[1],0,true]:ed.plats[ti];
+const fm=fp[3]===4||fp[3]===5,tm=tp[3]===4||tp[3]===5;
+const per=fm?(fp[5]||2.4):tm?(tp[5]||2.4):0;
+const phases=per?[0,per*.25,per*.5,per*.75,per*.125,per*.375,per*.625,per*.875]:[0];
+const spring=ed.plats.some(p=>p[3]===2&&p[1]>fp[1]&&p[1]<tp[1]);
+for(const ph of phases){
+worldT=ph;
+const fr=rectAtEd(fp,ph),tr=rectAtEd(tp,ph);
+const dyLo=(tp[3]===5?tp[1]-(tp[4]||60):tr[1])-(fp[3]===5?fp[1]+(fp[4]||60):fr[1]);
+const vyNeed=spring?0:Math.sqrt(2*G*Math.max(0,dyLo));
+const xs=[fr[0]+fr[2]/2-CH/2,fr[0]+1,fr[0]+fr[2]-CH-1];
+for(const bx of xs){body.x=bx;body.y=fr[1];
+const tc=tr[0]+tr[2]/2,bc=bx+CH/2;
 const lo=Math.min(tc>=bc?8:92,90),hi=Math.max(tc>=bc?88:172,90);
-for(let a=lo;a<=hi;a+=2){const r=a*Math.PI/180;
-for(let pw=.30;pw<=.981;pw+=.02){
-const vx=Math.cos(r)*pw*MAXV,vy=Math.sin(r)*pw*MAXV;
+for(let a=lo;a<=hi;a+=2){const r=a*Math.PI/180,sin=Math.sin(r);
+if(sin*.98*MAXV<vyNeed)continue;
+const pw0=Math.max(.30,Math.ceil(vyNeed/(sin*MAXV)/.02)*.02);
+for(let pw=pw0;pw<=.981;pw+=.02){
+const vx=Math.cos(r)*pw*MAXV,vy=sin*pw*MAXV;
 const pr=preview({x:vx,y:vy});
-if(pr.mark&&pr.mark.ok&&pr.mark.y===to[1]&&pr.mark.x>to[0]-CH/2&&pr.mark.x<to[0]+to[2]+CH/2&&(!to[4]||pr.mark.goal))return{vx,vy};}}}
+if(pr.mark&&pr.mark.ok&&(ti<0?pr.mark.goal:pr.mark.idx===ti)&&pr.mark.x>tr[0]-CH/2&&pr.mark.x<tr[0]+tr[2]+CH/2){
+if(per){let tol=true;
+for(const d of[-.12,.12]){worldT=ph+d;
+const tr2=rectAtEd(tp,ph+d);
+const p2=preview({x:vx,y:vy});
+if(!(p2.mark&&p2.mark.ok&&(ti<0?p2.mark.goal:p2.mark.idx===ti)&&p2.mark.x>tr2[0]-CH/2&&p2.mark.x<tr2[0]+tr2[2]+CH/2))tol=false;}
+worldT=ph;
+if(!tol)continue;}
+return{vx,vy};}}}
+}}
 return null;}
+function dyMin(a,b){let at=a[1],bt=b[1];
+if(a[3]===5)at+=(a[4]||60);
+if(b[3]===5)bt-=(b[4]||60);
+return bt-at;}
 function validate(){
 rebuild();
 const out=[];let bad=0;
-const rests=ed.plats.filter(p=>p[3]!==2);
-const sources=[[0,0,VW,0]].concat(rests);
-const targets=rests.concat([[ed.goal[0],ed.summit,ed.goal[1],0,true]]);
+const restIdx=[];ed.plats.forEach((p,i)=>{if(p[3]!==2)restIdx.push(i);});
+const n=restIdx.length+1;
 const uns=[];
-for(let i=0;i<targets.length;i++){
-const dy=targets[i][1]-sources[i][1];
-const springBetween=ed.plats.some(p=>p[3]===2&&p[1]>sources[i][1]&&p[1]<targets[i][1]);
+for(let i=0;i<n;i++){
+const fi=i===0?-1:restIdx[i-1],ti=i<restIdx.length?restIdx[i]:-1;
+const a=fi<0?[0,0,VW,0]:ed.plats[fi],b=ti<0?[ed.goal[0],ed.summit,ed.goal[1],0]:ed.plats[ti];
+const dy=dyMin(a,b);
+const springBetween=ed.plats.some(p=>p[3]===2&&p[1]>a[1]&&p[1]<b[1]);
 if(dy>160&&!springBetween){out.push("jump"+(i+1)+": dy "+dy+" > 160 (no spring between)");bad++;}
-if(!findLaunchEd(sources[i],targets[i])){uns.push(i+1);}
+if(!findLaunchEd(fi,ti)){uns.push(i+1);}
 }
 if(uns.length){out.push("UNSOLVED ≤98%: jump "+uns.join(", "));bad+=uns.length;}
-ed.plats.forEach(([x,t,w,ty],i)=>{if(w<28){out.push("plat"+(i+1)+": width "+w+" < 28");bad++;}});
+ed.plats.forEach(([x,t,w,ty,amp,per],i)=>{
+if(w<28){out.push("plat"+(i+1)+": width "+w+" < 28");bad++;}
+if(ty===4||ty===5){const a=amp||60,p=per||2.4;
+if(p>3){out.push("plat"+(i+1)+": period "+p+"s > 3s fuse window");bad++;}
+if(ty===4&&(x-a<0||x+a+w>VW)){out.push("plat"+(i+1)+": horizontal sweep leaves the walls");bad++;}
+if(ty===5&&t-a<0){out.push("plat"+(i+1)+": vertical sweep below the floor");bad++;}}});
 for(let i=0;i<ed.plats.length;i++){if(ed.plats[i][3]!==2)continue;
-const prev=rests.filter(r=>r[1]<ed.plats[i][1]).pop();
-const next=rests.find(r=>r[1]>ed.plats[i][1]);
+const prev=ed.plats.filter(r=>r[3]!==2&&r[1]<ed.plats[i][1]).pop();
+const next=ed.plats.find(r=>r[3]!==2&&r[1]>ed.plats[i][1]);
 if(prev&&next){const d1=Math.sign(ed.plats[i][0]-prev[0]),d2=Math.sign(next[0]-ed.plats[i][0]);
 if(d1!==0&&d2!==0&&d1!==d2){out.push("bounce plat"+(i+1)+": chain reverses direction");bad++;}}}
 const el=$("issues");
-el.innerHTML=(bad===0?'<span class="good">VALID · all '+targets.length+' jumps solvable ≤98%, invariants ok.</span>':'<span class="bad">'+bad+' issue(s):</span>\n')+out.map(s=>'<span class="bad">· '+s+"</span>").join("\n");
+el.innerHTML=(bad===0?'<span class="good">VALID · all '+n+' jumps solvable ≤98%, invariants ok.</span>':'<span class="bad">'+bad+' issue(s):</span>\n')+out.map(s=>'<span class="bad">· '+s+"</span>").join("\n");
 draw();}
 /* ---------- ui ---------- */
 function syncFields(){
 $("fName").value=ed.name;$("fTag").value=ed.tag;$("fSummit").value=ed.summit;
 $("fGoalX").value=ed.goal[0];$("fGoalW").value=ed.goal[1];
 $("fSec").value=JSON.stringify(ed.sections);$("fNotes").value=JSON.stringify(ed.notes);
-if(sel&&sel.kind==="p"){const p=ed.plats[sel.idx];$("pX").value=p[0];$("pT").value=p[1];$("pW").value=p[2];$("pTy").value=p[3];}
+if(sel&&sel.kind==="p"){const p=ed.plats[sel.idx];$("pX").value=p[0];$("pT").value=p[1];$("pW").value=p[2];$("pTy").value=p[3];
+const mv=p[3]===4||p[3]===5;$("moverRow").hidden=!mv;
+if(mv){$("pAmp").value=p[4]||60;$("pPer").value=p[5]||2.4;$("pPh").value=p[6]||0;}}
 }
-function loadEd(d){ed=clone(d);sel=null;camY=-100;rebuild();syncFields();draw();$("issues").innerHTML="";}
+function loadEd(d){ed=clone(d);sel=null;camY=-100;$("lvl").value=ed.id;rebuild();syncFields();draw();$("issues").innerHTML="";}
 function fillSelect(){const s=$("lvl");s.innerHTML="";for(const L of LEVELS){const o=document.createElement("option");o.value=L.id;o.textContent=L.id+" · "+L.name;s.appendChild(o);}}
 $("lvl").onchange=e=>{const L=LEVELS.find(x=>x.id===+e.target.value);if(L)loadEd(L);};
 $("bNew").onclick=()=>{const id=LEVELS.length+1;loadEd({id,name:"TOWER "+id,tag:"NEW",summit:2000,goal:[180,120],plats:[[60,120,150,0],[280,260,120,0]],ceil:[],sections:[[60,"I · START"]],notes:[]});};
@@ -106,7 +152,12 @@ function selPlat(){return sel&&sel.kind==="p"?ed.plats[sel.idx]:null;}
 $("pX").oninput=e=>{const p=selPlat();if(p){p[0]=+e.target.value||0;rebuild();draw();}};
 $("pT").oninput=e=>{const p=selPlat();if(p){p[1]=+e.target.value||0;rebuild();draw();}};
 $("pW").oninput=e=>{const p=selPlat();if(p){p[2]=Math.max(28,+e.target.value||28);rebuild();draw();}};
-$("pTy").onchange=e=>{const p=selPlat();if(p){p[3]=+e.target.value;rebuild();draw();}};
+$("pTy").onchange=e=>{const p=selPlat();if(p){p[3]=+e.target.value;
+if(p[3]===4||p[3]===5){p[4]=p[4]||60;p[5]=p[5]||2.4;p[6]=p[6]||0;}else p.length=4;
+rebuild();syncFields();draw();}};
+$("pAmp").oninput=e=>{const p=selPlat();if(p){p[4]=Math.max(10,+e.target.value||10);rebuild();draw();}};
+$("pPer").oninput=e=>{const p=selPlat();if(p){p[5]=Math.max(.6,+e.target.value||.6);rebuild();draw();}};
+$("pPh").oninput=e=>{const p=selPlat();if(p){p[6]=Math.min(1,Math.max(0,+e.target.value||0));rebuild();draw();}};
 $("bAddP").onclick=()=>{ed.plats.push([120,Math.round(camY+cv.height/scale/2),80,0]);sel={kind:"p",idx:ed.plats.length-1};rebuild();syncFields();draw();};
 $("bAddC").onclick=()=>{ed.ceil.push([0,Math.round(camY+cv.height/scale/2),200]);sel={kind:"c",idx:ed.ceil.length-1};rebuild();draw();};
 $("bDel").onclick=del;
@@ -150,7 +201,9 @@ cv.addEventListener("wheel",e=>{e.preventDefault();camY+=e.deltaY/scale;draw();}
 addEventListener("keydown",e=>{
 if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.tagName==="SELECT")return;
 if(e.key==="Delete"||e.key==="Backspace"){del();return;}
-if(sel&&sel.kind==="p"&&["0","1","2","3"].includes(e.key)){ed.plats[sel.idx][3]=+e.key;rebuild();syncFields();draw();}});
+if(sel&&sel.kind==="p"&&["0","1","2","3","4","5"].includes(e.key)){const p=ed.plats[sel.idx];p[3]=+e.key;
+if(p[3]===4||p[3]===5){p[4]=p[4]||60;p[5]=p[5]||2.4;p[6]=p[6]||0;}else p.length=4;
+rebuild();syncFields();draw();}});
 /* ---------- boot ---------- */
 fillSelect();loadEd(LEVELS[0]);resize();
 const vm=location.hash.match(/^#validate(\d*)$/);

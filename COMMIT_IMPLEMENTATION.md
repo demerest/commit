@@ -1,4 +1,4 @@
-# COMMIT — Implementation Guide (v2.1)
+# COMMIT — Implementation Guide (v2.2)
 **Stack: `index.html` + `style.css` + modular classic scripts in `js/`. Vanilla JS + Canvas 2D +
 CSS + Web Audio. Zero dependencies, zero network requests, zero image assets, zero audio files
 (every sound is synthesized at runtime; master mute ♪ / M).**
@@ -16,13 +16,13 @@ CSS + Web Audio. Zero dependencies, zero network requests, zero image assets, ze
 
 | File | Responsibility |
 |---|---|
-| `js/core.js` | Tuning constants (incl. `ICE_V`, `ICE_RAMP`), palette (`ice` token), math, sky keyframes, `LS` storage helper |
+| `js/core.js` | Tuning constants (incl. `ICE_V`, `ICE_RAMP`), palette (`ice`, `mover` tokens), math, sky keyframes, `LS` storage helper |
 | `js/levels.js` | Level **engine**: `COMMIT_LEVEL()` registrar + `LEVELS` + `buildLevel(n)`; holds no data |
 | `levels/tower-N.js` | **Descriptors** (one per tower): a single `COMMIT_LEVEL({…json…})` call; classic scripts so `file://` works with zero fetch |
 | `js/audio.js` | Lazy `AudioContext`; synthesized SFX (incl. ice chime/scrape/slip, unlock triad), aim hum, wind bed; master mute |
 | `js/fx.js` | Pooled dust/spray/shards/confetti/floats, shake, flash, squash timers |
-| `js/sim.js` | `step()` single integrator; preview; aim/launch; land/bounce; crumble + reform; **ice drift** (`updateIce`); run stats |
-| `js/render.js` | Canvas sizing + one render pass (sky→parallax→grid→solids incl. ice→trail→preview→body+fuse→FX→rail) |
+| `js/sim.js` | `step(b,t)` single integrator; preview; aim/launch; land/bounce; crumble + reform; **ice drift** (`updateIce`); **movers** (`worldT` clock, `moverXY/moverV/rectOf`, `groundStep` carry); run stats |
+| `js/render.js` | Canvas sizing + one render pass (sky→parallax→grid→solids incl. ice/mover tracks→trail→preview→body+fuse→FX→rail) |
 | `js/ui.js` | DOM overlays, HUD cache, toast, **tower picker**, tower tag |
 | `js/main.js` | Persistence v3, **level switching/unlock**, win/reset, input, loop, boot, `__COMMIT__` hook |
 | `editor.html` + `js/editor.js` | **Local-only** visual level editor (committed, but excluded from the Pages deploy by the whitelist workflow; origin-gated). Loads the real `sim.js` so VALIDATE uses the same `step()`/`preview()`; exports/imports descriptors |
@@ -33,17 +33,23 @@ adding a mechanic = a new type flag + a branch in `sim`/`render`. Game modes can
 
 | Concern | Responsibility |
 |---|---|
-| Physics | `step(body)` — the **single** integrator used by flight AND preview; handles land/bounce/wall/bonk |
-| Preview | Clones the body, runs `step()` ≤ 900 times, returns dots + **all** contacts (bounce hops + final) |
+| Physics | `step(body,t)` — the **single** integrator used by flight AND preview; handles land/bounce/wall/bonk; mover rects read purely from `t` |
+| Preview | Clones the body **and the world clock**, runs `step()` ≤ 900 times, returns dots + **all** contacts (bounce hops + final, each tagged with platform idx/ice/move) |
+| Movers | Types 4/5 ping-pong at constant speed (`4·amp/period`) on the shared fixed-step `worldT`; `groundStep` carries the rider exactly (no relative slide); launch discards carry; a lift pressing you into a solid drops you |
 | Fuse | Aim countdown; auto-commits the drawn arc on expiry, cancels if sub-threshold |
 | Crumble | Per-visit dwell timer; shatters + drops; auto-reforms after `RESPAWN_TIME` (no softlock); transient `run.dead` |
 | Ice | On land, `slide = sign(entry vx)`; `updateIce` ramps drift, walks off the edge into an honest fall; launch discards drift |
 | Input | Pointer Events (capture, relative drag) + keyboard aim FSM |
-| Loop | Single rAF, fixed-timestep accumulator (dt clamp 0.25 s) |
+| Loop | Single rAF, fixed-timestep accumulator (dt clamp 0.25 s); each fixed step advances `worldT` then runs `simStep` (flight) or `groundStep` (carry) |
 
 ### Determinism & the Commit Contract
 `preview()` and the flight loop call the same `step()` with the same `DT`. The preview is
 therefore pixel-exact by construction — there is no second physics code path to drift.
+Movers keep the contract: their rects are **pure functions of the world clock** (`rectOf(s,t)`),
+never mutated shared state. The loop advances `worldT` by `DT` before each flight step; the
+preview clones `worldT` and advances its copy identically, so the dotted arc simulates the
+*future* platform motion the flight will meet — including a spring hop onto a moving catch.
+`worldT` is persisted per run (`wt`) so a refresh resumes mid-phase with your footing intact.
 
 ### No-tunneling proof
 Max displacement per substep: horizontal `950/120 = 7.92 px`, vertical `1600/120 = 13.33 px`.
@@ -62,12 +68,13 @@ simulation and cancel any active aim; `document.hidden` pauses the same way.
 ### Persistence schema (`commit.v3`)
 ```json
 { "level": 1,
-  "runs": { "1": { "x": 231, "y": 0, "slide": 0, "launches": 0, "falls": 0, "biggest": 0,
+  "runs": { "1": { "x": 231, "y": 0, "slide": 0, "wt": 0, "launches": 0, "falls": 0, "biggest": 0,
                    "time": 0, "started": false, "dead": [] } },
   "life": { "best": {"1":0}, "bestTime": {"1":null}, "summits": {"1":0},
             "launches": 0, "falls": 0, "seen": false, "unlocked": 1 } }
 ```
-Per-tower `runs` (each with its own grounded `x/y`, `dead` reform list and ice `slide` dir);
+Per-tower `runs` (each with its own grounded `x/y`, `dead` reform list, ice `slide` dir and
+mover world-clock `wt`);
 shared `life` with per-tower `best/bestTime/summits` dicts plus global counters and `unlocked`.
 `run.dead` auto-rebuilds after `RESPAWN_TIME` (instantly on reset) — never a softlock. Saved on
 every landing, win, reset, crumble, reform, walk-off, tab-hide, and unload. `save()` writes
@@ -500,9 +507,12 @@ lastT=performance.now();requestAnimationFrame(frameLoop);
 
 Automated: serve the folder over HTTP and open `test.html` — it drives the game through
 the `window.__COMMIT__` manual-clock hook and asserts the matrix below, including a
-solver that proves **all 36 rest-to-rest jumps (bounce chains included) are solvable at
-≤ 98 % power** using the real integrator. Last full run: **72/72 pass** in both standard and
-`prefers-reduced-motion` modes (headless Chrome).
+**phase-aware** solver that proves **all 36 T1 + 40 T2 + 42 T3 rest-to-rest jumps (bounce
+chains, elevator rides and mover catches included) are solvable at ≤ 98 % power** using the
+real integrator; mover jumps must also land with the launch phase shifted ±0.12 s (not
+frame-perfect). Last full run: **116/116 pass** in both standard and `prefers-reduced-motion`
+modes (headless Chrome). The local editor's VALIDATE runs the same solver + invariants
+(`editor.html#validateN` headless: VALID 36/40/42).
 
 | # | Test | Expected |
 |---|---|---|
@@ -525,13 +535,20 @@ solver that proves **all 36 rest-to-rest jumps (bounce chains included) are solv
 | 17 | Reduced-motion OS setting | No shake/confetti; particles halved; game fully playable |
 | 18 | Network panel | Zero requests after document load |
 | 19 | ♪ / M mute | Master mute persists (`commit.snd`); `aria-pressed` + strikethrough show state; SFX and wind silent |
-| 20 | Level solver (`test.html`) | All 36 jumps solvable at ≤ 98 % power; preview ≡ flight contact pixel-exact |
+| 20 | Level solver (`test.html`) | All 36/40/42 jumps solvable at ≤ 98 % power; preview ≡ flight contact pixel-exact |
+| 21 | Mover carry (`test.html` §27) | Rider x/y tracks the platform exactly, through reversals and edge overhang; launch discards carry |
+| 22 | Mover contract (`test.html` §27) | Flight contacts ≡ preview contacts on a moving target; landing ring magenta on movers |
+| 23 | Mover persistence (`test.html` §27) | `wt` saved per run; refresh restores phase + footing on the mover |
+| 24 | Tower 3 flow (`test.html` §27–29) | Locked until T2 summit; picker lists 3; summit wins, share says 600m, NEXT hidden at last tower |
 
 ## 6. Tuning Pointers
 
 - All gameplay constants are the first `const` line — change them only with the
   reachability formulas in `COMMIT_LEVELS.md` open.
 - Difficulty dial: platform widths in `P` (never below 28). Ceiling positions in `CEIL`.
+- Mover dials: per-platform `amp` (sweep), `period` (≤ 3.0 s = the fuse window, so every phase
+  is reachable while aiming), `phase`. Speed = `4·amp/period`; keep lifts ≤ ~100 px/s or the
+  ±0.12 s fairness window closes. Sweeps must stay inside the walls (editor enforces).
 - Feel dials: camera lerp (6/10), shake threshold (650) and cap (11), flash decay (3).
 - The preview must never get its own physics. If you touch `step()`, both flight and
   preview change together — that is the Commit Contract, and it is the game.

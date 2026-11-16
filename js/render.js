@@ -37,6 +37,28 @@ for(let i=0;i<n;i++){const cx=x+s.w*(i+.5)/n,cy=y+9;
 ctx.beginPath();ctx.moveTo(cx-3*d,cy-3);ctx.lineTo(cx+3*d,cy);ctx.lineTo(cx-3*d,cy+3);ctx.closePath();ctx.fill();}
 ctx.globalAlpha=1;}
 return;}
+if(s.move){const x=s.x,y=sy;
+ctx.save();ctx.strokeStyle=COL.mover;ctx.globalAlpha=.3;ctx.lineWidth=1;ctx.setLineDash([3,5]);
+if(s.move===4){const ty=y+s.h/2;
+ctx.beginPath();ctx.moveTo(s.bx-s.amp,ty);ctx.lineTo(s.bx+s.amp+s.w,ty);ctx.stroke();ctx.setLineDash([]);
+ctx.fillStyle=COL.mover;ctx.fillRect(s.bx-s.amp-2,ty-4,2,8);ctx.fillRect(s.bx+s.amp+s.w,ty-4,2,8);}
+else{const tx=x+s.w/2;
+ctx.beginPath();ctx.moveTo(tx,SY(s.by+s.amp+s.h));ctx.lineTo(tx,SY(s.by-s.amp+s.h));ctx.stroke();ctx.setLineDash([]);
+ctx.fillStyle=COL.mover;ctx.fillRect(tx-4,SY(s.by+s.amp+s.h),8,2);ctx.fillRect(tx-4,SY(s.by-s.amp+s.h)-2,8,2);}
+ctx.restore();
+ctx.fillStyle="#1b1230";ctx.fillRect(x,y,s.w,s.h);
+ctx.fillStyle=COL.mover;ctx.fillRect(x,y,s.w,2);
+ctx.strokeStyle="rgba(209,123,255,.35)";ctx.lineWidth=1;
+ctx.strokeRect(x+.5,y+.5,s.w-1,s.h-1);
+const v=moverV(s,worldT),d=s.move===4?Math.sign(v.x):Math.sign(v.y);
+const n=Math.max(2,Math.floor(s.w/18));
+ctx.fillStyle=COL.mover;ctx.globalAlpha=.85;
+for(let i=0;i<n;i++){const cx=x+s.w*(i+.5)/n,cy=y+9;
+ctx.beginPath();
+if(s.move===4){ctx.moveTo(cx-3*d,cy-3);ctx.lineTo(cx+3*d,cy);ctx.lineTo(cx-3*d,cy+3);}
+else{ctx.moveTo(cx-3,cy+3*d);ctx.lineTo(cx,cy-3*d);ctx.lineTo(cx+3,cy+3*d);}
+ctx.closePath();ctx.fill();}
+ctx.globalAlpha=1;return;}
 let jx=0,jy=0,prog=0;
 if(s.crumble&&body.on===s&&crumbleT>0){prog=clamp01(crumbleT/CRUMBLE_TIME);
 if(!RM){jx=(Math.random()-.5)*prog*3;jy=(Math.random()-.5)*prog*2;}}
@@ -87,7 +109,7 @@ if(s.ceil){const sy=SY(s.y+s.h);if(sy>VH+20||sy+s.h<-20)continue;
 ctx.fillStyle=COL.plat;ctx.fillRect(s.x,sy,s.w,s.h);
 ctx.fillStyle=COL.amber;ctx.fillRect(s.x,sy,s.w,2);ctx.globalAlpha=.35;
 for(let x=s.x+4;x<s.x+s.w-4;x+=12)ctx.fillRect(x,sy+s.h-3,6,3);ctx.globalAlpha=1;}
-else drawPlatform(s,now);}
+else{if(s.move){const r=rectOf(s,worldT);s.x=r.x;s.y=r.y;}drawPlatform(s,now);}}
 {const fx=GOAL.x+GOAL.w/2,fy=SY(GOAL.y+GOAL.h);
 ctx.strokeStyle=COL.ink;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(fx,fy);ctx.lineTo(fx,fy-46);ctx.stroke();
 ctx.fillStyle=COL.green;ctx.beginPath();ctx.moveTo(fx,fy-46);ctx.lineTo(fx+26,fy-38);ctx.lineTo(fx,fy-30);ctx.closePath();ctx.fill();
@@ -107,9 +129,9 @@ if(m.t==="bounce"){ctx.strokeStyle=COL.spring;ctx.lineWidth=2;
 ctx.beginPath();ctx.arc(m.x,sy,7,0,6.29);ctx.stroke();
 ctx.beginPath();ctx.moveTo(m.x-4,sy+2);ctx.lineTo(m.x,sy-4);ctx.lineTo(m.x+4,sy+2);ctx.stroke();}
 else if(m.ok){const pulse=3+Math.sin(now*.012)*1.5;
-const ps=findGround(m.x-CH/2,m.y),ic=ps&&ps.ice;
-ctx.strokeStyle=ic?COL.ice:COL.green;ctx.lineWidth=2;ctx.beginPath();ctx.arc(m.x,sy,6+pulse,0,6.29);ctx.stroke();
-ctx.fillStyle=ic?COL.ice:COL.green;ctx.beginPath();ctx.arc(m.x,sy,2,0,6.29);ctx.fill();}
+const rc=m.move?COL.mover:m.ice?COL.ice:COL.green;
+ctx.strokeStyle=rc;ctx.lineWidth=2;ctx.beginPath();ctx.arc(m.x,sy,6+pulse,0,6.29);ctx.stroke();
+ctx.fillStyle=rc;ctx.beginPath();ctx.arc(m.x,sy,2,0,6.29);ctx.fill();}
 else{ctx.strokeStyle=COL.red;ctx.lineWidth=2;
 ctx.beginPath();ctx.moveTo(m.x-6,sy-6);ctx.lineTo(m.x+6,sy+6);ctx.moveTo(m.x+6,sy-6);ctx.lineTo(m.x-6,sy+6);ctx.stroke();}}
 ctx.fillStyle=weak?COL.dim:COL.blue;ctx.font="700 12px ui-monospace,monospace";
@@ -131,6 +153,7 @@ if(f<.3){ctx.globalAlpha=.4+.4*Math.sin(now*.03);ctx.strokeStyle=COL.red;ctx.lin
 ctx.beginPath();ctx.arc(ccx,ccy,rad+4,0,6.29);ctx.stroke();ctx.globalAlpha=1;}}
 ctx.save();ctx.translate(cx,by);ctx.scale(sx,sy);
 if(body.on&&body.on.ice&&body.slide!==0)ctx.rotate(body.slide*.07);
+else if(body.on&&body.on.move===4)ctx.rotate(moverV(body.on,worldT).x>0?.05:-.05);
 ctx.fillStyle=COL.ink;rr(-CH/2,-CH,CH,CH,4);ctx.fill();
 let lx=0,ly=0;
 if(state==="aim"&&aim){const v=aimV();if(v){const m=Math.hypot(v.x,v.y)||1;lx=v.x/m*2.4;ly=-v.y/m*2.4;}}

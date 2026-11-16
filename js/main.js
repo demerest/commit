@@ -5,13 +5,14 @@ let life={best:{},bestTime:{},summits:{},launches:0,falls:0,seen:false,unlocked:
 let safePos={x:VW/2-CH/2,y:0};
 let acc=0,lastT=performance.now(),manual=false,rafId=0;
 const totalSummits=()=>Object.values(life.summits).reduce((a,b)=>a+(+b||0),0);
-const defaultRun=()=>({launches:0,falls:0,biggest:0,time:0,started:false,dead:[],slide:0,x:VW/2-CH/2,y:0});
+const defaultRun=()=>({launches:0,falls:0,biggest:0,time:0,started:false,dead:[],slide:0,wt:0,x:VW/2-CH/2,y:0});
 /* ---------- persistence ---------- */
-function save(){runs[level]={...run,x:safePos.x,y:safePos.y,slide:body.slide};
+function save(){runs[level]={...run,x:safePos.x,y:safePos.y,slide:body.slide,wt:worldT};
 LS.set("commit.v3",{level,runs,life});}
 function sanitize(){run.time=Math.max(0,+run.time||0);run.launches=Math.max(0,+run.launches||0);
 run.falls=Math.max(0,+run.falls||0);run.biggest=Math.max(0,+run.biggest||0);
 run.slide=(run.slide===1||run.slide===-1)?run.slide:0;
+run.wt=Math.max(0,+run.wt||0);
 run.dead=Array.isArray(run.dead)?run.dead.filter(i=>Number.isInteger(i)&&i>=0&&i<PLATS.length):[];
 for(const L of LEVELS){life.best[L.id]=Math.max(0,+life.best[L.id]||0);
 life.summits[L.id]=Math.max(0,Math.round(+life.summits[L.id]||0));
@@ -29,13 +30,14 @@ launches:+L.launches||0,falls:+L.falls||0,seen:!!L.seen,unlocked:(+L.summits||0)
 else{const v1=LS.get("commit.v1");if(v1&&v1.life){const L=v1.life;
 life={...life,best:{1:+L.best||0},bestTime:{1:L.bestTime!=null?+L.bestTime:null},summits:{1:+L.summits||0},
 launches:+L.launches||0,falls:+L.falls||0,seen:!!L.seen};}
-sanitize();buildLevel(1);return;}}
+sanitize();buildLevel(1);worldT=0;return;}}
 if(d.life)life={...life,...d.life};
 if(d.runs&&typeof d.runs==="object")runs=d.runs;
 sanitize();
 level=Math.min(Math.max(1,Math.round(+d.level||1)),life.unlocked);
 buildLevel(level);
 run={...defaultRun(),...(runs[level]||{})};sanitize();
+worldT=run.wt;
 for(const i of run.dead){PLATS[i].dead=true;PLATS[i].respawnT=RESPAWN_TIME;}
 if(Number.isFinite(run.x)&&Number.isFinite(run.y)&&run.y>=0&&run.y<=SUMMIT){
 body.x=Math.min(Math.max(run.x,0),VW-CH);body.y=run.y;}
@@ -47,6 +49,7 @@ camY=clampCam(body.y-VH*.38);}
 function setLevel(n){if(n===level||n<1||n>LEVELS.length||n>life.unlocked)return;
 save();level=n;buildLevel(n);
 run={...defaultRun(),...(runs[n]||{})};sanitize();
+worldT=run.wt;
 for(const i of run.dead){PLATS[i].dead=true;PLATS[i].respawnT=RESPAWN_TIME;}
 body.x=Math.min(Math.max(run.x,0),VW-CH);body.y=run.y;body.vx=0;body.vy=0;body.grounded=true;
 body.on=findGround(body.x,body.y);body.slide=(body.on&&body.on.ice)?run.slide:0;body.slideT=body.slide?ICE_RAMP:0;
@@ -67,14 +70,14 @@ save();
 $("wTime").textContent=fmt(run.time);$("wLaunch").textContent=run.launches;
 $("wFall").textContent=run.falls;$("wDrop").textContent=(run.biggest/10).toFixed(1)+"m";
 $("winSub").textContent=(SUMMIT/10)+" meters of decisions you couldn't take back.";
-$("winUnlock").textContent=newUnlock?"TOWER "+(level+1)+" UNLOCKED — the ice awaits.":"";
+$("winUnlock").textContent=newUnlock?"TOWER "+(level+1)+" UNLOCKED — "+LEVELS[level].tag.toLowerCase()+" awaits.":"";
 $("winUnlock").hidden=!newUnlock;
 $("bNext").hidden=level>=LEVELS.length;
 $("share").value="COMMIT · "+LVL.name+" · "+(SUMMIT/10)+"m in "+fmt(run.time)+" · "+run.launches+" launches · "+run.falls+" falls · biggest drop "+(run.biggest/10).toFixed(1)+"m. No air control. No mercy.";
 if(!RM)for(let i=0;i<90;i++)confetti.push({x:body.x+CH/2,y:body.y+20,vx:(Math.random()-.5)*560,vy:Math.random()*620+120,r:Math.random()*6.28,vr:(Math.random()-.5)*9,c:[COL.blue,COL.green,COL.amber,COL.red,COL.ink][i%5],t:0});
 sfx("win");if(newUnlock)sfx("unlock");openOv("win");}
 function resetRun(){body.x=VW/2-CH/2;body.y=0;body.vx=0;body.vy=0;body.grounded=true;body.slide=0;body.slideT=0;
-state="ready";aim=null;stopHum();stopSlide();run=defaultRun();
+state="ready";aim=null;stopHum();stopSlide();run=defaultRun();worldT=0;
 for(const s of PLATS){s.dead=false;s.bounceT=0;s.respawnT=0;}
 body.on=findGround(body.x,body.y);crumbleT=0;crumbleStage=0;bounceChain=0;aimT=AIM_TIME;
 safePos.x=body.x;safePos.y=body.y;
@@ -138,7 +141,7 @@ function frameLoop(now){if(!manual)rafId=requestAnimationFrame(frameLoop);
 let dt=(now-lastT)/1000;lastT=now;if(dt>.25)dt=.25;
 const paused=overlayOpen!==null||document.hidden;
 if(!paused){if(run.started&&state!=="win")run.time+=dt;
-acc+=dt;while(acc>=DT){simStep();acc-=DT;}
+acc+=dt;while(acc>=DT){worldT+=DT;if(state==="flight")simStep();else groundStep();acc-=DT;}
 if(state==="aim"){aimT-=dt;const sec=Math.ceil(aimT);
 if(sec!==lastTickSec){lastTickSec=sec;if(sec>0&&sec<=AIM_TIME)sfx("tick",{urgent:aimT<1});}
 if(aimT<=0){const v=aimV();
@@ -181,5 +184,6 @@ get aimT(){return aimT},get crumbleT(){return crumbleT},get bounceChain(){return
 get trail(){return trail},get parts(){return parts},get shards(){return shards},get confetti(){return confetti},get floats(){return floats},
 get overlayOpen(){return overlayOpen},get flightContacts(){return flightContacts},get flightContact(){return flightContacts[0]||null},get safePos(){return safePos},
 get SOLIDS(){return SOLIDS},get PLATS(){return PLATS},get GOAL(){return GOAL},get P(){return P},get CEIL(){return CEIL},
-RM,LEVELS,snd:SND,skyAt,
+RM,LEVELS,snd:SND,skyAt,moverXY,moverV,
+get worldT(){return worldT},setWorldT(t){worldT=Math.max(0,+t||0);},
 get C(){return{VW,VH,DT,G,MAXV,MINV,KDRAG,CH,SUMMIT,FALL_MIN,VFALL,AIM_TIME,CRUMBLE_TIME,BOUNCE_V,RESPAWN_TIME,ICE_V,ICE_RAMP}}};
