@@ -21,8 +21,9 @@ The argument is plain JSON (the editor parses/exports exactly this). `js/levels.
 engine then each descriptor as classic `<script>` tags, so the game still runs from `file://`
 with zero fetch. To add a tower: drop `levels/tower-N.js` and add one `<script>` tag.
 
-**Authoring tool:** `editor.html` (+ `js/editor.js`) is a **local-only** web level editor
-(gitignored, never deployed; also origin-gated to `file://`/localhost). Open it locally, pick or
+**Authoring tool:** `editor.html` (+ `js/editor.js`) is a **local-only** web level editor. It is
+committed for development but excluded from the Pages deploy (`.github/workflows/pages.yml`
+publishes a game-only whitelist) and origin-gated to `file://`/localhost. Open it locally, pick or
 import a tower, drag platforms / resize / set type, edit ceilings/goal/summit/notes, press
 **VALIDATE** (runs the real `step()`/`preview()` solver + invariants), then **EXPORT** to download
 a `tower-N.js` descriptor.

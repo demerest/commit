@@ -25,7 +25,8 @@ CSS + Web Audio. Zero dependencies, zero network requests, zero image assets, ze
 | `js/render.js` | Canvas sizing + one render pass (sky→parallax→grid→solids incl. ice→trail→preview→body+fuse→FX→rail) |
 | `js/ui.js` | DOM overlays, HUD cache, toast, **tower picker**, tower tag |
 | `js/main.js` | Persistence v3, **level switching/unlock**, win/reset, input, loop, boot, `__COMMIT__` hook |
-| `editor.html` + `js/editor.js` | **Local-only** visual level editor (gitignored, origin-gated). Loads the real `sim.js` so VALIDATE uses the same `step()`/`preview()`; exports/imports descriptors |
+| `editor.html` + `js/editor.js` | **Local-only** visual level editor (committed, but excluded from the Pages deploy by the whitelist workflow; origin-gated). Loads the real `sim.js` so VALIDATE uses the same `step()`/`preview()`; exports/imports descriptors |
+| `.github/workflows/pages.yml` | Pages deploy (build_type=workflow): publishes a **game-only** whitelist (index/style/test, `js/` minus editor, `levels/`); editor never ships |
 
 Adding a tower = drop `levels/tower-N.js` + one `<script>` tag (or author it in the local editor);
 adding a mechanic = a new type flag + a branch in `sim`/`render`. Game modes can wrap the same sim later.

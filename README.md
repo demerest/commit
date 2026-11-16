@@ -60,8 +60,9 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   `3` ice). `js/levels.js` is just the loader/engine. Adding a tower = drop a descriptor + one
   `<script>` tag. Format spec: `COMMIT_LEVELS.md` §0.
 - **Local level editor.** `editor.html` is a dev-only visual editor (drag/resize/type platforms,
-  ceilings, goal, notes; live solver validation; export/import descriptors). It is gitignored and
-  origin-gated, so it never ships to the public site — open it locally to author towers.
+  ceilings, goal, notes; live solver validation; export/import descriptors). It is committed for
+  development but **excluded from the Pages deploy** (`.github/workflows/pages.yml` publishes a
+  game-only whitelist) and origin-gated, so it never ships to the public site.
 - **The Commit Contract:** preview ≡ simulation, pixel-exact, including wall hits, ceiling
   bonks and bounce hops (green/ice ring = landing, red ✕ = strike, teal ring = bounce).
 - **Honest failure economy:** falls ≥ 25 m flash red and float a `−Xm` popup; your last
@@ -84,9 +85,10 @@ from `file://` (classic scripts + stylesheet, no modules).
 ### Level editor (local only)
 
 Open `editor.html` locally (double-click, or serve the folder and visit `/editor.html`). It is
-**not deployed** — gitignored and gated to `file://`/localhost. Pick a tower or import a
-descriptor, edit visually, **VALIDATE** (real-integrator solver + design invariants), then
-**EXPORT** a `tower-N.js` to drop into `levels/` (and add a `<script>` tag in `index.html`).
+committed but **not deployed** — the Pages workflow publishes only the game, and the editor is
+gated to `file://`/localhost. Pick a tower or import a descriptor, edit visually, **VALIDATE**
+(real-integrator solver + design invariants), then **EXPORT** a `tower-N.js` to drop into
+`levels/` (and add a `<script>` tag in `index.html`).
 
 ## Verification
 
