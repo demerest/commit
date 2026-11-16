@@ -1,17 +1,18 @@
-# COMMIT — Level Design & Geometry (v2)
+# COMMIT — Level Design & Geometry (v2.1 · two towers)
 **Companion to `COMMIT_GDD.md` · All coordinates in logical px · y-up · 10 px = 1 m**
+**Source of truth: `js/levels.js` (data). This doc explains the math and intent.**
 
 ## 1. Conventions
 
 - Platforms are authored as `[x, topY, width, type]`; the solid rect is `{x, y: topY−16, w, h: 16}`.
-- **Type:** `N` solid · `C` crumble (breaks after `CRUMBLE_TIME = 1.6 s` of standing) · `B` bounce
-  (auto-launches you upward at `BOUNCE_V = 800 px/s`, keeping `vx`).
+- **Type:** `0/N` solid · `1/C` crumble (breaks after `CRUMBLE_TIME = 1.6 s`) · `2/B` bounce
+  (auto-launch at `BOUNCE_V = 800 px/s`, keeping `vx`) · `3/I` **ice** (drift, see §2).
 - Character is an 18×18 AABB; `body.y` is its feet.
 - Bounds: floor top at `y=0` (full width), solid walls at `x<0` and `x>480`.
 - Ceilings are 16 px-thick solids; their **underside** is the bonk surface.
-- Goal: `[180, 5080, 120]`, flagged `goal: true`. Landing on it wins.
-- Crumbled platforms reform after `RESPAWN_TIME = 3.0 s` (a dashed ghost + filling teal edge
-  counts down), so a broken stepping-stone never softlocks the climb; reset/erase rebuilds instantly.
+- Goal per tower: T1 `[180, 5080, 120]`, T2 `[240, 5600, 120]`, flagged `goal: true`.
+- Crumbled platforms reform after `RESPAWN_TIME = 3.0 s`; reset/erase rebuilds instantly.
+- Each tower = one `LEVELS` entry `{id,name,tag,summit,goal,plats,ceil,sections,notes}`.
 
 ## 2. Reachability Math (used to verify every gap)
 
@@ -34,6 +35,20 @@ relaunches at `vy 800`, carrying `vx` to `C`.
 **Ceiling lesson (III):** from rest 24 (top 3220, x 340–390) to rest 25 (top 3360, x 150–204),
 ceiling underside 3364 spanning x 300–480. A flat leftward arc (`vy≈820, vx≈−380`, 95%) exits
 x<300 with ~26 px clearance before the top reaches 3364; a steep "panic" arc bonks.
+
+**No vertical stacks.** A platform directly above another (overlapping x) is *unreachable*:
+rising into it from below bonks its underside. Consecutive platforms must alternate sides with
+enough `dx` (~120–210 px at dy 140) to arc around and descend onto the top. The solver rejects
+same-x stacks; this is why T2 is a strict zig-zag.
+
+**Bounce chains keep one horizontal direction.** Bounce preserves `vx`, so `A→B→C` must be
+monotonic in x (all leftward or all rightward). A chain that reverses direction is impossible.
+
+**Ice drift math.** On landing with horizontal speed `vx`, drift dir = sign(`vx`); speed ramps
+0→`ICE_V` (42) over `ICE_RAMP` (0.5 s) then holds. Time-to-edge from a landing ≈
+`(edgeDistance − ~10px ramp) / 42 + 0.5`. A centre landing on an 80 px ice gives ~1.2 s to
+commit — enough to aim, not enough to dawdle. Straight-down (`vx=0`) landings never drift, the
+fair counter. Ice widths in T2 are ≥ 40 (gates) to 110 (teachers) to keep that window honest.
 
 ## 3. Geometry — Section I · First Steps (0–168 m)
 
@@ -107,8 +122,10 @@ purpose — the last emotion should be relief, not a coin flip.
 2. Landing tolerance `(w+18)/2 ≥ 23 px` (width floor 28).
 3. Ceiling clearance ≥ 15 px at the reference solution; verify with the §2 formulas.
 4. A mandatory spring's downstream rest must sit > 205 px above its upstream rest (forces the bounce).
-5. Target visible from the launch pad; never a blind jump, frame-perfect input, or RNG.
-6. Re-run the `test.html` solver after any edit — it proves all 36 rest-to-rest jumps solvable.
+5. **Alternate sides** — never stack a platform directly above its predecessor (§2).
+6. **Bounce chains monotonic in x** (§2); an ice rest after a spring must be wide enough to commit (~1 s).
+7. Target visible from the launch pad; never a blind jump, frame-perfect input, or RNG.
+8. Re-run the `test.html` solver after any edit — it proves all 36 T1 + 40 T2 rest-to-rest jumps solvable.
 
 ## 9. Tower Sketch
 
@@ -124,3 +141,42 @@ purpose — the last emotion should be relief, not a coin flip.
       ▄▄▄▄        ▄▄▄▄▄              I · 100–150px + first crumble ░░
   0m  ████████████████████  FLOOR
 ```
+
+## 10. Tower 2 · The Ice Ascent (560 m) — full geometry
+
+Strict zig-zag; ice `I` introduced at #5 and recurring. 40 platforms + summit, 3 ceilings,
+1 mandatory bounce chain (26→27→28) that lands you on ice already sliding.
+
+| # | x | top | w | type | | # | x | top | w | type |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 70 | 120 | 140 | N | | 21 | 120 | 2880 | 60 | N |
+| 2 | 280 | 250 | 140 | N | | 22 | 300 | 3020 | 60 | **I** |
+| 3 | 100 | 380 | 130 | N | | 23 | 120 | 3160 | 56 | N |
+| 4 | 290 | 510 | 120 | N | | 24 | 300 | 3300 | 52 | N |
+| 5 | 120 | 640 | 110 | **I** | | 25 | 120 | 3440 | 52 | **I** |
+| 6 | 300 | 780 | 110 | N | | 26 | 300 | 3580 | 48 | **C** |
+| 7 | 140 | 920 | 100 | **I** | | 27 | 120 | 3720 | 56 | N (A) |
+| 8 | 320 | 1060 | 100 | N | | 28 | 240 | 3830 | 56 | **B** |
+| 9 | 160 | 1200 | 96 | **C** | | 29 | 360 | 3950 | 80 | **I** (C) |
+| 10 | 300 | 1340 | 100 | N | | 30 | 200 | 4090 | 48 | N |
+| 11 | 120 | 1480 | 90 | N | | 31 | 320 | 4230 | 44 | **I** |
+| 12 | 300 | 1620 | 80 | **I** | | 32 | 140 | 4370 | 40 | N |
+| 13 | 120 | 1760 | 76 | N | | 33 | 320 | 4510 | 40 | **C** |
+| 14 | 300 | 1900 | 76 | **I** | | 34 | 160 | 4650 | 44 | N |
+| 15 | 120 | 2040 | 72 | **I** | | 35 | 300 | 4790 | 44 | **I** |
+| 16 | 280 | 2180 | 70 | N | | 36 | 120 | 4930 | 40 | N |
+| 17 | 80 | 2320 | 76 | N | | 37 | 320 | 5070 | 36 | N |
+| 18 | 260 | 2460 | 72 | **I** | | 38 | 160 | 5210 | 36 | **C** |
+| 19 | 120 | 2600 | 64 | N | | 39 | 330 | 5350 | 40 | **I** |
+| 20 | 300 | 2740 | 64 | **C** | | 40 | 180 | 5480 | 36 | N |
+| | | | | | | **GOAL** | 240 | 5600 | 120 | |
+
+Ceilings: `[280,2300,200]` (over ice-adjacent pad 16, exit left), `[280,3140,200]` (pad 22 ice,
+exit left), `[300,4910,180]` (pad 35 ice, exit left). Each forces a flat arc off a sliding or
+narrow pad — the "commit fast" lesson under a bonk threat.
+
+Bounce chain: 27 (A, 3720) → 28 (spring, 3830) → 29 (C ice, 3950; 230 px above A). All rightward;
+the spring carries `vx` onto wide ice (80 px) so you land drifting and must commit within ~1 s.
+
+The summit is offset to x 240 (right of pad 40) so the final arc is a genuine left-to-right
+decision, not a vertical hop.

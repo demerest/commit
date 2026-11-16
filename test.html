@@ -12,7 +12,7 @@ h1{font-size:14px;letter-spacing:.1em;margin:0 0 8px}
 </style>
 </head>
 <body>
-<div><h1>COMMIT · VERIFICATION (v2)</h1><div id="out">running…</div></div>
+<div><h1>COMMIT · VERIFICATION (v3 · two towers)</h1><div id="out">running…</div></div>
 <iframe id="f" src="index.html"></iframe>
 <script>
 "use strict";
@@ -36,7 +36,7 @@ const xs=[from[0]+from[2]/2-CHH/2,from[0]+1,from[0]+from[2]-CHH-1];
 for(const bx of xs){
 C.setBody(bx,from[1]);
 const tc=to[0]+to[2]/2,bc=bx+CHH/2;
-const lo=tc>=bc?8:92,hi=tc>=bc?88:172;
+const lo=Math.min(tc>=bc?8:92,90),hi=Math.max(tc>=bc?88:172,90);
 for(let ang=lo;ang<=hi;ang+=2){
 const rad=ang*Math.PI/180;
 for(let pw=.30;pw<=.981;pw+=.02){
@@ -46,6 +46,19 @@ if(pr.mark&&pr.mark.ok&&pr.mark.y===to[1]&&pr.mark.x>to[0]-CHH/2&&pr.mark.x<to[0
 return{bx,vx,vy,contacts:pr.contacts};
 }}}
 return null;}
+function solveTower(C,label){
+const rests=C.P.filter(p=>p[3]!==2);
+const sources=[[0,0,480,0]].concat(rests);
+const targets=rests.concat([[C.GOAL.x,C.C.SUMMIT,C.GOAL.w,0,true]]);
+let solved=0,maxPw=0;const fails=[];
+for(let i=0;i<targets.length;i++){
+const sol=findLaunch(C,sources[i],targets[i]);
+if(sol){solved++;maxPw=Math.max(maxPw,Math.round(Math.hypot(sol.vx,sol.vy)/C.C.MAXV*100));}
+else fails.push("jump"+(i+1));
+}
+ok(label+": all "+targets.length+" jumps solvable at ≤98% power",fails.length===0,
+"solved "+solved+"/"+targets.length+" · hardest "+maxPw+"%"+(fails.length?" · UNSOLVED: "+fails.join(","):""));
+return fails.length===0;}
 async function main(){
 const f=document.getElementById("f");
 await new Promise(r=>{if(f.contentWindow&&f.contentDocument&&f.contentDocument.readyState==="complete"&&f.contentWindow.__COMMIT__)r();else f.addEventListener("load",r,{once:true});});
@@ -61,7 +74,10 @@ const RM=C.RM;
 
 /* 1 · boot */
 ok("boot: help overlay on first run",C.overlayOpen==="help"&&!d.getElementById("help").hidden);
-ok("boot: ready at 0m",C.state==="ready"&&C.body.y===0);
+ok("boot: ready at 0m on tower 1",C.state==="ready"&&C.body.y===0&&C.level===1);
+ok("tower 2 locked at start",C.life.unlocked===1);
+C.setLevel(2);
+ok("locked tower cannot be entered",C.level===1);
 C.closeOv();
 ok("boot: begin closes help, seen persisted",C.overlayOpen===null&&C.life.seen===true);
 for(let i=0;i<150;i++)tick(16.7);
@@ -73,7 +89,7 @@ ok("pointerdown starts aim + fuse",C.state==="aim"&&C.aim&&C.aim.mode==="p"&&C.a
 ptr(w,d,"pointermove",245,595);ptr(w,d,"pointerup",245,595);
 ok("weak drag (<90px/s) cancels, no launch",C.state==="ready"&&C.run.launches===0);
 
-/* 3 · commit contract: preview ≡ flight */
+/* 3 · commit contract */
 ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",340,500);
 const pr=C.preview({x:320,y:320});
 ok("preview yields arc + landing mark",pr.pts.length>10&&pr.mark&&pr.mark.ok);
@@ -81,8 +97,7 @@ ptr(w,d,"pointerup",340,500);
 ok("release above threshold commits",C.state==="flight"&&C.run.launches===1);
 settle();
 ok("preview contacts ≡ flight contacts (pixel-exact)",
-JSON.stringify(C.flightContacts)===JSON.stringify(pr.contacts),
-JSON.stringify(C.flightContacts)+" vs "+JSON.stringify(pr.contacts));
+JSON.stringify(C.flightContacts)===JSON.stringify(pr.contacts));
 ok("trail lingers after landing",C.trail.length>0);
 
 /* 4 · off-canvas release */
@@ -90,7 +105,7 @@ ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",700,300);ptr(w,d,"pointerup
 ok("off-canvas release still commits",C.state==="flight"&&C.run.launches===2);
 settle();
 
-/* 5 · aim fuse auto-launch */
+/* 5 · aim fuse */
 C.resetRun();
 ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",340,500);
 for(let i=0;i<230;i++)tick(16.7);
@@ -102,7 +117,7 @@ for(let i=0;i<230;i++)tick(16.7);
 ok("weak fuse cancels without launch",C.state==="ready"&&C.run.launches===0);
 ptr(w,d,"pointerup",240,600);
 
-/* 6 · ceiling bonk contract */
+/* 6 · ceiling bonk */
 C.setBody(176,2280);
 const prb=C.preview({x:60,y:830});
 ok("steep arc under ceiling previews red ✕",prb.mark&&!prb.mark.ok);
@@ -110,7 +125,7 @@ C.launch({x:60,y:830});settle();
 ok("bonk contact pixel-exact, then honest fall",
 C.flightContact&&C.flightContact.t==="bonk"&&C.flightContact.x===prb.mark.x&&C.flightContact.y===prb.mark.y&&C.state==="ready");
 
-/* 7 · crumble */
+/* 7 · crumble + reform */
 C.resetRun();
 const cr=C.P[8];
 C.setBody(cr[0]+cr[2]/2-9,cr[1]);
@@ -128,7 +143,7 @@ C.setBody(cr[0]+cr[2]/2-9,cr[1]);
 C.launch({x:0,y:400});settle();
 ok("launching before dwell keeps platform intact",C.PLATS[8].dead===false);
 
-/* 8 · bounce chain: preview ≡ flight, shown in arc */
+/* 8 · bounce chain */
 C.resetRun();
 const restA=[140,2490,80,0],restC=[400,2720,72,0];
 const bs=findLaunch(C,restA,restC);
@@ -138,8 +153,7 @@ ok("bounce chain arc previews a bounce hop",bs.contacts.some(c=>c.t==="bounce"))
 C.setBody(bs.bx,restA[1]);
 const prc=C.preview({x:bs.vx,y:bs.vy});
 C.launch({x:bs.vx,y:bs.vy});settle();
-ok("bounce flight contacts ≡ preview (pixel-exact)",JSON.stringify(C.flightContacts)===JSON.stringify(prc.contacts),
-JSON.stringify(C.flightContacts));
+ok("bounce flight contacts ≡ preview (pixel-exact)",JSON.stringify(C.flightContacts)===JSON.stringify(prc.contacts));
 ok("bounce chain ends grounded on target",C.state==="ready"&&Math.abs(C.body.y-restC[1])<1);
 ok("direct A→C impossible (spring required)",restC[1]-restA[1]>C.C.MAXV*C.C.MAXV/(2*C.C.G));
 }
@@ -169,7 +183,7 @@ key(w," ");
 ok("second space commits",C.state==="flight"&&C.run.launches===1);
 settle();
 
-/* 11 · overlays pause sim + timer */
+/* 11 · overlays pause */
 const t0=C.run.time;
 key(w,"h");
 ok("H opens help",C.overlayOpen==="help");
@@ -182,29 +196,29 @@ ok("R opens erase confirm",C.overlayOpen==="confirm");
 d.getElementById("bNo").click();
 ok("keep climbing dismisses confirm",C.overlayOpen===null&&C.run.launches===1);
 
-/* 12 · persistence v2: grounded-only, validated, dead platforms */
+/* 12 · persistence v3 */
 const sp={x:C.safePos.x,y:C.safePos.y};
-const stored=JSON.parse(w.localStorage.getItem("commit.v2"));
-ok("landing persists grounded position + stats",stored.x===sp.x&&stored.y===sp.y&&stored.run.launches===C.run.launches);
+const stored=JSON.parse(w.localStorage.getItem("commit.v3"));
+ok("landing persists grounded pos + stats (v3)",stored.runs[1].x===sp.x&&stored.runs[1].y===sp.y&&stored.runs[1].launches===C.run.launches);
 C.body.x=100;C.body.y=3000;C.save();
-const stored2=JSON.parse(w.localStorage.getItem("commit.v2"));
-ok("airborne position never persisted",stored2.x===sp.x&&stored2.y===sp.y);
+const stored2=JSON.parse(w.localStorage.getItem("commit.v3"));
+ok("airborne position never persisted",stored2.runs[1].x===sp.x&&stored2.runs[1].y===sp.y);
 C.load();
 ok("resume returns to last grounded spot",C.body.x===sp.x&&C.body.y===sp.y);
-w.localStorage.setItem("commit.v2",JSON.stringify({x:9999,y:-5,run:{launches:-3,time:"x",dead:[999,-1,"a"]},life:{best:-1,summits:-2,bestTime:-5}}));
+w.localStorage.setItem("commit.v3",JSON.stringify({level:1,runs:{1:{x:9999,y:-5,launches:-3,time:"x",dead:[999,-1,"a"]}},life:{best:{1:-1},summits:{1:-2},bestTime:{1:-5}}}));
 C.load();
-ok("corrupt save sanitized",C.body.y>=0&&C.run.launches>=0&&C.life.best>=0&&C.life.summits>=0&&C.life.bestTime===null&&C.run.dead.length===0);
-w.localStorage.setItem("commit.v2",JSON.stringify(stored));C.load();
+ok("corrupt v3 save sanitized",C.body.y>=0&&C.run.launches>=0&&C.life.best[1]>=0&&C.life.summits[1]>=0&&C.life.bestTime[1]===null&&C.run.dead.length===0);
+w.localStorage.setItem("commit.v3",JSON.stringify(stored));C.load();
 
 /* 13 · erase keeps lifetime */
-const bestBefore=C.life.best;
+const bestBefore=C.life.best[1];
 ok("lifetime best recorded",bestBefore>0);
 d.getElementById("bReset").click();
 ok("↺ asks confirmation",C.overlayOpen==="confirm");
 d.getElementById("bYes").click();
-ok("erase zeroes run, lifetime survives",C.run.launches===0&&C.run.falls===0&&C.run.time===0&&C.body.y===0&&C.life.best===bestBefore&&C.overlayOpen===null);
+ok("erase zeroes run, lifetime survives",C.run.launches===0&&C.run.falls===0&&C.run.time===0&&C.body.y===0&&C.life.best[1]===bestBefore&&C.overlayOpen===null);
 
-/* 14 · multi-pointer + particle caps */
+/* 14 · multi-pointer + caps */
 ptr(w,d,"pointerdown",100,500,1);ptr(w,d,"pointerdown",300,400,2);
 ok("only first pointer aims",C.aim&&C.aim.id===1&&C.aim.ox===100);
 ptr(w,d,"pointermove",320,420,2);
@@ -245,23 +259,24 @@ ok("♪ button mutes + persists + shows state",C.snd.on===false&&bS.getAttribute
 key(w,"m");
 ok("M unmutes + persists",C.snd.on===true&&w.localStorage.getItem("commit.snd")==="true"&&bS.getAttribute("aria-pressed")==="true");
 
-/* 18 · altitude palette shifts */
+/* 18 · altitude palette */
 const s0=C.skyAt(0)[0],s1=C.skyAt(1)[0];
 const skyDist=Math.abs(s0[0]-s1[0])+Math.abs(s0[1]-s1[1])+Math.abs(s0[2]-s1[2]);
 ok("sky palette differs floor vs summit",skyDist>60,"Δrgb="+Math.round(skyDist));
 
-/* 19 · summit */
+/* 19 · summit + unlock */
 C.resetRun();
 C.setBody(339,4980);
 const prw=C.preview({x:-200,y:760});
-ok("final jump previews goal landing",prw.mark&&prw.mark.ok&&prw.mark.goal,JSON.stringify(prw.mark));
-const summitsBefore=C.life.summits;
+ok("final jump previews goal landing",prw.mark&&prw.mark.ok&&prw.mark.goal);
+const summitsBefore=C.life.summits[1]||0;
 C.launch({x:-200,y:760});settle();
 ok("landing on summit wins",C.state==="win"&&C.overlayOpen==="win"&&!d.getElementById("win").hidden);
-ok("win stats + share text populated",d.getElementById("wTime").textContent!=="—"&&d.getElementById("share").value.indexOf("508m")>=0);
-ok("lifetime summits increment",C.life.summits===summitsBefore+1);
+ok("win stats + share text populated",d.getElementById("wTime").textContent!=="—"&&d.getElementById("share").value.indexOf("508m")>=0&&d.getElementById("share").value.indexOf("TOWER 1")>=0);
+ok("lifetime summits increment",C.life.summits[1]===summitsBefore+1);
+ok("summit unlocks tower 2 + NEXT shown",C.life.unlocked===2&&!d.getElementById("bNext").hidden&&!d.getElementById("winUnlock").hidden);
 ok(RM?"reduced motion: confetti skipped":"confetti fires (90)",RM?C.confetti.length===0:C.confetti.length===90);
-ok("best time recorded",C.life.bestTime!=null&&C.life.bestTime>=0);
+ok("best time recorded",C.life.bestTime[1]!=null&&C.life.bestTime[1]>=0);
 
 /* 20 · climb again */
 d.getElementById("bAgain").click();
@@ -270,22 +285,82 @@ for(let i=0;i<120;i++)tick(16.7);
 ok("loop stable after restart",C.state==="ready"&&C.body.y===0);
 
 /* 21 · zero network */
-const res=w.performance.getEntriesByType("resource").filter(r=>/^https?:/.test(r.name)&&!/game\.js|style\.css/.test(r.name));
+const res=w.performance.getEntriesByType("resource").filter(r=>/^https?:/.test(r.name)&&!/\/js\/|style\.css/.test(r.name));
 ok("no external network requests",res.length===0,res.map(r=>r.name).join(","));
 
-/* 22 · every mandatory jump solvable ≤98% power (rest-to-rest, bounces allowed) */
-const rests=C.P.filter(p=>p[3]!==2);
-const sources=[[0,0,480,0]].concat(rests);
-const targets=rests.concat([[180,5080,120,0,true]]);
-let solved=0,maxPw=0;const fails=[];
-for(let i=0;i<targets.length;i++){
-const sol=findLaunch(C,sources[i],targets[i]);
-if(sol){solved++;maxPw=Math.max(maxPw,Math.round(Math.hypot(sol.vx,sol.vy)/C.C.MAXV*100));}
-else fails.push("jump"+(i+1));
-}
-ok("all "+targets.length+" jumps solvable at ≤98% power",fails.length===0,
-"solved "+solved+"/"+targets.length+" · hardest launch "+maxPw+"%"+(fails.length?" · UNSOLVED: "+fails.join(","):""));
+/* 22 · tower 1 solver */
+solveTower(C,"T1");
 C.resetRun();
+
+/* 23 · level switching */
+key(w,"h");
+ok("tower picker lists both towers",d.getElementById("towers").children.length===2);
+ok("tower 2 button enabled after unlock",!d.getElementById("towers").children[1].disabled);
+key(w,"Escape");
+C.setLevel(2);
+ok("switch to tower 2 (560m)",C.level===2&&C.C.SUMMIT===5600&&C.body.y===0);
+ok("tower tag updated",d.getElementById("towerTag").textContent.indexOf("TOWER 2")===0);
+ok("tower 2 has ice platforms",C.P.some(p=>p[3]===3));
+C.setLevel(1);
+ok("switch back to tower 1 restores its run",C.level===1&&C.C.SUMMIT===5080);
+C.setLevel(2);
+
+/* 24 · ice mechanics (tower 2) */
+C.resetRun();
+const ice=C.P[4],srcI=C.P[3];
+const is=findLaunch(C,srcI,ice);
+ok("ice landing is solvable",!!is);
+if(is){
+C.setBody(is.bx,srcI[1]);
+C.launch({x:is.vx,y:is.vy});settle();
+ok("landing on ice sets slide = entry direction",C.body.on&&C.body.on.ice===true&&C.body.slide===(is.vx>0?1:-1));
+const x0=C.body.x;
+for(let i=0;i<30;i++)tick(16.7);
+ok("ice drifts you slowly (slide moves x)",C.body.x!==x0&&C.state==="ready");
+const x1=C.body.x;
+C.launch({x:0,y:400});
+ok("launch from ice discards slide (contract)",C.body.slide===0&&C.state==="flight");
+settle();
+}
+C.resetRun();
+C.setBody(ice[0]+ice[2]/2-9,ice[1]);
+const xv=C.body.x;
+for(let i=0;i<60;i++)tick(16.7);
+ok("straight-down landing stands still on ice",C.body.slide===0&&C.body.x===xv&&C.state==="ready");
+const iw=findLaunch(C,srcI,ice);
+if(iw){
+C.setBody(iw.bx,srcI[1]);C.launch({x:iw.vx,y:iw.vy});settle();
+for(let i=0;i<240;i++)tick(16.7);
+ok("sliding off the edge drops you honestly",C.body.y<ice[1]);
+settle();
+ok("walk-off lands below (no teleport)",C.state==="ready"&&C.body.y<ice[1]);
+}
+C.resetRun();
+const ip=findLaunch(C,srcI,ice);
+if(ip){
+C.setBody(ip.bx,srcI[1]);C.launch({x:ip.vx,y:ip.vy});settle();
+C.save();
+const stI=JSON.parse(w.localStorage.getItem("commit.v3"));
+ok("slide direction persisted",stI.runs[2].slide===C.body.slide&&C.body.slide!==0);
+C.load();
+ok("resume on ice restores slide",C.body.slide===stI.runs[2].slide&&C.body.on&&C.body.on.ice===true);
+}
+C.resetRun();
+
+/* 25 · tower 2 solver */
+solveTower(C,"T2");
+C.resetRun();
+
+/* 26 · tower 2 summit */
+const fin=findLaunch(C,C.P[39],[C.GOAL.x,C.C.SUMMIT,C.GOAL.w,0,true]);
+ok("T2 final jump previews goal",!!fin&&fin.contacts[fin.contacts.length-1].goal);
+const sb2=C.life.summits[2]||0;
+if(fin){C.setBody(fin.bx,C.P[39][1]);C.launch({x:fin.vx,y:fin.vy});}
+settle();
+ok("T2 summit wins",C.state==="win"&&C.life.summits[2]===sb2+1);
+ok("T2 share text uses 560m",d.getElementById("share").value.indexOf("560m")>=0);
+ok("last tower hides NEXT",d.getElementById("bNext").hidden);
+C.closeOv();
 
 ok("no runtime errors during suite",errs.length===0,errs.join(" | "));
 out.innerHTML+="\n\n"+(RM?"MODE: prefers-reduced-motion":"MODE: standard")+" · DONE";

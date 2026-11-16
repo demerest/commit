@@ -1,0 +1,95 @@
+/* COMMIT — simulation. The Commit Contract: preview() and flight share step(), pixel-exact.
+   Ice rule: landing drifts you the way you came in (sign of vx); a straight-down landing stands still. */
+"use strict";
+const body={x:VW/2-CH/2,y:0,vx:0,vy:0,grounded:true,on:null,slide:0,slideT:0};
+let state="ready",aim=null;const kb={a:65,p:.6};
+let run={launches:0,falls:0,biggest:0,time:0,started:false,dead:[],slide:0};
+let launchY=0,bounceChain=0,crumbleT=0,crumbleStage=0,aimT=AIM_TIME,lastTickSec=99,idleT=0,stepN=0;
+const flightContacts=[];
+function findGround(x,y){for(const s of SOLIDS){if(s.dead||s.wall)continue;
+if(Math.abs((s.y+s.h)-y)<.6&&x<s.x+s.w&&x+CH>s.x)return s;}return null;}
+/* ---------- physics (shared by flight and preview) ---------- */
+function hit(b,s){return b.x<s.x+s.w&&b.x+CH>s.x&&b.y<s.y+s.h&&b.y+CH>s.y}
+function step(b){b.vy-=G*DT;if(b.vy<VFALL)b.vy=VFALL;let ev=null;
+b.x+=b.vx*DT;
+for(const s of SOLIDS){if(s.dead)continue;if(hit(b,s)){
+if(b.vx>0)b.x=s.x-CH;else if(b.vx<0)b.x=s.x+s.w;
+if(b.vx!==0){b.vx=0;ev={t:"wall",x:b.x+CH/2,y:b.y+CH/2};}}}
+b.y+=b.vy*DT;b.grounded=false;
+for(const s of SOLIDS){if(s.dead)continue;if(hit(b,s)){
+if(b.vy<=0){b.y=s.y+s.h;
+if(s.bounce){b.vy=BOUNCE_V;ev={t:"bounce",s,x:b.x+CH/2,y:b.y};}
+else{b.vy=0;b.grounded=true;ev={t:"land",s};}}
+else{b.y=s.y-CH;b.vy=0;ev={t:"bonk",x:b.x+CH/2,y:b.y+CH};}}}
+return ev;}
+function contactOf(b,ev){return{x:b.x+CH/2,y:b.y+(ev.t==="land"||ev.t==="bounce"?0:CH/2),t:ev.t,ok:ev.t==="land",goal:!!(ev.s&&ev.s.goal)};}
+function preview(v){const b={x:body.x,y:body.y,vx:v.x,vy:v.y,grounded:false};
+const pts=[],contacts=[];let mark=null;
+for(let i=0;i<900;i++){const ev=step(b);
+if(i%3===0)pts.push({x:b.x+CH/2,y:b.y+CH/2});
+if(ev){const c=contactOf(b,ev);contacts.push(c);mark=c;if(ev.t!=="bounce")break;}
+if(b.y<-80)break;}
+return{pts,contacts,mark};}
+/* ---------- aiming ---------- */
+function aimV(){if(!aim)return null;let vx,vy;
+if(aim.mode==="p"){vx=(aim.cx-aim.ox)*KDRAG;vy=(aim.oy-aim.cy)*KDRAG;}
+else{const a=kb.a*Math.PI/180;vx=Math.cos(a)*kb.p*MAXV;vy=Math.sin(a)*kb.p*MAXV;}
+const m=Math.hypot(vx,vy);if(m>MAXV){vx*=MAXV/m;vy*=MAXV/m;}
+return{x:vx,y:vy,m:Math.min(m,MAXV)};}
+function beginAim(){aimT=AIM_TIME;lastTickSec=99;}
+function launch(v){body.vx=v.x;body.vy=v.y;body.grounded=false;body.on=null;body.slide=0;body.slideT=0;
+state="flight";aim=null;launchY=body.y;trail.length=0;launchT=.18;flightContacts.length=0;bounceChain=0;
+run.launches++;life.launches++;run.started=true;idleT=0;stopHum();stopSlide();
+spawnDust(body.x+CH/2,body.y,6,COL.dim);sfx("launch");}
+function simStep(){if(state!=="flight")return;
+const pv=body.vy,pvx=body.vx,ev=step(body);stepN++;
+if(stepN%2===0){trail.push({x:body.x+CH/2,y:body.y+CH/2});if(trail.length>22)trail.shift();}
+if(!ev)return;
+flightContacts.push(contactOf(body,ev));
+if(ev.t==="bounce"){bounceChain++;ev.s.bounceT=.18;launchT=.14;
+spawnDust(ev.x,ev.y,RM?5:10,COL.spring);sfx("bounce",{chain:bounceChain});if(!RM)shake=Math.max(shake,3.5);return;}
+if(ev.t==="land"){const impact=Math.abs(pv);
+body.vx=0;body.vy=0;state="ready";landT=.18;body.on=ev.s;crumbleT=0;crumbleStage=0;bounceChain=0;
+body.slide=ev.s.ice?(pvx>0?1:pvx<0?-1:0):0;body.slideT=0;run.slide=body.slide;
+if(ev.s.ice){sfx("ice",{impact});spawnSpray(body.x+CH/2,body.y,body.slide||1);if(body.slide)startSlide();}
+else{spawnDust(body.x+CH/2,body.y,Math.min(16,4+impact/120),COL.dim);sfx("land",{impact});}
+if(impact>650&&!RM)shake=Math.min(11,(impact-650)/80);
+const drop=launchY-body.y;
+if(drop>FALL_MIN){run.falls++;life.falls++;run.biggest=Math.max(run.biggest,drop);
+flash=Math.min(.45,drop/1600);sfx("fall");
+floats.push({x:body.x+CH/2,y:body.y+30,txt:"−"+(drop/10).toFixed(0)+"m",c:COL.red,t:0});}
+life.best[level]=Math.max(life.best[level]||0,body.y);safePos.x=body.x;safePos.y=body.y;save();
+if(ev.s.goal)win();}
+else{spawnDust(ev.x,ev.y,4,ev.t==="bonk"?COL.amber:COL.dim);sfx(ev.t==="bonk"?"bonk":"wall");if(!RM)shake=Math.max(shake,2.5);}}
+/* ---------- crumble ---------- */
+function breakPlatform(s){s.dead=true;s.respawnT=RESPAWN_TIME;if(run.dead.indexOf(s.idx)<0)run.dead.push(s.idx);
+spawnShards(s);sfx("shatter");if(!RM)shake=Math.max(shake,9);
+if(body.on===s){body.on=null;body.vx=0;body.vy=0;body.grounded=false;body.slide=0;body.slideT=0;
+state="flight";aim=null;stopHum();stopSlide();launchY=body.y;flightContacts.length=0;trail.length=0;bounceChain=0;}
+crumbleT=0;crumbleStage=0;save();}
+function updateCrumble(dt){const s=body.on;
+if((state==="ready"||state==="aim")&&s&&s.crumble&&!s.dead){
+crumbleT+=dt;const p=crumbleT/CRUMBLE_TIME;
+const stage=p>=.82?3:p>=.55?2:p>=.28?1:0;
+if(stage>crumbleStage){crumbleStage=stage;sfx("crack",{stage});}
+if(p>.25&&Math.random()<dt*p*26)spawnDust(s.x+Math.random()*s.w,s.y+s.h,1,COL.amber);
+if(crumbleT>=CRUMBLE_TIME)breakPlatform(s);}}
+/* cracked platforms reform after a cooldown so the climb is never permanently blocked */
+function updateRespawn(dt){let changed=false;
+for(const s of PLATS){if(s.dead&&s.crumble&&s.respawnT>0){
+s.respawnT-=dt;
+if(s.respawnT<=0){s.respawnT=0;s.dead=false;
+const k=run.dead.indexOf(s.idx);if(k>=0)run.dead.splice(k,1);
+spawnDust(s.x+s.w/2,s.y+s.h,RM?4:8,COL.spring);sfx("reform");changed=true;}}}
+if(changed)save();}
+/* ---------- ice: slow drift away from the side you entered from ---------- */
+function updateIce(dt){const s=body.on;
+if((state==="ready"||state==="aim")&&s&&s.ice&&!s.dead&&body.slide!==0){
+body.slideT=Math.min(ICE_RAMP,body.slideT+dt);
+const v=ICE_V*clamp01(body.slideT/ICE_RAMP);
+body.x+=body.slide*v*dt;
+if(Math.random()<dt*14)spawnSpray(body.x+CH/2-body.slide*CH/2,body.y,body.slide);
+if(body.x+CH<=s.x||body.x>=s.x+s.w){
+body.on=null;body.grounded=false;body.vx=body.slide*v;body.vy=0;body.slide=0;body.slideT=0;
+state="flight";aim=null;stopHum();stopSlide();launchY=body.y;flightContacts.length=0;trail.length=0;bounceChain=0;
+sfx("slip");save();}}}

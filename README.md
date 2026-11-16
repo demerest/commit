@@ -5,11 +5,23 @@ Draw an arc, release, and live with exactly what you drew.
 
 ▶ **Play: <https://demerest.github.io/commit/>**
 
-A minimalist precision rage-platformer. Climb 508 meters of shrinking platforms, amber
-ceilings, crumbling ledges and bounce springs. The dotted preview is simulated by the *same
-integrator* as the real flight — what you see is, to the pixel, what you get, including every
-bounce hop. Release is irreversible. Miss, and you fall for real: no death, no respawn, no
-checkpoints. The only punishment is gravity, and it is always enough.
+A minimalist precision rage-platformer. Climb shrinking platforms, amber ceilings, crumbling
+ledges, bounce springs — and, from Tower 2, slick ice that slides you the way you came in.
+The dotted preview is simulated by the *same integrator* as the real flight — what you see is,
+to the pixel, what you get, including every bounce hop. Release is irreversible. Miss, and you
+fall for real: no death, no respawn, no checkpoints. The only punishment is gravity, and it is
+always enough.
+
+## Towers
+
+| # | Name | Summit | Introduces |
+|---|---|---|---|
+| 1 | First Ascent | 508 m | drag/commit, fuse, crumble, bounce, ceilings |
+| 2 | The Ice Ascent | 560 m | **ice** — slow drift away from the side you entered from |
+
+Clearing a tower's summit unlocks the next. Switch towers from the help overlay (`?` / `H`) or
+the **NEXT TOWER** button on the win screen. Each tower keeps its own run; lifetime records are
+shared. The HUD tag (top-left) shows the current tower and opens the picker.
 
 ## Controls
 
@@ -20,54 +32,58 @@ checkpoints. The only punishment is gravity, and it is always enough.
 | Commit | Release | `Space` / `Enter` (press once to raise the arc, again to commit) |
 | Cancel aim | Tiny drag (< 90 px/s) | `Esc` |
 | Reset run | ↺ button (confirm) | `R` (confirm) |
-| Help | ? button | `H` |
+| Help / towers | ? button / tower tag | `H` |
 | Sound on/off | ♪ button | `M` |
 
-## The v2 mechanics
+## The mechanics
 
 - **The fuse.** A ring around the square drains while you aim (3 s). Hesitate and it commits
-  for you — the arc you drew is the arc you get. The ring shifts blue → amber → red and ticks.
-- **Crumbling platforms.** Cracked ledges give you 1.6 s of standing before they shatter into
-  shards and drop you — then reform after ~3 s (a dashed ghost counts down). Resetting rebuilds
-  them instantly, so a broken ledge never softlocks the climb.
-- **Bounce springs.** Teal pads relaunch you automatically (keeping your horizontal speed).
-  Some climbs are only possible by chaining a bounce — the preview draws the whole path, with
-  a teal ring at each hop and a green ring at the final landing.
-- **Altitude light.** The sky climbs from cold navy at the floor through steel teal and violet
-  dusk to a warm rose dawn at the summit. The light changes as you do.
+  for you. The ring shifts blue → amber → red and ticks.
+- **Crumbling platforms.** Cracked ledges give you 1.6 s of standing before they shatter and
+  drop you — then reform after ~3 s (a dashed ghost counts down). Never a softlock.
+- **Bounce springs.** Teal pads relaunch you automatically (keeping horizontal speed). Some
+  climbs are only possible by chaining a bounce — the preview draws the whole path.
+- **Ice (Tower 2+).** Pale glossy ledges slide you slowly in the direction you were travelling
+  when you landed. Land straight down to stand still; otherwise commit fast or slide off the
+  far edge. The preview shows an ice-blue landing ring, and chevrons show your drift.
+- **Altitude light.** The sky climbs from cold navy through steel teal and violet dusk to a
+  warm rose dawn at each summit.
 
 ## What's inside
 
-- **Three files, zero dependencies, zero asset files.** `index.html` (markup), `style.css`
-  (theme), `game.js` (logic). Every visual is a Canvas 2D primitive; every sound is synthesized
-  at runtime with Web Audio. No images, no audio files, no network requests.
+- **Zero dependencies, zero asset files.** `index.html` (markup), `style.css` (theme), and
+  focused classic scripts in `js/` (`core`, `levels`, `audio`, `fx`, `sim`, `render`, `ui`,
+  `main`). Every visual is a Canvas 2D primitive; every sound is synthesized at runtime with
+  Web Audio. No images, no audio files, no network requests. Works from `file://`.
+- **Data-driven levels.** `js/levels.js` holds each tower as plain data (`[x, top, width, type]`,
+  type `0` solid `1` crumble `2` bounce `3` ice). Adding a tower or mechanic is a data/type edit.
 - **The Commit Contract:** preview ≡ simulation, pixel-exact, including wall hits, ceiling
-  bonks and bounce hops (green ring = landing, red ✕ = strike, teal ring = bounce).
-- **Five sections, 37 platforms + summit, 3 ceilings, 2 mandatory bounce chains.** Every
-  mandatory jump is verified solvable at ≤ 98 % power by an automated solver.
+  bonks and bounce hops (green/ice ring = landing, red ✕ = strike, teal ring = bounce).
 - **Honest failure economy:** falls ≥ 25 m flash red and float a `−Xm` popup; your last
   flight's trail hangs in the air until you launch again.
-- **Persistence (`commit.v2`):** run + lifetime records in `localStorage`, including platforms
-  mid-reform. Refresh resumes exactly where you stood (only grounded positions are saved).
-  Erase requires confirmation and keeps lifetime records.
+- **Persistence (`commit.v3`):** per-tower runs + shared lifetime records in `localStorage`,
+  including platforms mid-reform and your ice drift direction. Refresh resumes where you stood
+  (grounded positions only). Erase requires confirmation and keeps lifetime records.
 - **Procedural sound design:** aim hum + fuse ticks, launch whoosh, impact thuds, bonk blips,
-  pitch-rising bounce boings, crumble creaks + shatter, fall alarm, summit chime, and a wind bed
-  that rises with altitude — then silence at the top. On by default; ♪ / `M` mutes, persisted.
+  pitch-rising bounce boings, crumble creaks + shatter, glassy ice landing + slick slide scrape,
+  fall alarm, summit chime, and an altitude wind bed — then silence at the top. On by default;
+  ♪ / `M` mutes, persisted.
 - **Accessible:** full keyboard play, `prefers-reduced-motion` (no shake, halved particles, no
   confetti), focus outlines, aria labels, no audio dependency.
 
 ## Run locally
 
 Open `index.html` directly in any modern browser — no server, no build step, works offline
-from `file://` (classic script + stylesheet, no modules).
+from `file://` (classic scripts + stylesheet, no modules).
 
 ## Verification
 
-`test.html` is an automated harness (**72 assertions**) that drives the game through a
-manual-clock hook: commit contract, fuse auto-launch, crumble break + reform (no softlock) +
-rebuild, bounce-chain preview ≡ flight, input FSM, fall economy, overlays, mute, summit flow,
-reduced-motion, altitude palette, zero-network — plus a solver proving all 36 rest-to-rest
-jumps are solvable at ≤ 98 % power with the real integrator.
+`test.html` is an automated harness (**95 assertions**) that drives the game through a
+manual-clock hook: commit contract, fuse, crumble break + reform, bounce-chain preview ≡ flight,
+ice slide / stand-still / walk-off / launch-discards-slide / persistence, tower lock + unlock +
+switching, input FSM, fall economy, overlays, mute, summit flow, reduced-motion, altitude
+palette, zero-network — plus a solver proving **all 36 Tower-1 and 40 Tower-2 rest-to-rest jumps**
+are solvable at ≤ 98 % power with the real integrator.
 
 Serve the folder over HTTP (the harness iframes the game same-origin), then open `test.html`:
 
@@ -76,13 +92,13 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **72/72 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **95/95 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 
 - [`COMMIT_GDD.md`](COMMIT_GDD.md) — game design document (pillars, physics, feedback matrix)
-- [`COMMIT_LEVELS.md`](COMMIT_LEVELS.md) — full v2 geometry + reachability/bounce math
-- [`COMMIT_IMPLEMENTATION.md`](COMMIT_IMPLEMENTATION.md) — architecture, tuning, verification protocol
+- [`COMMIT_LEVELS.md`](COMMIT_LEVELS.md) — tower geometry + reachability/bounce/ice math
+- [`COMMIT_IMPLEMENTATION.md`](COMMIT_IMPLEMENTATION.md) — architecture, tuning, verification
 
 ---
 

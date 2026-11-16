@@ -1,5 +1,5 @@
 # COMMIT — Game Design Document
-**Version 2.0 · HTML + CSS + JS (three files) · No images · Procedural audio only · No dependencies**
+**Version 2.1 · HTML + CSS + modular JS (`js/`) · No images · Procedural audio only · No dependencies**
 
 > A tower. A square. No air control.
 > Draw an arc, release, and live with exactly what you drew.
@@ -14,7 +14,7 @@
 | Session length | 30 s (one bad jump) → 20 min (full climb) |
 | Viewport | Fixed logical 480×800, uniformly scaled, portrait-first |
 | Input | Pointer (mouse/touch/pen) + full keyboard fallback |
-| Win condition | Land on the summit platform at 508 m |
+| Win condition | Land on a tower's summit (T1 508 m, T2 560 m); clearing unlocks the next tower |
 | Lose condition | None. You fall for real. That is worse. |
 | Assets | Zero files. Everything is drawn with Canvas 2D primitives and synthesized with Web Audio at runtime |
 | Sound | Procedural only — no audio files, no generated audio assets. On by default, one-tap mute (♪ / M). Silence at the summit (see §12) |
@@ -98,11 +98,13 @@ World units are pixels at logical resolution; **y is up**; 10 px = 1 m.
 | `CH` | 18 px | Character size (AABB) |
 | `VMAX_FALL` | −1600 px/s | Terminal velocity (also guarantees no tunneling) |
 | `FALL_MIN` | 250 px | A landing this far below launch counts as a **fall** |
-| `SUMMIT` | 5080 px | Goal altitude (508 m) |
+| `SUMMIT` | per tower | Goal altitude (T1 5080, T2 5600 px) |
 | `AIM_TIME` | 3.0 s | Aim fuse — auto-commits the drawn arc on expiry |
 | `CRUMBLE_TIME` | 1.6 s | Standing this long on a cracked platform breaks it |
 | `BOUNCE_V` | 800 px/s | Upward relaunch speed on a teal spring (keeps `vx`) |
 | `RESPAWN_TIME` | 3.0 s | A crumbled platform reforms after this cooldown (no softlock) |
+| `ICE_V` | 42 px/s | Terminal drift speed on ice (slow, deliberate) |
+| `ICE_RAMP` | 0.5 s | Ease-in before full drift, so a landing has a moment of grace |
 
 Collision outcomes (axis-separated, X then Y, per substep):
 
@@ -110,11 +112,18 @@ Collision outcomes (axis-separated, X then Y, per substep):
 |---|---|
 | Top of solid while descending | **Land.** All velocity zeroed, grounded |
 | Top of a **spring** while descending | **Bounce.** `vy = +800`, keep `vx`, stay airborne |
+| Top of **ice** while descending | **Land + drift.** `vy = 0`; slide dir = sign of entry `vx` (0 if straight down) |
 | Side of solid / wall | `vx = 0`, keep falling straight down |
 | Underside of solid | **Bonk.** `vy = 0`, keep horizontal drift, fall |
 
-No friction, ice, or instant-death hazard. Geometry, gravity and the fuse are the antagonists;
-the springs are the only mercy.
+**Ice rule (Tower 2+):** you slowly slide toward the side *opposite* the one you came from —
+i.e. in the direction you were travelling at landing. A straight-down landing (`vx = 0`) stands
+still. Drift ramps in over `ICE_RAMP` then holds `ICE_V`; reaching the far edge walks you off
+into an honest fall (keeping the small drift `vx`). Launching discards the drift, so the Commit
+Contract holds: the arc is exactly what you drew from your current (sliding) position.
+
+Geometry, gravity, the fuse and the slide are the antagonists; the springs are the only mercy.
+There is no instant-death hazard.
 
 ## 7. Failure Economy
 
@@ -129,7 +138,10 @@ the springs are the only mercy.
 
 ## 8. Tower Structure
 
-Five sections, one summit. Full geometry and reachability math: `COMMIT_LEVELS.md`.
+Two towers (more planned). Each has five sections and a summit. Full geometry and
+reachability/bounce/ice math: `COMMIT_LEVELS.md`. Levels are pure data in `js/levels.js`.
+
+**Tower 1 · First Ascent (508 m)** — the original climb.
 
 | # | Name | Altitude | Platform width | Teaches / tests |
 |---|---|---|---|---|
@@ -138,6 +150,21 @@ Five sections, one summit. Full geometry and reachability math: `COMMIT_LEVELS.m
 | III | Overhang | 282–395 m | 46–60 px | Two ceilings; crumble ledges; planning under constraints |
 | IV | The Throat | 395–508 m | 30–40 px | Near-max-power chains; second bounce chain; crumble gates |
 | V | Summit | 508 m | 120 px | Mercy at the top. Flag. Silence. |
+
+**Tower 2 · The Ice Ascent (560 m)** — rearranged, harder-but-fair, introduces ice.
+
+| # | Name | Altitude | Platform width | Teaches / tests |
+|---|---|---|---|---|
+| I | Cold Start | 0–148 m | 90–140 px | First wide ice: drift, and the straight-down counter |
+| II | Glass Works | 148–282 m | 64–80 px | Ice + crumble mix; ceiling over an ice launch pad |
+| III | The Slide | 282–409 m | 48–60 px | Bounce chain that lands you on ice *already sliding* |
+| IV | Whiteout | 409–560 m | 36–48 px | Narrow ice gates; ice under a ceiling; crumble gates |
+| V | Summit | 560 m | 120 px | Mercy at the top, offset so the last arc is a real decision |
+
+Design invariants for every tower (enforced by the solver): consecutive platforms alternate
+sides (a platform directly above another is unreachable — you'd bonk its underside); bounce
+chains keep one horizontal direction (bounce preserves `vx`); `dy ≤ 160`, required speed
+≤ 98%, ceiling margin ≥ 15 px.
 
 ## 9. Difficulty Curve
 
@@ -172,6 +199,7 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 | `amber` | `#ffb454` | Warning: ceiling edges, best-height tick |
 | `red` | `#ff5d5d` | Consequence: fall flash, drop popup, erase button |
 | `spring` | `#3fe0c5` | Bounce pads, bounce-hop markers in the preview |
+| `ice` | `#bfe3ff` | Ice top edge, sheen, drift chevrons, ice landing ring, spray |
 
 ### World rendering
 - **Sky:** three-stop vertical gradient keyed to altitude — cold navy at the floor, steel
@@ -183,6 +211,9 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
   with a filling teal edge counts down — so a broken stepping-stone never blocks the climb.
 - **Bounce springs:** teal top edge + upward chevrons, compressing on impact; the preview
   marks each hop with a teal ring + chevron and continues the arc to the landing.
+- **Ice:** pale `ice` top edge over a blue-black slab, diagonal sheen + a moving gloss streak;
+  while occupied, horizontal chevrons point the drift direction and the square leans into the
+  slide, kicking pale spray backwards. The preview's landing ring turns ice-blue on ice.
 - **Parallax:** 80 deterministic twinkling specks at 0.35× camera depth.
 - **Grid:** faint 10 m lines, labeled every 50 m; section titles stenciled in the world.
 - **Character:** 18 px rounded white square, two dark eyes that look toward the aim
@@ -195,6 +226,7 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 | Effect | Trigger | Budget |
 |---|---|---|
 | Dust burst | Launch / land / wall / bonk | ≤ 16 particles, 0.5–0.8 s |
+| Ice spray | Sliding on ice (backwards from feet) | ≤ 2 / tick, 0.3–0.55 s, `ice` |
 | Flight trail | Every 2nd substep airborne | 22 fading squares |
 | Screen shake | Land impact > 650 px/s | ≤ 11 px, exp decay 6/s |
 | Red flash | Counted fall | α ≤ 0.45, exp decay 3/s |
@@ -204,13 +236,14 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 
 ## 11. UI/UX
 
-- **HUD (DOM, over canvas):** altitude `0.0m` + lifetime best (top-left); launches / falls
-  / timer (top-right); ?, ♪ (mute) and ↺ buttons; footer mantra "DRAG · RELEASE · LIVE WITH IT".
-- **First-run help overlay:** rules, both control schemes, lifetime stats, one CTA.
-  Never shown again unless requested.
+- **HUD (DOM, over canvas):** tower tag + altitude `0.0m` + per-tower best (top-left);
+  launches / falls / timer (top-right); ?, ♪ (mute) and ↺ buttons; footer mantra.
+  The tower tag opens the tower picker.
+- **First-run help overlay:** rules (incl. ice), both control schemes, lifetime stats,
+  tower picker (locked towers disabled), one CTA. Never shown again unless requested.
 - **Reset confirm:** "Erase run? Lifetime records stay." — destructive action is red.
-- **Win overlay:** "COMMITTED." + time / launches / falls / biggest drop + pre-filled
-  share text + Copy + Climb Again.
+- **Win overlay:** "COMMITTED." + per-tower subtitle + unlock line + time / launches / falls /
+  biggest drop + pre-filled share text + Copy + Next Tower (when unlocked) + Climb Again.
 - **Toast:** transient confirmations ("COPIED", "RUN ERASED · 0m").
 - Letterboxed stage on wide screens; HUD scales with the canvas so nothing clips.
 
@@ -234,6 +267,10 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 | Crumble break | Shard burst + shatter sound + shake; you drop straight down |
 | Crumble reform | Dashed ghost + filling teal edge, then a teal spark burst + rising shimmer |
 | Bounce | Pad compresses, teal spark burst, pitch-rising boing; arc shows the hop |
+| Ice land | Glassy impact-pitched chime + high-pass shimmer; spray burst; chevrons appear |
+| Ice slide | Quiet high-pass scrape loop while drifting; square leans; spray trails |
+| Ice walk-off | Soft descending slip blip, then honest fall (fall alarm if ≥ 25 m) |
+| Tower unlock | Rising triad + ice-blue "TOWER N UNLOCKED" line on the win screen |
 | Idle > 2.2 s, 0 launches | Pulsing "drag anywhere · release to commit" |
 | Summit | Confetti + overlay + lifetime records updated |
 
@@ -273,14 +310,18 @@ guarded so a sound failure can never break the simulation.
 | `CRUMBLE_TIME` | 1.6 | 1.0–2.5 | How long a cracked ledge holds you |
 | `RESPAWN_TIME` | 3.0 | 2.0–6.0 | How fast a crumbled ledge reforms |
 | `BOUNCE_V` | 800 | 700–900 | Spring lift; re-verify chains if changed |
+| `ICE_V` | 42 | 25–70 | Drift speed; higher = less time to commit on ice |
+| `ICE_RAMP` | 0.5 | 0.2–1.0 | Grace period after an ice landing before full drift |
 | Platform widths | per level | ≥ 28 | Primary difficulty dial |
 | Camera lerp | 6 / 10 | 4–12 | Fall visibility vs. motion comfort |
 
 ## 16. Scope Guard
 
-**v1 (this package):** one tower, 36 platforms, 3 ceilings, stats, persistence, share.
-**v2 candidates (not built):** daily seeded tower, ghost of your best run, launch-count
-leaderboard, second tower with moving ceilings. None required for the core experience.
+**Shipped:** two towers (T1 36 platforms, T2 40), crumble/bounce/ice, ceilings, stats,
+per-tower persistence, tower select + unlock, share. Modular `js/` + data-driven `levels.js`
+so new towers/mechanics/modes are additive.
+**Candidates (not built):** daily seeded tower, ghost of your best run, launch-count
+leaderboard, moving ceilings, alternate game modes. None required for the core experience.
 
 ## 17. Design Acceptance Criteria
 
@@ -293,3 +334,6 @@ leaderboard, second tower with moving ceilings. None required for the core exper
 7. Zero network requests, zero image/audio assets, zero runtime errors.
 8. The aim fuse auto-commits a valid drawn arc on expiry; a sub-threshold aim cancels instead.
 9. Crumbled platforms drop the player honestly and reform after a cooldown (never a softlock); reset rebuilds them instantly.
+10. Ice drifts you the way you came in; a straight-down landing stands still; walking off is an honest fall; launching discards drift (preview ≡ flight from the sliding position).
+11. Clearing a tower unlocks the next; locked towers cannot be entered; each tower keeps its own run and lifetime records are shared; switching never loses progress.
+12. Every rest-to-rest jump in every tower is solvable at ≤ 98% power (solver), with no same-x vertical stacks and single-direction bounce chains.

@@ -1,5 +1,5 @@
 :root{--bg:#07090f;--panel:#0e1320;--ink:#e9edf4;--dim:#8b93a7;--line:#26304a;
---blue:#5aa7ff;--green:#57e389;--amber:#ffb454;--red:#ff5d5d;--spring:#3fe0c5}
+--blue:#5aa7ff;--green:#57e389;--amber:#ffb454;--red:#ff5d5d;--spring:#3fe0c5;--ice:#bfe3ff}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
 font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
@@ -21,6 +21,10 @@ button:hover{border-color:var(--blue)}
 button:active{transform:scale(.94)}
 button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 #bSound.off{color:var(--dim);text-decoration:line-through}
+#towerTag{display:block;width:auto;height:auto;background:none;border:none;padding:0;margin:0 0 .3em;
+color:var(--dim);font-size:.42em;font-weight:400;letter-spacing:.12em;text-align:left;cursor:pointer}
+#towerTag:hover{color:var(--blue)}
+#towerTag:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 #foot{padding:.6em .8em;font-size:.62em;color:var(--dim);letter-spacing:.14em;text-align:center;opacity:.85}
 .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
 background:#05070cd9;backdrop-filter:blur(4px);pointer-events:auto;z-index:5}
@@ -35,6 +39,11 @@ border-radius:.7em;padding:1.5em 1.6em;box-shadow:0 24px 60px #000a;scrollbar-wi
 .rules li::before{content:"▸ ";color:var(--blue)}
 .rules li.warn::before{color:var(--amber)}
 .rules li.spring::before{color:var(--spring)}
+.rules li.ice::before{color:var(--ice)}
+.unlock{color:var(--ice);letter-spacing:.08em;font-weight:700}
+#towers{margin-bottom:.8em}
+#towers .cta{font-size:.7em;padding:.6em .6em}
+#towers .cta:disabled{opacity:.45;cursor:not-allowed}
 .keys{font-size:.68em;color:var(--dim);line-height:1.9;border-top:1px solid var(--line);padding-top:.8em;margin-bottom:1.1em}
 .keys b{color:var(--ink)}
 kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:.3em;padding:.05em .4em;font:inherit;color:var(--ink);background:#0a0f1c}

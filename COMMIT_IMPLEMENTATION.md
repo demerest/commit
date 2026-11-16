@@ -1,33 +1,41 @@
-# COMMIT — Implementation Guide (v2)
-**Stack: `index.html` + `style.css` + `game.js`. Vanilla JS + Canvas 2D + CSS + Web Audio.
-Zero dependencies, zero network requests, zero image assets, zero audio files (every sound
-is synthesized at runtime; master mute ♪ / M).**
+# COMMIT — Implementation Guide (v2.1)
+**Stack: `index.html` + `style.css` + modular classic scripts in `js/`. Vanilla JS + Canvas 2D +
+CSS + Web Audio. Zero dependencies, zero network requests, zero image assets, zero audio files
+(every sound is synthesized at runtime; master mute ♪ / M).**
 
 ## 1. Constraint Compliance
 
 | Constraint | How it is satisfied |
 |---|---|
-| HTML/JS/CSS only | Three plain files, no imports, no modules, no build step |
+| HTML/JS/CSS only | Plain files, no imports, no ES modules, no build step (classic `<script>` tags share global scope so `file://` works) |
 | No generated images | Every visual is a runtime Canvas/CSS primitive; system font stack |
 | No generated audio | No audio files or generated assets; every sound is synthesized at runtime (oscillators + filtered noise). Master mute (♪ / M) persisted; context created on first gesture, suspended on tab-hide; silence at summit |
-| Runnable anywhere | Open `index.html` directly (`file://`); classic script + stylesheet load locally; `localStorage` wrapped in try/catch |
+| Runnable anywhere | Open `index.html` directly (`file://`); scripts + stylesheet load locally; `localStorage` wrapped in try/catch |
 
-## 2. Architecture (`game.js`, one IIFE)
+## 2. Architecture (modular `js/`, load order matters)
 
-| Module | Responsibility |
+| File | Responsibility |
 |---|---|
-| Constants | All tuning values from GDD §15 in one place (incl. `AIM_TIME`, `CRUMBLE_TIME`, `BOUNCE_V`, `RESPAWN_TIME`) |
-| Level | Authoring tables `[x,top,w,type]` → static solid rects with `crumble`/`bounce` flags |
+| `js/core.js` | Tuning constants (incl. `ICE_V`, `ICE_RAMP`), palette (`ice` token), math, sky keyframes, `LS` storage helper |
+| `js/levels.js` | **Data-driven towers** (`LEVELS`); `buildLevel(n)` builds solids/platforms/goal/sections/notes/stars; type flags `0/1/2/3` |
+| `js/audio.js` | Lazy `AudioContext`; synthesized SFX (incl. ice chime/scrape/slip, unlock triad), aim hum, wind bed; master mute |
+| `js/fx.js` | Pooled dust/spray/shards/confetti/floats, shake, flash, squash timers |
+| `js/sim.js` | `step()` single integrator; preview; aim/launch; land/bounce; crumble + reform; **ice drift** (`updateIce`); run stats |
+| `js/render.js` | Canvas sizing + one render pass (sky→parallax→grid→solids incl. ice→trail→preview→body+fuse→FX→rail) |
+| `js/ui.js` | DOM overlays, HUD cache, toast, **tower picker**, tower tag |
+| `js/main.js` | Persistence v3, **level switching/unlock**, win/reset, input, loop, boot, `__COMMIT__` hook |
+
+Adding a tower = append a `LEVELS` entry; adding a mechanic = a new type flag + a branch in
+`sim`/`render`. Game modes can wrap the same sim later.
+
+| Concern | Responsibility |
+|---|---|
 | Physics | `step(body)` — the **single** integrator used by flight AND preview; handles land/bounce/wall/bonk |
 | Preview | Clones the body, runs `step()` ≤ 900 times, returns dots + **all** contacts (bounce hops + final) |
 | Fuse | Aim countdown; auto-commits the drawn arc on expiry, cancels if sub-threshold |
-| Crumble | Per-visit dwell timer; shatters + drops the player; auto-reforms after `RESPAWN_TIME` (no softlock); transient `run.dead` |
+| Crumble | Per-visit dwell timer; shatters + drops; auto-reforms after `RESPAWN_TIME` (no softlock); transient `run.dead` |
+| Ice | On land, `slide = sign(entry vx)`; `updateIce` ramps drift, walks off the edge into an honest fall; launch discards drift |
 | Input | Pointer Events (capture, relative drag) + keyboard aim FSM |
-| FX | Pooled dust, shards, confetti, floats, shake, flash, squash timers |
-| Render | One pass: altitude sky → parallax → grid → solids (crumble/bounce) → trail → preview → body+fuse → FX → rail |
-| UI/HUD | DOM overlays, cached `textContent` updates, toast |
-| Persistence | Versioned `localStorage` (`commit.v2`) with validation + in-memory fallback; migrates v1 lifetime |
-| Sound | Lazy `AudioContext` on first gesture; synthesized SFX, aim hum, fuse ticks, altitude wind bed; master mute |
 | Loop | Single rAF, fixed-timestep accumulator (dt clamp 0.25 s) |
 
 ### Determinism & the Commit Contract
@@ -48,18 +56,21 @@ backing store scaled by `min(devicePixelRatio, 2)`; all drawing stays in logical
 `ready → aim(pointer|keyboard) → flight → ready` · `flight → win` · overlays pause the
 simulation and cancel any active aim; `document.hidden` pauses the same way.
 
-### Persistence schema (`commit.v2`)
+### Persistence schema (`commit.v3`)
 ```json
-{ "x": 231, "y": 0,
-  "run":  { "launches": 0, "falls": 0, "biggest": 0, "time": 0, "started": false, "dead": [] },
-  "life": { "best": 0, "bestTime": null, "summits": 0, "launches": 0, "falls": 0, "seen": false } }
+{ "level": 1,
+  "runs": { "1": { "x": 231, "y": 0, "slide": 0, "launches": 0, "falls": 0, "biggest": 0,
+                   "time": 0, "started": false, "dead": [] } },
+  "life": { "best": {"1":0}, "bestTime": {"1":null}, "summits": {"1":0},
+            "launches": 0, "falls": 0, "seen": false, "unlocked": 1 } }
 ```
-`run.dead` lists platforms currently mid-reform; each auto-rebuilds after `RESPAWN_TIME`
-(and instantly on reset), so a broken stepping-stone never blocks the climb. Saved on every
-landing, win, reset, crumble, reform, tab-hide, and unload. `save()` writes `safePos` — the last **grounded**
-position, updated only on landing/reset/load — never an airborne one, so resume is always
-safe even if the tab closes mid-flight. If no `commit.v2` exists, lifetime records are
-migrated from `commit.v1`.
+Per-tower `runs` (each with its own grounded `x/y`, `dead` reform list and ice `slide` dir);
+shared `life` with per-tower `best/bestTime/summits` dicts plus global counters and `unlocked`.
+`run.dead` auto-rebuilds after `RESPAWN_TIME` (instantly on reset) — never a softlock. Saved on
+every landing, win, reset, crumble, reform, walk-off, tab-hide, and unload. `save()` writes
+`safePos` — the last **grounded** position — never an airborne one. `sanitize()` clamps/validates
+every field and the unlocked/level bounds. Migrates `commit.v2` (single run → `runs[1]`, scalar
+life → dicts, `unlocked=2` if a summit existed) and `commit.v1` lifetime.
 
 ### Performance budget
 ≤ 2 substeps/frame typical; preview ≤ 900 steps × ~42 solids only while aiming; ~130 draw
