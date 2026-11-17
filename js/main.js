@@ -100,7 +100,15 @@ launch(v);}
 cv.addEventListener("pointerup",e=>endPointer(e,false));
 cv.addEventListener("pointercancel",e=>endPointer(e,true));
 cv.addEventListener("contextmenu",e=>e.preventDefault());
+const kbHeld={ArrowLeft:false,ArrowRight:false,ArrowUp:false,ArrowDown:false};let kbFine=false;
 function kbAim(){if(state==="ready"){aim={mode:"k"};state="aim";beginAim();sfx("aim");startHum();}}
+/* hold-to-sweep: continuous rates from the loop clock, not OS key-repeat; Shift = quarter rate */
+function kbSweep(dt){if(state!=="aim"||!aim||aim.mode!=="k"){for(const k in kbHeld)kbHeld[k]=false;return;}
+const f=kbFine?.25:1;
+if(kbHeld.ArrowLeft)kb.a=Math.min(172,kb.a+60*dt*f);
+if(kbHeld.ArrowRight)kb.a=Math.max(8,kb.a-60*dt*f);
+if(kbHeld.ArrowUp)kb.p=Math.min(1,kb.p+.45*dt*f);
+if(kbHeld.ArrowDown)kb.p=Math.max(.12,kb.p-.45*dt*f);}
 addEventListener("keydown",e=>{
 if(e.key==="Escape"){if(overlayOpen){if(overlayOpen!=="win")closeOv();}
 else if(state==="aim"){aim=null;state="ready";stopHum();sfx("puff");}return;}
@@ -110,19 +118,18 @@ audio();
 if(e.key==="h"||e.key==="H"){openOv("help");return;}
 if(e.key==="r"||e.key==="R"){openOv("confirm");return;}
 if(state==="flight"||state==="win")return;
-const fine=e.shiftKey?0.25:1;let used=true;
+let used=true;
 switch(e.key){
-case"ArrowLeft":kb.a=Math.min(172,kb.a+2.2*fine);break;
-case"ArrowRight":kb.a=Math.max(8,kb.a-2.2*fine);break;
-case"ArrowUp":kb.p=Math.min(1,kb.p+.022*fine);break;
-case"ArrowDown":kb.p=Math.max(.12,kb.p-.022*fine);break;
+case"ArrowLeft":case"ArrowRight":case"ArrowUp":case"ArrowDown":kbHeld[e.key]=true;break;
 case" ":case"Enter":
 if(state==="aim"&&aim&&aim.mode==="k"){const v=aimV();
 if(v&&v.m>=MINV)launch(v);else{aim=null;state="ready";stopHum();}}
 else kbAim();
 e.preventDefault();return;
 default:used=false;}
-if(used){e.preventDefault();kbAim();idleT=0;}});
+if(used){e.preventDefault();kbFine=e.shiftKey;if(state==="ready")kbAim();idleT=0;}});
+addEventListener("keyup",e=>{if(e.key in kbHeld)kbHeld[e.key]=false;kbFine=e.shiftKey;});
+addEventListener("blur",()=>{for(const k in kbHeld)kbHeld[k]=false;});
 $("bHelp").onclick=()=>{sfx("ui");openOv("help");};
 $("towerTag").onclick=()=>{sfx("ui");openOv("help");};
 $("bStart").onclick=()=>{sfx("ui");closeOv();};
@@ -147,6 +154,7 @@ if(sec!==lastTickSec){lastTickSec=sec;if(sec>0&&sec<=AIM_TIME)sfx("tick",{urgent
 if(aimT<=0){const v=aimV();
 if(v&&v.m>=MINV){sfx("forced");launch(v);}
 else{aim=null;state="ready";stopHum();spawnDust(body.x+CH/2,body.y+CH/2,3,COL.dim);sfx("puff");}}}
+kbSweep(dt);
 updateCrumble(dt);
 updateRespawn(dt);
 updateIce(dt);

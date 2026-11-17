@@ -1,6 +1,6 @@
 /* COMMIT — core constants, palette, math, storage. Shared by all modules (classic scripts). */
 "use strict";
-const VW=480,VH=800,DT=1/120,G=2200,MAXV=950,MINV=90,KDRAG=3.2,
+const VW=480,VH=800,DT=1/120,G=2200,MAXV=950,MINV=90,KDRAG=4.8,
 CH=18,FALL_MIN=250,VFALL=-1600,
 AIM_TIME=3.0,CRUMBLE_TIME=1.6,BOUNCE_V=800,RESPAWN_TIME=3.0,
 ICE_V=42,ICE_RAMP=0.5;

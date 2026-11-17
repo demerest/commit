@@ -64,6 +64,11 @@ backing store scaled by `min(devicePixelRatio, 2)`; all drawing stays in logical
 ### Input state machine
 `ready → aim(pointer|keyboard) → flight → ready` · `flight → win` · overlays pause the
 simulation and cancel any active aim; `document.hidden` pauses the same way.
+Keyboard arrows are **hold-to-sweep**: `kbHeld` flags set on keydown/keyup, integrated in
+`kbSweep(dt)` at 60°/s and 0.45/s (¼ with Shift) from the loop clock — OS key-repeat is never
+used. Held flags auto-clear whenever not aiming (launch, cancel, overlay). The render pass
+shows `angle° · power%` for keyboard aim. Pointer drag maps linearly at `KDRAG 4.8`
+(full power ≈ 198 px), so short screens can reach every arc.
 
 ### Persistence schema (`commit.v3`)
 ```json
@@ -510,7 +515,7 @@ the `window.__COMMIT__` manual-clock hook and asserts the matrix below, includin
 **phase-aware** solver that proves **all 36 T1 + 40 T2 + 42 T3 rest-to-rest jumps (bounce
 chains, elevator rides and mover catches included) are solvable at ≤ 98 % power** using the
 real integrator; mover jumps must also land with the launch phase shifted ±0.12 s (not
-frame-perfect). Last full run: **116/116 pass** in both standard and `prefers-reduced-motion`
+frame-perfect). Last full run: **119/119 pass** in both standard and `prefers-reduced-motion`
 modes (headless Chrome). The local editor's VALIDATE runs the same solver + invariants
 (`editor.html#validateN` headless: VALID 36/40/42).
 

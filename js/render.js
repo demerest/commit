@@ -135,7 +135,8 @@ ctx.fillStyle=rc;ctx.beginPath();ctx.arc(m.x,sy,2,0,6.29);ctx.fill();}
 else{ctx.strokeStyle=COL.red;ctx.lineWidth=2;
 ctx.beginPath();ctx.moveTo(m.x-6,sy-6);ctx.lineTo(m.x+6,sy+6);ctx.moveTo(m.x+6,sy-6);ctx.lineTo(m.x-6,sy+6);ctx.stroke();}}
 ctx.fillStyle=weak?COL.dim:COL.blue;ctx.font="700 12px ui-monospace,monospace";
-ctx.fillText(Math.round(v.m/MAXV*100)+"%",Math.min(body.x+CH+8,VW-42),SY(body.y+CH)-6);
+const lbl=aim.mode==="k"?Math.round(kb.a)+"° · "+Math.round(v.m/MAXV*100)+"%":Math.round(v.m/MAXV*100)+"%";
+ctx.fillText(lbl,Math.min(body.x+CH+8,VW-(aim.mode==="k"?86:42)),SY(body.y+CH)-6);
 if(aim.mode==="p"){ctx.strokeStyle=COL.blue;ctx.globalAlpha=.5;ctx.lineWidth=1.5;
 ctx.beginPath();ctx.arc(aim.ox,aim.oy,10,0,6.29);ctx.stroke();
 ctx.beginPath();ctx.moveTo(aim.ox,aim.oy);ctx.lineTo(aim.cx,aim.cy);ctx.stroke();ctx.globalAlpha=1;}}}

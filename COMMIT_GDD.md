@@ -72,7 +72,7 @@ GROUND → AIM (drag / keys) → read the dotted arc → RELEASE
 
 | Action | Pointer | Keyboard |
 |---|---|---|
-| Aim | Press anywhere, drag (relative vector) | `←/→` angle, `↑/↓` power |
+| Aim | Press anywhere, drag (relative vector) | `←/→` angle, `↑/↓` power — **hold to sweep** |
 | Fine aim | — | hold `Shift` (¼ rate) |
 | Commit | Release | `Space`/`Enter` (first press raises the arc, second commits) |
 | Cancel aim | Drag < 90 px/s equivalent, or `pointercancel` | `Esc` |
@@ -83,9 +83,14 @@ GROUND → AIM (drag / keys) → read the dotted arc → RELEASE
 Rules:
 - Aiming is only possible while **grounded**. Airborne input is ignored entirely.
 - Drag is relative (press anywhere — thumb ergonomics on mobile), direction = drag
-  direction, magnitude × 3.2 = launch speed, clamped to 950 px/s.
+  direction, magnitude × 4.8 = launch speed, clamped to 950 px/s.
 - Releases below 90 px/s cancel silently with a small puff — twitchy micro-drags are
   forgiven; anything above the threshold is a launch and counts.
+- Full power needs only ~198 px of drag (`KDRAG 4.8`), so a thumb on a phone screen can
+  reach any arc without running out of glass.
+- Keyboard aim sweeps continuously while an arrow is held (60°/s angle, 0.45/s power,
+  ¼ with `Shift`), driven by the game clock — never by OS key-repeat. A live
+  `angle° · power%` readout sits beside the square so tuning is never blind.
 
 ## 6. Physics & Rules
 
@@ -97,7 +102,7 @@ World units are pixels at logical resolution; **y is up**; 10 px = 1 m.
 | `G` | 2200 px/s² | Gravity |
 | `MAXV` | 950 px/s | Launch speed clamp (apex 205 px, 45° range 410 px) |
 | `MINV` | 90 px/s | Cancel threshold |
-| `KDRAG` | 3.2 | Drag px → launch px/s |
+| `KDRAG` | 4.8 | Drag px → launch px/s (full power ≈ 198 px of pull) |
 | `CH` | 18 px | Character size (AABB) |
 | `VMAX_FALL` | −1600 px/s | Terminal velocity (also guarantees no tunneling) |
 | `FALL_MIN` | 250 px | A landing this far below launch counts as a **fall** |
@@ -284,7 +289,7 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 
 | Event | Feedback |
 |---|---|
-| Aim start | Joystick glyph at press origin + dotted arc + power % |
+| Aim start | Joystick glyph at press origin + dotted arc + power % (keyboard: `angle° · power%`) |
 | Weak release | Gray dots + cancel puff (no launch counted) |
 | Commit | Stretch, dust, trail begins, launch counter ticks |
 | Flight | Eyes track velocity; trail; camera follows at 10/s |
@@ -336,7 +341,7 @@ guarded so a sound failure can never break the simulation.
 | Knob | Default | Safe range | Effect |
 |---|---|---|---|
 | `MAXV` | 950 | 850–1050 | Global reach; re-verify levels if changed |
-| `KDRAG` | 3.2 | 2.6–4.0 | Drag length for full power |
+| `KDRAG` | 4.8 | 3.5–5.5 | Drag length for full power (higher = shorter pull) |
 | `MINV` | 90 | 60–140 | Accidental-launch forgiveness |
 | `FALL_MIN` | 250 | 150–400 | How often the game calls it a "fall" |
 | `AIM_TIME` | 3.0 | 2.0–5.0 | Hesitation pressure; lower = harder |
@@ -375,3 +380,4 @@ leaderboard, moving ceilings, alternate game modes. None required for the core e
 12. Every rest-to-rest jump in every tower is solvable at ≤ 98% power (solver), with no same-x vertical stacks and single-direction bounce chains.
 13. Movers carry the rider exactly (through reversals and edge overhang); launching discards carry; preview ≡ flight against moving platforms, pixel-exact; the world clock persists so refresh restores phase + footing.
 14. Every mover-involved jump survives a ±0.12 s launch-phase shift (fair timing); mover periods ≤ 3 s; sweeps stay inside the walls; mandatory elevator rides satisfy the low/high dy bounds.
+15. Any launch angle/power is reachable by keyboard within ~3 s of holding arrows (continuous sweep, Shift fine), with a visible angle/power readout; full pointer power needs ≤ 210 px of drag.

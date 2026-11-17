@@ -29,7 +29,7 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
 
 | Action | Pointer | Keyboard |
 |---|---|---|
-| Aim | Press anywhere, drag | `←`/`→` angle · `↑`/`↓` power |
+| Aim | Press anywhere, drag (full power ≈ 198 px) | `←`/`→` angle · `↑`/`↓` power — hold to sweep |
 | Fine aim | — | hold `Shift` (¼ rate) |
 | Commit | Release | `Space` / `Enter` (press once to raise the arc, again to commit) |
 | Cancel aim | Tiny drag (< 90 px/s) | `Esc` |
@@ -102,7 +102,7 @@ gated to `file://`/localhost. Pick a tower or import a descriptor, edit visually
 
 ## Verification
 
-`test.html` is an automated harness (**116 assertions**) that drives the game through a
+`test.html` is an automated harness (**119 assertions**) that drives the game through a
 manual-clock hook: commit contract, fuse, crumble break + reform, bounce-chain preview ≡ flight,
 ice slide / stand-still / walk-off / launch-discards-slide / persistence, mover carry / reversal /
 launch-discards-carry / moving-target contract / phase persistence, tower lock + unlock +
@@ -118,7 +118,7 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **116/116 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **119/119 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 

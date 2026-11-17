@@ -30,6 +30,7 @@ const cv=d.getElementById("cv"),r=cv.getBoundingClientRect();
 cv.dispatchEvent(new w.PointerEvent(type,{pointerId:id==null?1:id,clientX:r.left+x,clientY:r.top+y,bubbles:true,cancelable:true}));
 }
 function key(w,k,shift){w.dispatchEvent(new w.KeyboardEvent("keydown",{key:k,shiftKey:!!shift,bubbles:true,cancelable:true}));}
+function keyup(w,k,shift){w.dispatchEvent(new w.KeyboardEvent("keyup",{key:k,shiftKey:!!shift,bubbles:true,cancelable:true}));}
 function rectAt(C,p,t){if(p[3]===4||p[3]===5){const s=C.PLATS[C.P.indexOf(p)];const o=C.moverXY(s,t);return[o.x,o.y+16,p[2]];}return p;}
 /* Phase-aware jump search. fi/ti are platform indices (-1 = floor / goal). When a mover is involved,
    sample launch phases over its period and demand a ±0.12s phase window still lands (not frame-perfect). */
@@ -117,7 +118,8 @@ ok("weak drag (<90px/s) cancels, no launch",C.state==="ready"&&C.run.launches===
 
 /* 3 · commit contract */
 ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",340,500);
-const pr=C.preview({x:320,y:320});
+const kv=C.C.KDRAG;
+const pr=C.preview({x:100*kv,y:100*kv});
 ok("preview yields arc + landing mark",pr.pts.length>10&&pr.mark&&pr.mark.ok);
 ptr(w,d,"pointerup",340,500);
 ok("release above threshold commits",C.state==="flight"&&C.run.launches===1);
@@ -195,12 +197,23 @@ ok("fall ≥25m counted once + biggest drop",C.run.falls===fallsBefore+1&&C.run.
 ok("fall flash + −Xm popup fired",C.flash>0&&C.floats.length>=1);
 ok(RM?"reduced motion: shake suppressed":"hard landing shakes screen",RM?shake9===0:shake9>0);
 
-/* 10 · keyboard FSM */
+/* 10 · keyboard FSM (hold-to-sweep) */
 C.resetRun();
 key(w,"ArrowUp");
 ok("arrow raises keyboard aim",C.state==="aim"&&C.aim&&C.aim.mode==="k");
-const p0=C.kb.p;key(w,"ArrowLeft",true);const a1=C.kb.a;
-ok("shift = quarter-rate fine aim",Math.abs(p0-0.622)<1e-9&&Math.abs(a1-65.55)<1e-9);
+const p0=C.kb.p,a0=C.kb.a;
+for(let i=0;i<6;i++)tick(16.7);
+keyup(w,"ArrowUp");
+ok("holding an arrow sweeps power continuously",Math.abs(C.kb.p-p0-.45*.1002)<.005&&C.kb.p>p0);
+key(w,"ArrowLeft",true);
+for(let i=0;i<6;i++)tick(16.7);
+keyup(w,"ArrowLeft",false);
+ok("shift = quarter-rate fine sweep",Math.abs(C.kb.a-a0-15*.1002)<.2);
+const at0=C.aimT;
+key(w,"ArrowRight");
+for(let i=0;i<6;i++)tick(16.7);
+keyup(w,"ArrowRight");
+ok("arrows while aiming do not reset the fuse",C.aimT<at0-.05);
 key(w,"Escape");
 ok("esc cancels keyboard aim",C.state==="ready"&&C.aim===null);
 key(w," ");
@@ -208,6 +221,7 @@ ok("first space raises arc",C.state==="aim"&&C.aim.mode==="k");
 key(w," ");
 ok("second space commits",C.state==="flight"&&C.run.launches===1);
 settle();
+ok("full power reachable within a 210px drag",C.C.MAXV/C.C.KDRAG<=210,"full-power drag "+Math.round(C.C.MAXV/C.C.KDRAG)+"px");
 
 /* 11 · overlays pause */
 const t0=C.run.time;
