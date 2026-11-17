@@ -35,7 +35,8 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
 | Fine aim | — | hold `Shift` (¼ rate) |
 | Commit | Release | `Space` / `Enter` (press once to raise the arc, again to commit) |
 | Pre-aim | Drag mid-flight; release queues the commit for landing | Arrows mid-flight; `Space` queues |
-| Cancel aim | Tiny drag (< 90 px/s) only | — (no cancel key; `Esc` closes menus) |
+| Cancel aim | Tiny drag (< 90 px/s) only | — (no cancel key) |
+| Pause | `II` button | `Esc` / `P` (clock freezes; a drawn aim is preserved) |
 | Reset run | ↺ button (confirm) | `R` (confirm) |
 | Help / towers | ? button / tower tag | `H` |
 | Sound on/off | ♪ button | `M` |
@@ -66,6 +67,10 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
 - **Phase platforms (Tower 4+).** Gold ledges blink on the world clock: solid while the
   clock-bar drains, ghost (fall straight through) while it refills. Land on the beat, or drop
   through a ghost as a timed shortcut. Ghosting under you drops you honestly; it always returns.
+- **Main menu, pause & level select.** Boot lands on a start page: Continue / Start Game,
+  Level Select (unlocked towers only, with your best height), How to Play. `Esc`/`P` or the
+  `II` button pauses with the clock frozen; pause and the summit (between-levels) screen both
+  link back to the main menu and level select.
 - **Altitude light.** The sky climbs from cold navy through steel teal and violet dusk to a
   warm rose dawn at each summit.
 
@@ -114,7 +119,7 @@ visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPO
 
 ## Verification
 
-`test.html` is an automated harness (**157 assertions**) that drives the game through a
+`test.html` is an automated harness (**178 assertions**) that drives the game through a
 manual-clock hook: commit contract, fuse, pre-aim queue, crumble break + reform, bounce-chain preview ≡ flight,
 ice slide / stand-still / walk-off / launch-discards-slide / persistence, mover carry / reversal /
 launch-discards-carry / moving-target contract / phase persistence / lift collision fairness, tower lock + unlock +
@@ -130,7 +135,7 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **157/157 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **178/178 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 

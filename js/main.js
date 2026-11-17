@@ -110,7 +110,14 @@ if(kbHeld.ArrowRight)kb.a=Math.max(8,kb.a-60*dt*f);
 if(kbHeld.ArrowUp)kb.p=Math.min(1,kb.p+.45*dt*f);
 if(kbHeld.ArrowDown)kb.p=Math.max(.12,kb.p-.45*dt*f);}
 addEventListener("keydown",e=>{
-if(e.key==="Escape"){if(overlayOpen&&overlayOpen!=="win")closeOv();return;}
+if(e.key==="Escape"){
+if(overlayOpen==="pause")closeOv();
+else if(overlayOpen&&overlayOpen!=="win"&&overlayOpen!=="menu")closeOv();
+else if(!overlayOpen&&state!=="win")openOv("pause");
+return;}
+if(e.key==="p"||e.key==="P"){
+if(overlayOpen==="pause")closeOv();else if(!overlayOpen&&state!=="win")openOv("pause");
+return;}
 if(e.key==="m"||e.key==="M"){audio();setSound(!SND.on);return;}
 if(overlayOpen)return;
 audio();
@@ -130,7 +137,16 @@ addEventListener("keyup",e=>{if(e.key in kbHeld)kbHeld[e.key]=false;kbFine=e.shi
 addEventListener("blur",()=>{for(const k in kbHeld)kbHeld[k]=false;});
 $("bHelp").onclick=()=>{sfx("ui");openOv("help");};
 $("towerTag").onclick=()=>{sfx("ui");openOv("help");};
-$("bStart").onclick=()=>{sfx("ui");closeOv();};
+$("bStart").onclick=()=>{sfx("ui");if(ovPrev==="menu")openOv("menu");else closeOv();};
+$("bPause").onclick=()=>{sfx("ui");if(!overlayOpen&&state!=="win")openOv("pause");};
+$("bContinue").onclick=()=>{sfx("ui");if(runInProgress())closeOv();else{resetRun();closeOv();}};
+$("bSelect").onclick=()=>{sfx("ui");openOv("select");};
+$("bHow").onclick=()=>{sfx("ui");openOv("help");};
+$("bResume").onclick=()=>{sfx("ui");closeOv();};
+$("bPauseSelect").onclick=()=>{sfx("ui");openOv("select");};
+$("bPauseMenu").onclick=()=>{sfx("ui");openOv("menu");};
+$("bWinSelect").onclick=()=>{sfx("ui");openOv("select");};
+$("bWinMenu").onclick=()=>{sfx("ui");resetRun();openOv("menu");};
 $("bReset").onclick=()=>{sfx("ui");openOv("confirm");};
 $("bNo").onclick=()=>{sfx("ui");closeOv();};
 $("bYes").onclick=()=>{closeOv();resetRun();sfx("erase");toast("RUN ERASED · 0m");};
@@ -176,7 +192,7 @@ if(document.hidden){save();if(SND.ctx)SND.ctx.suspend().catch(()=>{});}
 else{lastT=performance.now();if(SND.on&&SND.ctx)SND.ctx.resume().catch(()=>{});}});
 addEventListener("beforeunload",save);
 /* ---------- boot ---------- */
-load();resize();applySoundBtn();updateTowerTag();if(!life.seen)openOv("help");
+load();resize();applySoundBtn();updateTowerTag();openOv("menu");
 lastT=performance.now();rafId=requestAnimationFrame(frameLoop);
 /* ---------- test hook (manual clock for test.html; inert in normal play) ---------- */
 window.__COMMIT__={takeControl(){manual=true;cancelAnimationFrame(rafId);},tick(now){frameLoop(now);},

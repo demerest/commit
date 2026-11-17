@@ -57,6 +57,9 @@ background:var(--blue);color:#06101f;border-color:var(--blue)}
 .cta:hover{filter:brightness(1.1)}
 .cta.ghost{background:transparent;color:var(--ink);border-color:var(--line)}
 .cta.danger{background:var(--red);border-color:var(--red);color:#20060a}
+.col{display:flex;flex-direction:column;gap:.5em;margin:.6em 0}
+.cta.block{flex:none;width:100%}
+#selectList .cta{font-size:.75em}
 #winStats{display:grid;grid-template-columns:1fr 1fr;gap:.55em .9em;font-size:.75em;margin:.6em 0 1em}
 #winStats div{border:1px solid var(--line);border-radius:.45em;padding:.55em .7em}
 #winStats b{display:block;font-size:1.35em;color:var(--green);margin-top:.15em}

@@ -17,10 +17,36 @@
   <div id="alt"><button id="towerTag" aria-label="Choose tower">TOWER 1 · 508m</button><span id="altV">0.0m</span><small>BEST <span id="best">0.0m</span></small></div>
   <div id="meters">LAUNCH <b id="mLaunch">0</b><br>FALL <b id="mFall">0</b><br>TIME <b id="mTime">0:00.0</b></div>
  </div>
- <div id="btns"><button id="bHelp" aria-label="Help">?</button><button id="bSound" aria-label="Mute sound" aria-pressed="true" title="Sound on/off (M)">♪</button><button id="bReset" aria-label="Reset run">↺</button></div>
+ <div id="btns"><button id="bPause" aria-label="Pause" title="Pause (Esc / P)">II</button><button id="bHelp" aria-label="Help">?</button><button id="bSound" aria-label="Mute sound" aria-pressed="true" title="Sound on/off (M)">♪</button><button id="bReset" aria-label="Reset run">↺</button></div>
  <div id="foot">DRAG · RELEASE · LIVE WITH IT</div>
 </div>
 <div id="toast" role="status"></div>
+<div id="menu" class="overlay" hidden><div class="panel">
+ <h1>COMMIT<span>.</span></h1>
+ <p id="menuSub">A tower. A square. No air control.</p>
+ <div class="col">
+  <button id="bContinue" class="cta block">START GAME</button>
+  <button id="bSelect" class="cta block ghost">LEVEL SELECT</button>
+  <button id="bHow" class="cta block ghost">HOW TO PLAY</button>
+ </div>
+ <div class="keys" id="menuStats"></div>
+</div></div>
+<div id="pause" class="overlay" hidden><div class="panel">
+ <h1>PAUSED<span>.</span></h1>
+ <p id="pauseInfo"></p>
+ <div class="col">
+  <button id="bResume" class="cta block">RESUME</button>
+  <button id="bPauseSelect" class="cta block ghost">LEVEL SELECT</button>
+  <button id="bPauseMenu" class="cta block ghost">MAIN MENU</button>
+ </div>
+ <div class="keys">esc / p resume · the clock is frozen</div>
+</div></div>
+<div id="select" class="overlay" hidden><div class="panel">
+ <h1>LEVEL SELECT<span>.</span></h1>
+ <p>Available towers. Clear a summit to unlock the next.</p>
+ <div class="col" id="selectList"></div>
+ <div class="row"><button id="selectBack" class="cta ghost">BACK</button></div>
+</div></div>
 <div id="help" class="overlay" hidden><div class="panel">
  <h1>COMMIT<span>.</span></h1>
  <p>A tower. A square. <b>No air control.</b> Draw an arc, release, and live with exactly what you drew.</p>
@@ -39,7 +65,7 @@
   <li>Reach the summit at <b id="helpSummit">508m</b>.</li>
  </ul>
  <div class="keys">⌨ <kbd>←</kbd><kbd>→</kbd> angle · <kbd>↑</kbd><kbd>↓</kbd> power (hold to sweep) · <kbd>space</kbd> aim, again to commit<br>
- <kbd>shift</kbd> fine aim · <kbd>esc</kbd> close menus · <kbd>R</kbd> reset · <kbd>H</kbd> help · <kbd>M</kbd> sound</div>
+ <kbd>shift</kbd> fine aim · <kbd>esc</kbd>/<kbd>P</kbd> pause · <kbd>R</kbd> reset · <kbd>H</kbd> help · <kbd>M</kbd> sound</div>
  <div class="keys" id="lifeStats"></div>
  <div class="row" id="towers"></div>
  <div class="row"><button id="bStart" class="cta">BEGIN THE CLIMB</button></div>
@@ -59,6 +85,7 @@
  </div>
  <textarea id="share" readonly aria-label="Share text"></textarea>
  <div class="row"><button id="bCopy" class="cta ghost">COPY</button><button id="bNext" class="cta">NEXT TOWER →</button><button id="bAgain" class="cta ghost">CLIMB AGAIN</button></div>
+ <div class="row"><button id="bWinSelect" class="cta ghost">LEVEL SELECT</button><button id="bWinMenu" class="cta ghost">MAIN MENU</button></div>
 </div></div>
 </div></div>
 <script src="js/core.js"></script>

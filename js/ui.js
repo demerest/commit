@@ -1,15 +1,34 @@
 /* COMMIT — DOM overlays, HUD, toast, tower picker. */
 "use strict";
-let overlayOpen=null,toastT=null;const hudCache={};
-function openOv(id){if(state==="aim"){aim=null;state="ready";stopHum();stopSlide();}
-overlayOpen=id;$(id).hidden=false;
+let overlayOpen=null,toastT=null,ovPrev=null;const hudCache={};
+function openOv(id){if(state==="aim"&&id!=="pause"&&id!=="menu"){aim=null;state="ready";stopHum();stopSlide();}
+if(overlayOpen)$(overlayOpen).hidden=true;
+ovPrev=overlayOpen;overlayOpen=id;$(id).hidden=false;
 if(id==="help"){$("bStart").textContent=life.seen?"BACK TO THE WALL":"BEGIN THE CLIMB";
 $("helpSummit").textContent=(SUMMIT/10)+"m";
 $("lifeStats").innerHTML="LIFETIME · summits <b>"+totalSummits()+"</b> · launches <b>"+life.launches+"</b> · falls <b>"+life.falls+"</b>";
-buildTowers();}}
+buildTowers();}
+if(id==="menu")refreshMenu();
+if(id==="select")buildSelect();
+if(id==="pause")$("pauseInfo").textContent=LVL.name+" · "+(Math.max(0,body.y)/10).toFixed(1)+"m · "+fmt(run.time);}
 function closeOv(){if(!overlayOpen)return;
 if(overlayOpen==="help"){life.seen=true;save();}
-$(overlayOpen).hidden=true;overlayOpen=null;}
+$(overlayOpen).hidden=true;overlayOpen=null;ovPrev=null;}
+function runInProgress(){return run.started&&state!=="win";}
+function refreshMenu(){
+$("bContinue").textContent=runInProgress()?"CONTINUE · "+LVL.name+" · "+(Math.max(0,body.y)/10).toFixed(0)+"m":"START GAME";
+$("menuSub").textContent=runInProgress()?"Pick up where you left off.":"A tower. A square. No air control.";
+$("menuStats").innerHTML="LIFETIME · summits <b>"+totalSummits()+"</b> · launches <b>"+life.launches+"</b> · falls <b>"+life.falls+"</b>";}
+/* level select lists ONLY unlocked towers */
+function buildSelect(){const box=$("selectList");box.innerHTML="";
+for(const L of LEVELS){if(L.id>life.unlocked)continue;
+const b=document.createElement("button");b.className="cta block"+(L.id===level?"":" ghost");
+const best=(life.best[L.id]||0)/10;
+b.textContent=L.name+" · "+(L.summit/10)+"m"+(best>0?" · best "+best.toFixed(0)+"m":"");
+b.setAttribute("aria-label",L.name);
+b.onclick=()=>{sfx("ui");closeOv();setLevel(L.id);toast(LVL.name+" · "+LVL.tag);};
+box.appendChild(b);}
+$("selectBack").onclick=()=>{sfx("ui");openOv(ovPrev||"menu");};}
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");
 clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),1600);}
 function buildTowers(){const box=$("towers");box.innerHTML="";

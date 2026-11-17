@@ -23,7 +23,7 @@ CSS + Web Audio. Zero dependencies, zero network requests, zero image assets, ze
 | `js/fx.js` | Pooled dust/spray/shards/confetti/floats, shake, flash, squash timers |
 | `js/sim.js` | `step(b,t)` single integrator; preview; aim/launch; land/bounce; crumble + reform; **ice drift** (`updateIce`); **movers** (`worldT` clock, `moverXY/moverV/rectOf`, `groundStep` carry); run stats |
 | `js/render.js` | Canvas sizing + one render pass (sky→parallax→grid→solids incl. ice/mover tracks→trail→preview→body+fuse→FX→rail) |
-| `js/ui.js` | DOM overlays, HUD cache, toast, **tower picker**, tower tag |
+| `js/ui.js` | DOM overlays (**menu / pause / select** / help / confirm / win) with `ovPrev` return-stack, HUD cache, toast, tower picker, available-only level select, tower tag |
 | `js/main.js` | Persistence v3, **level switching/unlock**, win/reset, input, loop, boot, `__COMMIT__` hook |
 | `editor.html` + `js/editor.js` | **Public** web level editor, published with the game (the game UI never links to it; the README does). Loads the real `sim.js` so VALIDATE uses the same `step()`/`preview()`; exports/imports descriptors |
 | GitHub Pages | Standard branch deployment (`main`, repo root) — everything committed ships, editor included; no custom workflow |
@@ -72,8 +72,12 @@ backing store scaled by `min(devicePixelRatio, 2)`; all drawing stays in logical
 
 ### Input state machine
 `ready → aim(pointer|keyboard) → flight → ready` · `flight → win` · overlays pause the
-simulation and drop a grounded aim (a mid-flight pre-aim survives); `document.hidden` pauses
-the same way. `Esc` only closes overlays — there is no aim-cancel key.
+simulation; `document.hidden` pauses the same way. Boot opens the **main menu** (start page):
+Continue/Start Game, Level Select (unlocked only), How to Play. `Esc`/`P`/`II` open **pause**;
+pause and menu *preserve* a drawn aim (fuse frozen), other overlays drop a grounded aim
+(a mid-flight pre-aim always survives). There is no aim-cancel key. The summit (**win**) screen
+is the between-levels screen: Next Tower / Climb Again / Copy plus Level Select / Main Menu;
+pause also links to both. `openOv` tracks `ovPrev` so Help/Select BACK returns to its caller.
 Keyboard arrows are **hold-to-sweep**: `kbHeld` flags set on keydown/keyup, integrated in
 `kbSweep(dt)` at 60°/s and 0.45/s (¼ with Shift) from the loop clock — OS key-repeat is never
 used. Held flags auto-clear whenever not aiming (launch, cancel, overlay). The render pass
@@ -532,7 +536,7 @@ the `window.__COMMIT__` manual-clock hook and asserts the matrix below, includin
 **phase-aware** solver that proves **all 36 T1 + 40 T2 + 42 T3 + 43 T4 rest-to-rest jumps
 (bounce chains, elevator rides, mover catches, wind gaps and phase gates included) are
 solvable at ≤ 98 % power** using the real integrator; mover/phase jumps must also land with the
-launch phase shifted ±0.12 s (not frame-perfect). Last full run: **157/157 pass** in both
+launch phase shifted ±0.12 s (not frame-perfect). Last full run: **178/178 pass** in both
 standard and `prefers-reduced-motion` modes (headless Chrome). The editor's VALIDATE runs the
 same solver + invariants (`editor.html#validateN` headless: VALID 36/40/42/43).
 
@@ -565,6 +569,7 @@ same solver + invariants (`editor.html#validateN` headless: VALID 36/40/42/43).
 | 25 | Lift collision fairness (`test.html` §30) | Straight-down and drifting jumps onto a rising lift land in place (no edge teleport / no wall contact); flight ≡ preview; a lift catching a slow riser lands it on top |
 | 26 | Pre-aim queue (`test.html` §31) | Mid-flight aim keeps physics running and the fuse counting; early release / Space / fuse expiry queue instead of launching; queue survives bonks, bounce hops and Esc, and fires on true landing; grounded flow unchanged |
 | 27 | Tower 4 wind + phase (`test.html` §32) | 43/43 jumps solvable ≤98%; zone-assisted gap solvable and flight≡preview through the updraft; phase gate solvable + ±0.12 s tolerant, flight≡preview, and ghosts under the rider into an honest drop; T4 summit/share/NEXT-hidden |
+| 28 | Menu / pause / select (`test.html` §1, §33) | Boot = main menu start page; Start/Continue; Esc/P/II pause freezes clock and preserves aim; level select lists unlocked only; pause/win → menu & select; help/select BACK returns to caller; win = between-levels screen |
 
 ## 6. Tuning Pointers
 

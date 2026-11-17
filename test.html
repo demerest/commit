@@ -100,14 +100,15 @@ const tick=ms=>{now+=ms;C.tick(now);};
 const settle=()=>{let n=0;while(C.state==="flight"&&n<2000){tick(1000/60);n++;}return n;};
 const RM=C.RM;
 
-/* 1 · boot */
-ok("boot: help overlay on first run",C.overlayOpen==="help"&&!d.getElementById("help").hidden);
+/* 1 · boot: main menu is the start page */
+ok("boot: main menu is the start page",C.overlayOpen==="menu"&&!d.getElementById("menu").hidden);
+ok("boot: menu offers START GAME on a fresh run",d.getElementById("bContinue").textContent==="START GAME");
 ok("boot: ready at 0m on tower 1",C.state==="ready"&&C.body.y===0&&C.level===1);
 ok("tower 2 locked at start",C.life.unlocked===1);
 C.setLevel(2);
 ok("locked tower cannot be entered",C.level===1);
-C.closeOv();
-ok("boot: begin closes help, seen persisted",C.overlayOpen===null&&C.life.seen===true);
+d.getElementById("bContinue").click();
+ok("boot: START GAME closes menu",C.overlayOpen===null);
 for(let i=0;i<150;i++)tick(16.7);
 ok("idle hint arms after 2.2s",C.idleT>2.2);
 
@@ -216,7 +217,9 @@ for(let i=0;i<6;i++)tick(16.7);
 keyup(w,"ArrowRight");
 ok("arrows while aiming do not reset the fuse",C.aimT<at0-.05);
 key(w,"Escape");
-ok("esc no longer cancels keyboard aim",C.state==="aim"&&C.aim&&C.aim.mode==="k");
+ok("esc pauses without cancelling the drawn aim",C.overlayOpen==="pause"&&C.state==="aim"&&C.aim&&C.aim.mode==="k");
+key(w,"Escape");
+ok("esc resumes the preserved aim",C.overlayOpen===null&&C.state==="aim");
 key(w," ");
 ok("space commits the standing aim",C.state==="flight"&&C.run.launches===1);
 settle();
@@ -516,9 +519,10 @@ settle();
 C.resetRun();C.setBody(120,120);C.launch({x:200,y:500});tick(100);
 ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",300,450);ptr(w,d,"pointerup",300,450);
 key(w,"Escape");
-ok("Esc leaves mid-air aim + queue armed",!!C.aim&&!!C.pendingV&&C.state==="flight");
+ok("Esc mid-air pauses and keeps the queue armed",C.overlayOpen==="pause"&&!!C.pendingV&&C.state==="flight");
+key(w,"Escape");
 const lE=C.run.launches;settle();
-ok("queued commit still fires after Esc",C.run.launches===lE+1&&C.pendingV===null);
+ok("queued commit still fires after resume",C.run.launches===lE+1&&C.pendingV===null);
 settle();
 C.setLevel(3);C.resetRun();C.setBody(310,3720);C.launch({x:0,y:900});
 tick(50);
@@ -584,8 +588,56 @@ ok("phase flight contacts === preview contacts",JSON.stringify(C.flightContacts)
 ok("landed on phase platform",C.body.on&&C.body.on.idx===11);
 const y0=C.body.y;let dropped=false;
 for(let i=0;i<200;i++){tick(16.7);if(C.state==="flight"){dropped=true;break;}}
-ok("phase platform drops you honestly when it ghosts",dropped&&C.body.y<y0);
+if(dropped)tick(16.7);
+ok("phase platform drops you honestly when it ghosts",dropped&&C.body.y<y0,
+"dropped="+dropped+" wt="+C.worldT.toFixed(2)+" on="+(C.body.on&&C.body.on.idx)+" state="+C.state+" y="+C.body.y.toFixed(0)+" y0="+y0);
 settle();}
+C.resetRun();
+
+/* 33 · main menu / pause / level select / between-levels */
+C.launch({x:0,y:300});settle();
+key(w,"Escape");
+ok("Esc in game opens pause",C.overlayOpen==="pause");
+const tP=C.run.time;for(let i=0;i<60;i++)tick(16.7);
+ok("pause freezes the clock",C.run.time===tP);
+key(w,"p");
+ok("P resumes from pause",C.overlayOpen===null);
+key(w,"p");
+ok("P pauses again",C.overlayOpen==="pause");
+d.getElementById("bPauseMenu").click();
+ok("pause -> main menu",C.overlayOpen==="menu");
+ok("menu shows CONTINUE mid-run",d.getElementById("bContinue").textContent.indexOf("CONTINUE")===0);
+d.getElementById("bSelect").click();
+ok("menu -> level select",C.overlayOpen==="select");
+ok("level select lists only unlocked towers",d.getElementById("selectList").children.length===C.life.unlocked);
+d.getElementById("selectBack").click();
+ok("select BACK returns to menu",C.overlayOpen==="menu");
+d.getElementById("bContinue").click();
+ok("CONTINUE resumes the run",C.overlayOpen===null);
+d.getElementById("bPause").click();
+ok("HUD pause button opens pause",C.overlayOpen==="pause");
+d.getElementById("bResume").click();
+ok("RESUME closes pause",C.overlayOpen===null);
+d.getElementById("bPause").click();
+d.getElementById("bPauseMenu").click();
+d.getElementById("bHow").click();
+ok("menu -> HOW TO PLAY opens help",C.overlayOpen==="help");
+d.getElementById("bStart").click();
+ok("help BACK returns to menu",C.overlayOpen==="menu");
+d.getElementById("bContinue").click();
+C.setLevel(1);C.resetRun();
+C.setBody(339,4980);C.launch({x:-200,y:760});settle();
+ok("T1 summit reaches the between-levels screen",C.state==="win"&&C.overlayOpen==="win");
+d.getElementById("bWinMenu").click();
+ok("win -> MAIN MENU resets to a fresh start page",C.overlayOpen==="menu"&&C.state==="ready"&&C.run.launches===0);
+d.getElementById("bContinue").click();
+C.setBody(339,4980);C.launch({x:-200,y:760});settle();
+ok("between-levels screen re-reachable after a menu round-trip",C.state==="win"&&C.overlayOpen==="win");
+d.getElementById("bWinSelect").click();
+ok("win -> LEVEL SELECT",C.overlayOpen==="select");
+d.getElementById("selectBack").click();
+ok("select BACK returns to the win screen",C.overlayOpen==="win");
+C.closeOv();
 C.resetRun();
 
 ok("no runtime errors during suite",errs.length===0,errs.join(" | "));

@@ -78,6 +78,7 @@ GROUND → AIM (drag / keys) → read the dotted arc → RELEASE
 | Commit | Release | `Space`/`Enter` (first press raises the arc, second commits) |
 | Pre-aim | drag mid-flight; release queues the commit for landing | arrows mid-flight; `Space` queues |
 | Cancel aim | Drag < 90 px/s equivalent, or `pointercancel` | — (no cancel key) |
+| Pause | `II` button | `Esc` / `P` (freezes clock; preserves a drawn aim) |
 | Reset run | ↺ button (confirm) | `R` (confirm) |
 | Help | ? button | `H` |
 | Sound on/off | ♪ button | `M` |
@@ -87,7 +88,8 @@ Rules:
   moment you start. A launch attempt while airborne — release, `Space`, or fuse expiry —
   **queues** the drawn arc (`QUEUED · n%`, amber ring) and fires it on the instant of true
   landing; bounce hops are not landings. Nothing launches mid-air. There is **no cancel key**:
-  once an arc is drawn it commits (release, `Space` or the fuse); `Esc` only closes menus.
+  once an arc is drawn it commits (release, `Space` or the fuse). `Esc`/`P` pause (clock frozen,
+  drawn aim preserved); pause and the summit screen link to the main menu / level select.
 - Drag is relative (press anywhere — thumb ergonomics on mobile), direction = drag
   direction, magnitude × 4.8 = launch speed, clamped to 950 px/s.
 - Releases below 90 px/s cancel silently with a small puff — twitchy micro-drags are
@@ -426,5 +428,6 @@ leaderboard, moving ceilings, alternate game modes. None required for the core e
 14. Every mover-involved jump survives a ±0.12 s launch-phase shift (fair timing); mover periods ≤ 3 s; sweeps stay inside the walls; mandatory elevator rides satisfy the low/high dy bounds.
 15. Any launch angle/power is reachable by keyboard within ~3 s of holding arrows (continuous sweep, Shift fine), with a visible angle/power readout; full pointer power needs ≤ 210 px of drag.
 16. Arriving onto a rising lift (straight down or drifting) lands in place — no edge teleport, no pass-through; the aim ring sits on a dashed ghost of the mover at contact time; fuse launches commit the exact previewed phase.
-17. Pre-aim: aiming starts mid-flight with the fuse running; release/Space/fuse expiry while airborne queues the arc and fires it on true landing (never on bounce hops); no cancel key (Esc only closes menus); grounded aiming is unchanged.
+17. Pre-aim: aiming starts mid-flight with the fuse running; release/Space/fuse expiry while airborne queues the arc and fires it on true landing (never on bounce hops); no cancel key (Esc/P pause instead); grounded aiming is unchanged.
 18. Gust zones bend the arc identically in preview and flight (pure position-based accel, flight-only); a zone-assisted gap is unsolvable without the zone. Phase platforms keep preview ≡ flight via a pure solidAt(s,t); on-window ≥1.2 s and ±0.12 s launch tolerance; ghosting under a rider drops honestly and always returns.
+19. Boot lands on a main-menu start page (Continue/Start Game, Level Select of unlocked towers only, How to Play). Esc/P/II pause with the clock frozen and a drawn aim preserved; pause and the summit between-levels screen both reach the main menu and level select; Help/Select BACK returns to its caller.
