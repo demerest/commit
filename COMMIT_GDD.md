@@ -162,6 +162,15 @@ one when it ghosts drops you honestly; it always returns (no softlock). On-windo
 ±0.12 s launch shift still lands. The solidity is a pure `solidAt(s,t)` predicate read inside
 `step` (never shared-state mutation), keeping preview ≡ flight.
 
+**Orbiter rule (Tower 5+):** green platforms ride a circle (`x=bx+amp·cos`, `y=by+amp·sin`) on
+the world clock; pure `rectOf` keeps preview ≡ flight; the rider is carried in 2-D. Orbit speed
+`2π·amp/period` ≤140 px/s, period ≤3 s, sweep inside the walls. A clockwork escalation of T3.
+
+**Direction-spring rule (Tower 5+):** orange pads throw you on a *fixed authored vector*
+(`[vx,vy]`) instead of preserving your momentum — a deterministic redirect. Preview exact (the
+bounce branch sets `v`). Chains "follow the arrows"; the monotonic-x invariant applies to
+plain springs only. Audio pitched by launch direction.
+
 Geometry, gravity, the fuse and the slide are the antagonists; the springs are the only mercy.
 There is no instant-death hazard.
 
@@ -178,7 +187,7 @@ There is no instant-death hazard.
 
 ## 8. Tower Structure
 
-Three towers (more planned). Each has five sections and a summit. Full geometry and
+Five towers (more planned). Each has five sections and a summit. Full geometry and
 reachability/bounce/ice/mover math: `COMMIT_LEVELS.md`. Levels are pure data in
 `levels/tower-N.js` descriptors; `js/levels.js` is only the engine.
 
@@ -224,6 +233,17 @@ platforms plus every prior mechanic.
 | IV | The Eye | 450–632 m | 36–60 px | Calm but narrow: third updraft, bounce chain, narrow ice/crumble, timed lift + phase gate |
 | V | Summit | 640 m | 36 px | Mercy at the top, offset so the last arc is a real decision |
 
+**Tower 5 · The Orrery (676 m)** — the clockwork-orbit tower: orbiting platforms and
+fixed-vector redirect pads plus every prior mechanic.
+
+| # | Name | Altitude | Platform width | Teaches / tests |
+|---|---|---|---|---|
+| I | Orbital Dock | 0–160 m | 90–150 px | First orbiter (ride the circle); ice + crumble recall |
+| II | The Redirect | 160–326 m | 72–90 px | First direction springs (follow the arrow, not momentum); orbiter + phase |
+| III | Clockwork Ring | 326–450 m | 60–70 px | Orbit + blink together; movers + ice under time pressure |
+| IV | Spring Chain | 450–662 m | 32–60 px | Leftward bounce chain; narrow ice/crumble; orbiter + timed lift + redirect |
+| V | Summit | 676 m | 32 px | Mercy at the top, offset so the last arc is a real decision |
+
 Design invariants for every tower (enforced by the solver): consecutive platforms alternate
 sides (a platform directly above another is unreachable — you'd bonk its underside); bounce
 chains keep one horizontal direction (bounce preserves `vx`); `dy ≤ 160`, required speed
@@ -268,6 +288,8 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 | `mover` | `#d17bff` | Moving platforms: top edge, travel track, direction chevrons, mover landing ring, carry dust |
 | `phase` | `#ffd166` | Phase platforms: gold top edge, clock ticks, draining/refilling clock-bar, ghost outline, phase landing ring |
 | `zone` | `#6fc3ff` | Gust zones: tinted column, dashed boundary, streaming wind streaks (vertical updraft / horizontal gust) |
+| `orbit` | `#7ee0a3` | Orbiters: green top edge, dashed orbit ring + centre dot, tangent direction chevrons |
+| `dir` | `#ff9f43` | Direction springs: orange top edge + launch-arrow stencil; direction-pitched throw boing |
 
 ### World rendering
 - **Sky:** three-stop vertical gradient keyed to altitude — cold navy at the floor, steel
@@ -351,6 +373,9 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 | Phase toggle | Pitched clock tick on solid↔ghost (880 Hz on / 440 Hz off) + bright click |
 | Phase-out drop | Descending sine sigh + air puff as the platform ghosts under you |
 | Gust zone | Localized wind bed (gain by inside-ness, pitch by strength); streaks stream along the accel |
+| Orbiter carry | Continuous mechanical hum-free ride; tangent chevrons show travel; no reversal tick (circular) |
+| Dir spring throw | Boing pitched by launch angle + |vx| (direction-varied, not one identical cue) |
+| Ambient wind (T4+) | Constant altitude wind bed halved on towers 4+ so the upper climbs sit quieter; SFX unchanged |
 | Tower unlock | Rising triad + ice-blue "TOWER N UNLOCKED" line on the win screen |
 | Idle > 2.2 s, 0 launches | Pulsing "drag anywhere · release to commit" |
 | Summit | Confetti + overlay + lifetime records updated |
@@ -403,8 +428,9 @@ guarded so a sound failure can never break the simulation.
 
 ## 16. Scope Guard
 
-**Shipped:** three towers (T1 36 platforms, T2 40, T3 42), crumble/bounce/ice/movers,
-ceilings, stats, per-tower persistence (incl. mover phase), tower select + unlock, share,
+**Shipped:** five towers (T1 36 platforms, T2 40, T3 42, T4 43, T5 43), crumble/bounce/ice/
+movers/ceilings, gust zones + phase platforms (T4), orbiters + direction springs (T5), stats,
+per-tower persistence (incl. mover phase), main menu / pause / level select, tower unlock, share,
 web level editor with real-integrator validation. Modular `js/` + data-driven
 `levels/tower-N.js` so new towers/mechanics/modes are additive.
 **Candidates (not built):** daily seeded tower, ghost of your best run, launch-count
@@ -431,3 +457,4 @@ leaderboard, moving ceilings, alternate game modes. None required for the core e
 17. Pre-aim: aiming starts mid-flight with the fuse running; release/Space/fuse expiry while airborne queues the arc and fires it on true landing (never on bounce hops); no cancel key (Esc/P pause instead); grounded aiming is unchanged.
 18. Gust zones bend the arc identically in preview and flight (pure position-based accel, flight-only); a zone-assisted gap is unsolvable without the zone. Phase platforms keep preview ≡ flight via a pure solidAt(s,t); on-window ≥1.2 s and ±0.12 s launch tolerance; ghosting under a rider drops honestly and always returns.
 19. Boot lands on a main-menu start page (Continue/Start Game, Level Select of unlocked towers only, How to Play). Esc/P/II pause with the clock frozen and a drawn aim preserved; pause and the summit between-levels screen both reach the main menu and level select; Help/Select BACK returns to its caller.
+20. Orbiters carry in 2-D with preview ≡ flight (pure circular rectOf); orbit speed ≤140 px/s, period ≤3 s, ±0.12 s launch tolerance. Direction springs set a fixed launch vector (preview exact), |v|≤950, vy>0, and the downstream rest lies within the vector's reach. Tower 4+ halve the constant ambient wind bed (SFX unchanged).

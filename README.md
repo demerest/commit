@@ -22,6 +22,7 @@ The only punishment is gravity, and it is always enough.
 | 2 | The Ice Ascent | 560 m | **ice** — slow drift away from the side you entered from |
 | 3 | The Clockwork Spire | 600 m | **movers** — travelling platforms + lifts, combined with everything above |
 | 4 | The Tempest Engine | 640 m | **gust zones** (updrafts/gusts bend the arc) + **phase platforms** (solid/ghost on a clock), combined with everything above |
+| 5 | The Orrery | 676 m | **orbiters** (platforms ride a circle, 2-D carry) + **direction springs** (fixed-vector redirect), combined with everything above |
 
 Clearing a tower's summit unlocks the next. Switch towers from the help overlay (`?` / `H`) or
 the **NEXT TOWER** button on the win screen. Each tower keeps its own run; lifetime records are
@@ -67,6 +68,12 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
 - **Phase platforms (Tower 4+).** Gold ledges blink on the world clock: solid while the
   clock-bar drains, ghost (fall straight through) while it refills. Land on the beat, or drop
   through a ghost as a timed shortcut. Ghosting under you drops you honestly; it always returns.
+- **Orbiters (Tower 5+).** Green platforms ride a dashed circle on the world clock and carry
+  you in 2-D; the arc knows where they'll be. Time your stop on the orbit.
+- **Direction springs (Tower 5+).** Orange pads throw you on a fixed authored vector (the
+  arrow), not your momentum — deterministic redirects and routing chains.
+- **Quiet upper winds.** From Tower 4 the constant ambient wind bed is halved (SFX unchanged),
+  so the tall climbs sit quieter under their effects.
 - **Main menu, pause & level select.** Boot lands on a start page: Continue / Start Game,
   Level Select (unlocked towers only, with your best height), How to Play. `Esc`/`P` or the
   `II` button pauses with the clock frozen; pause and the summit (between-levels) screen both
@@ -119,7 +126,7 @@ visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPO
 
 ## Verification
 
-`test.html` is an automated harness (**178 assertions**) that drives the game through a
+`test.html` is an automated harness (**191 assertions**) that drives the game through a
 manual-clock hook: commit contract, fuse, pre-aim queue, crumble break + reform, bounce-chain preview ≡ flight,
 ice slide / stand-still / walk-off / launch-discards-slide / persistence, mover carry / reversal /
 launch-discards-carry / moving-target contract / phase persistence / lift collision fairness, tower lock + unlock +
@@ -135,7 +142,7 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **178/178 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **191/191 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 

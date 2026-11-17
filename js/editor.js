@@ -4,8 +4,8 @@
 "use strict";
 (function(){
 const cv=$("cv"),ctx=cv.getContext("2d");
-const TY=["solid","crumble","bounce","ice","move·h","move·v","clock"];
-const TCOL=[COL.edge,"#8a6a3a",COL.spring,COL.ice,COL.mover,COL.mover,COL.phase];
+const TY=["solid","crumble","bounce","ice","move·h","move·v","clock","orbit","dir"];
+const TCOL=[COL.edge,"#8a6a3a",COL.spring,COL.ice,COL.mover,COL.mover,COL.phase,COL.orbit,COL.dir];
 let ed=null,sel=null,camY=-100,scale=1,drag=null;
 const clone=o=>JSON.parse(JSON.stringify(o));
 function rebuild(){
@@ -13,7 +13,8 @@ LVL=ed;SUMMIT=ed.summit;P=ed.plats;CEIL=ed.ceil;SECTIONS=ed.sections;NOTES=ed.no
 SOLIDS.length=0;PLATS.length=0;ZONES.length=0;
 SOLIDS.push({x:-60,y:-60,w:VW+120,h:60,ground:true},{x:-60,y:0,w:60,h:SUMMIT+900,wall:true},{x:VW,y:0,w:60,h:SUMMIT+900,wall:true});
 P.forEach(([x,t,w,ty,amp,per,ph],i)=>{const s={x,y:t-16,w,h:16,idx:i,crumble:ty===1,bounce:ty===2,ice:ty===3,
-move:ty===4?4:ty===5?5:0,clock:ty===6?1:0,duty:ty===6?(amp||.6):0,bx:x,by:t-16,amp:amp||60,period:per||2.4,phase:ph||0,dead:false};PLATS.push(s);SOLIDS.push(s);});
+move:ty===4?4:ty===5?5:ty===7?7:0,dir:ty===8?1:0,dvx:ty===8?(amp||0):0,dvy:ty===8?(per||800):0,
+clock:ty===6?1:0,duty:ty===6?(amp||.6):0,bx:x,by:t-16,amp:amp||60,period:per||2.4,phase:ph||0,dead:false};PLATS.push(s);SOLIDS.push(s);});
 for(const z of(ed.zones||[]))ZONES.push({x:z[0],y:z[1],w:z[2],h:z[3],ax:z[4],ay:z[5]});
 for(const[x,t,w]of CEIL)SOLIDS.push({x,y:t-16,w,h:16,ceil:true});
 GOAL={x:ed.goal[0],y:SUMMIT-16,w:ed.goal[1],h:16,goal:true};SOLIDS.push(GOAL);}
@@ -38,21 +39,28 @@ ctx.fillRect(z[0]*scale,zy,z[2]*scale,z[3]*scale);ctx.globalAlpha=.4;ctx.strokeS
 ctx.setLineDash([2,6]);ctx.strokeRect(z[0]*scale+.5,zy+.5,z[2]*scale-1,z[3]*scale-1);ctx.setLineDash([]);
 ctx.globalAlpha=.7;ctx.fillStyle=COL.zone;ctx.font="9px ui-monospace,monospace";
 ctx.fillText((z[4]?"gust "+z[4]:"updraft "+z[5]),z[0]*scale+4,zy+12);ctx.restore();}
-ed.plats.forEach(([x,t,w,ty,amp],i)=>{const sy=SY(t);
-if(ty===4||ty===5){const a=amp||60;
-ctx.save();ctx.strokeStyle=COL.mover;ctx.globalAlpha=.35;ctx.lineWidth=1;ctx.setLineDash([3,5]);
+ed.plats.forEach(([x,t,w,ty,amp,per],i)=>{const sy=SY(t);
+if(ty===4||ty===5||ty===7){const a=amp||60;
+ctx.save();ctx.strokeStyle=ty===7?COL.orbit:COL.mover;ctx.globalAlpha=.35;ctx.lineWidth=1;ctx.setLineDash([3,5]);
 if(ty===4){const ty2=sy+8*scale;ctx.beginPath();ctx.moveTo((x-a)*scale,ty2);ctx.lineTo((x+a+w)*scale,ty2);ctx.stroke();}
-else{const tx=(x+w/2)*scale;ctx.beginPath();ctx.moveTo(tx,SY(t+a));ctx.lineTo(tx,SY(t-a));ctx.stroke();}
+else if(ty===5){const tx=(x+w/2)*scale;ctx.beginPath();ctx.moveTo(tx,SY(t+a));ctx.lineTo(tx,SY(t-a));ctx.stroke();}
+else{ctx.beginPath();ctx.arc((x+w/2)*scale,SY(t-8),a*scale,0,6.283);ctx.stroke();}
 ctx.setLineDash([]);ctx.restore();}
-ctx.fillStyle=ty===3?"#152232":ty===4||ty===5?"#1b1230":ty===6?"#241d0e":COL.plat;ctx.fillRect(x*scale,sy,w*scale,16*scale);
+ctx.fillStyle=ty===3?"#152232":ty===4||ty===5?"#1b1230":ty===7?"#10241a":ty===6?"#241d0e":ty===8?"#2a1608":COL.plat;ctx.fillRect(x*scale,sy,w*scale,16*scale);
 ctx.fillStyle=TCOL[ty];ctx.fillRect(x*scale,sy,w*scale,2);
 if(ty===6){ctx.save();ctx.strokeStyle=COL.phase;ctx.globalAlpha=.5;ctx.lineWidth=1;ctx.setLineDash([4,4]);
 ctx.strokeRect(x*scale+.5,sy+.5,w*scale-1,16*scale-1);ctx.setLineDash([]);ctx.restore();}
-if(ty===4||ty===5){ctx.fillStyle=COL.mover;const cx=(x+w/2)*scale,cy=sy+9*scale;
+if(ty===4||ty===5||ty===7){ctx.fillStyle=ty===7?COL.orbit:COL.mover;const cx=(x+w/2)*scale,cy=sy+9*scale;
 ctx.beginPath();
 if(ty===4){ctx.moveTo(cx-6,cy-3);ctx.lineTo(cx-2,cy);ctx.lineTo(cx-6,cy+3);ctx.moveTo(cx+6,cy-3);ctx.lineTo(cx+2,cy);ctx.lineTo(cx+6,cy+3);}
 else{ctx.moveTo(cx-3,cy+2);ctx.lineTo(cx,cy-2);ctx.lineTo(cx+3,cy+2);ctx.moveTo(cx-3,cy+6);ctx.lineTo(cx,cy+2);ctx.lineTo(cx+3,cy+6);}
 ctx.closePath();ctx.fill();}
+if(ty===8){const vx=amp||0,vy=per||800,m=Math.hypot(vx,vy)||1,ux=vx/m,uy=-vy/m;
+const cx=(x+w/2)*scale,cy=sy+8*scale;
+ctx.strokeStyle=COL.dir;ctx.lineWidth=2;ctx.beginPath();
+ctx.moveTo(cx-ux*6,cy-uy*6);ctx.lineTo(cx+ux*6,cy+uy*6);
+ctx.lineTo(cx+ux*2-uy*3,cy+uy*2+ux*3);ctx.moveTo(cx+ux*6,cy+uy*6);
+ctx.lineTo(cx+ux*2+uy*3,cy+uy*2-ux*3);ctx.stroke();}
 if(sel&&sel.kind==="p"&&sel.idx===i){ctx.strokeStyle=COL.blue;ctx.lineWidth=2;ctx.strokeRect(x*scale-1,sy-1,w*scale+2,16*scale+2);
 ctx.fillStyle=COL.blue;ctx.fillRect(x*scale+w*scale-3,sy,6,16*scale);}});
 if(sel&&sel.kind==="c"){const[x,t,w]=ed.ceil[sel.idx];const sy=SY(t);ctx.strokeStyle=COL.blue;ctx.lineWidth=2;ctx.strokeRect(x*scale-1,sy-1,w*scale+2,16*scale+2);}
@@ -66,19 +74,19 @@ ctx.textAlign="left";ctx.font="700 12px ui-monospace,monospace";
 for(const[wy,name]of ed.sections){const sy=SY(wy);if(sy>-10&&sy<cv.height+10)ctx.fillText(name,8,sy);}
 }
 /* ---------- validation with the real integrator (phase-aware for movers) ---------- */
-function rectAtEd(p,t){if(p[3]===4||p[3]===5){const s=PLATS[ed.plats.indexOf(p)];const o=moverXY(s,t);return[o.x,o.y+16,p[2]];}return p;}
+function rectAtEd(p,t){if(p[3]===4||p[3]===5||p[3]===7){const s=PLATS[ed.plats.indexOf(p)];const o=moverXY(s,t);return[o.x,o.y+16,p[2]];}return p;}
 function findLaunchEd(fi,ti){
 const fp=fi<0?[0,0,VW,0]:ed.plats[fi];
 const tp=ti<0?[ed.goal[0],ed.summit,ed.goal[1],0,true]:ed.plats[ti];
-const fm=fp[3]===4||fp[3]===5||fp[3]===6,tm=tp[3]===4||tp[3]===5||tp[3]===6;
+const fm=fp[3]===4||fp[3]===5||fp[3]===6||fp[3]===7,tm=tp[3]===4||tp[3]===5||tp[3]===6||tp[3]===7;
 const per=fm?(fp[5]||2.4):tm?(tp[5]||2.4):0;
 const phases=per?[0,per*.25,per*.5,per*.75,per*.125,per*.375,per*.625,per*.875]:[0];
-const spring=ed.plats.some(p=>p[3]===2&&p[1]>fp[1]&&p[1]<tp[1]);
+const spring=ed.plats.some(p=>(p[3]===2||(p[3]===8&&p[5]>0))&&p[1]>fp[1]&&p[1]<tp[1]);
 const zone=(ed.zones||[]).some(z=>z[1]<tp[1]+40&&z[1]+z[3]>fp[1]-40&&z[0]+z[2]>Math.min(fp[0],tp[0])&&z[0]<Math.max(fp[0]+fp[2],tp[0]+tp[2]));
 for(const ph of phases){
 worldT=ph;
 const fr=rectAtEd(fp,ph),tr=rectAtEd(tp,ph);
-const dyLo=(tp[3]===5?tp[1]-(tp[4]||60):tr[1])-(fp[3]===5?fp[1]+(fp[4]||60):fr[1]);
+const dyLo=((tp[3]===5||tp[3]===7)?tp[1]-(tp[4]||60):tr[1])-((fp[3]===5||fp[3]===7)?fp[1]+(fp[4]||60):fr[1]);
 const vyNeed=(spring||zone)?0:Math.sqrt(2*G*Math.max(0,dyLo));
 const xs=[fr[0]+fr[2]/2-CH/2,fr[0]+1,fr[0]+fr[2]-CH-1];
 for(const bx of xs){body.x=bx;body.y=fr[1];
@@ -102,20 +110,20 @@ return{vx,vy};}}}
 }}
 return null;}
 function dyMin(a,b){let at=a[1],bt=b[1];
-if(a[3]===5)at+=(a[4]||60);
-if(b[3]===5)bt-=(b[4]||60);
+if(a[3]===5||a[3]===7)at+=(a[4]||60);
+if(b[3]===5||b[3]===7)bt-=(b[4]||60);
 return bt-at;}
 function validate(){
 rebuild();
 const out=[];let bad=0;
-const restIdx=[];ed.plats.forEach((p,i)=>{if(p[3]!==2)restIdx.push(i);});
+const restIdx=[];ed.plats.forEach((p,i)=>{if(p[3]!==2&&p[3]!==8)restIdx.push(i);});
 const n=restIdx.length+1;
 const uns=[];
 for(let i=0;i<n;i++){
 const fi=i===0?-1:restIdx[i-1],ti=i<restIdx.length?restIdx[i]:-1;
 const a=fi<0?[0,0,VW,0]:ed.plats[fi],b=ti<0?[ed.goal[0],ed.summit,ed.goal[1],0]:ed.plats[ti];
 const dy=dyMin(a,b);
-const springBetween=ed.plats.some(p=>p[3]===2&&p[1]>a[1]&&p[1]<b[1]);
+const springBetween=ed.plats.some(p=>(p[3]===2||(p[3]===8&&p[5]>0))&&p[1]>a[1]&&p[1]<b[1]);
 const zoneBetween=(ed.zones||[]).some(z=>z[1]<b[1]+40&&z[1]+z[3]>a[1]-40&&z[5]>0);
 if(dy>160&&!springBetween&&!zoneBetween){out.push("jump"+(i+1)+": dy "+dy+" > 160 (no spring/updraft between)");bad++;}
 if(!findLaunchEd(fi,ti)){uns.push(i+1);}
@@ -130,7 +138,15 @@ if(ty===5&&t-a<0){out.push("plat"+(i+1)+": vertical sweep below the floor");bad+
 if(ty===6){const duty=amp||.6,p=per||2.4;
 if(p>3){out.push("plat"+(i+1)+": period "+p+"s > 3s fuse window");bad++;}
 if(duty*p<1.2){out.push("plat"+(i+1)+": on-window "+(duty*p).toFixed(2)+"s < 1.2s (unfair timing)");bad++;}
-if(duty<=0||duty>=1){out.push("plat"+(i+1)+": duty must be in (0,1)");bad++;}}});
+if(duty<=0||duty>=1){out.push("plat"+(i+1)+": duty must be in (0,1)");bad++;}}
+if(ty===7){const a=amp||60,p=per||2.4,sp=2*Math.PI*a/p;
+if(p>3){out.push("plat"+(i+1)+": period "+p+"s > 3s fuse window");bad++;}
+if(sp>140){out.push("plat"+(i+1)+": orbit speed "+Math.round(sp)+" px/s > 140 (unfair)");bad++;}
+if(x-a<0||x+a+w>VW){out.push("plat"+(i+1)+": orbit leaves the walls");bad++;}
+if(t-a<0){out.push("plat"+(i+1)+": orbit below the floor");bad++;}}
+if(ty===8){const vx=amp||0,vy=per||800;
+if(Math.hypot(vx,vy)>MAXV){out.push("plat"+(i+1)+": launch vector > MAXV");bad++;}
+if(vy<=0){out.push("plat"+(i+1)+": dir spring vy must be > 0");bad++;}}});
 (ed.zones||[]).forEach((z,i)=>{if(Math.abs(z[4])>1600||Math.abs(z[5])>1600){out.push("zone"+(i+1)+": accel > 1600 px/s^2");bad++;}
 if(z[0]<0||z[0]+z[2]>VW){out.push("zone"+(i+1)+": leaves the walls");bad++;}});
 for(let i=0;i<ed.plats.length;i++){if(ed.plats[i][3]!==2)continue;
@@ -147,9 +163,10 @@ $("fName").value=ed.name;$("fTag").value=ed.tag;$("fSummit").value=ed.summit;
 $("fGoalX").value=ed.goal[0];$("fGoalW").value=ed.goal[1];
 $("fSec").value=JSON.stringify(ed.sections);$("fNotes").value=JSON.stringify(ed.notes);
 if(sel&&sel.kind==="p"){const p=ed.plats[sel.idx];$("pX").value=p[0];$("pT").value=p[1];$("pW").value=p[2];$("pTy").value=p[3];
-const mv=p[3]===4||p[3]===5||p[3]===6;$("moverRow").hidden=!mv;
-$("pAmpLab").textContent=p[3]===6?"duty (0-1)":"amp px";
-if(mv){$("pAmp").value=p[3]===6?(p[4]||.6):(p[4]||60);$("pPer").value=p[5]||2.4;$("pPh").value=p[6]||0;}}
+const mv=p[3]===4||p[3]===5||p[3]===6||p[3]===7||p[3]===8;$("moverRow").hidden=!mv;
+$("pAmpLab").textContent=p[3]===6?"duty (0-1)":p[3]===8?"launch vx · vy":"amp px · period s · phase";
+if(mv){$("pAmp").value=p[3]===6?(p[4]||.6):p[3]===8?(p[4]||0):(p[4]||60);
+$("pPer").value=p[3]===8?(p[5]||800):(p[5]||2.4);$("pPh").value=p[6]||0;}}
 $("fZones").value=JSON.stringify(ed.zones||[]);
 }
 function loadEd(d){ed=clone(d);sel=null;camY=-100;$("lvl").value=ed.id;rebuild();syncFields();draw();$("issues").innerHTML="";}
@@ -169,12 +186,13 @@ $("pX").oninput=e=>{const p=selPlat();if(p){p[0]=+e.target.value||0;rebuild();dr
 $("pT").oninput=e=>{const p=selPlat();if(p){p[1]=+e.target.value||0;rebuild();draw();}};
 $("pW").oninput=e=>{const p=selPlat();if(p){p[2]=Math.max(28,+e.target.value||28);rebuild();draw();}};
 $("pTy").onchange=e=>{const p=selPlat();if(p){p[3]=+e.target.value;
-if(p[3]===4||p[3]===5){p[4]=p[4]||60;p[5]=p[5]||2.4;p[6]=p[6]||0;}
+if(p[3]===4||p[3]===5||p[3]===7){p[4]=p[4]||60;p[5]=p[5]||2.4;p[6]=p[6]||0;}
 else if(p[3]===6){p[4]=(p[4]>0&&p[4]<1)?p[4]:.6;p[5]=p[5]||2.4;p[6]=p[6]||0;}
+else if(p[3]===8){p[4]=p[4]||0;p[5]=p[5]||800;p.length=6;}
 else p.length=4;
 rebuild();syncFields();draw();}};
-$("pAmp").oninput=e=>{const p=selPlat();if(p){p[4]=p[3]===6?Math.min(.9,Math.max(.1,+e.target.value||.6)):Math.max(10,+e.target.value||10);rebuild();draw();}};
-$("pPer").oninput=e=>{const p=selPlat();if(p){p[5]=Math.max(.6,+e.target.value||.6);rebuild();draw();}};
+$("pAmp").oninput=e=>{const p=selPlat();if(p){p[4]=p[3]===6?Math.min(.9,Math.max(.1,+e.target.value||.6)):p[3]===8?Math.min(950,Math.max(-950,+e.target.value||0)):Math.max(10,+e.target.value||10);rebuild();draw();}};
+$("pPer").oninput=e=>{const p=selPlat();if(p){p[5]=p[3]===8?Math.min(950,Math.max(100,+e.target.value||800)):Math.max(.6,+e.target.value||.6);rebuild();draw();}};
 $("pPh").oninput=e=>{const p=selPlat();if(p){p[6]=Math.min(1,Math.max(0,+e.target.value||0));rebuild();draw();}};
 $("bAddP").onclick=()=>{ed.plats.push([120,Math.round(camY+cv.height/scale/2),80,0]);sel={kind:"p",idx:ed.plats.length-1};rebuild();syncFields();draw();};
 $("bAddC").onclick=()=>{ed.ceil.push([0,Math.round(camY+cv.height/scale/2),200]);sel={kind:"c",idx:ed.ceil.length-1};rebuild();draw();};

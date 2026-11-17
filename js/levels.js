@@ -2,8 +2,9 @@
    each a single COMMIT_LEVEL({...}) call whose argument is a JSON object (see COMMIT_LEVELS.md).
    Descriptors are classic scripts so the game still runs from file:// with zero fetch.
    Platform authoring [x, topY, width, type]: 0 solid, 1 crumble, 2 bounce, 3 ice,
-   4 mover·horizontal, 5 mover·vertical. Movers append [amp, period, phase] (px, s, cycle fraction);
-   x/topY is the oscillation centre. */
+   4 mover·horizontal, 5 mover·vertical, 6 clock (phase), 7 mover·orbit, 8 direction spring.
+   Movers append [amp, period, phase] (px, s, cycle fraction); x/topY is the oscillation centre
+   (orbit: circle centre). Clock appends [duty, period, phase]. Dir spring appends [vx, vy]. */
 "use strict";
 const LEVELS=[];
 function COMMIT_LEVEL(d){LEVELS.push(d);}
@@ -14,7 +15,8 @@ SOLIDS.length=0;PLATS.length=0;ZONES.length=0;
 SOLIDS.push({x:-60,y:-60,w:VW+120,h:60,ground:true},
 {x:-60,y:0,w:60,h:SUMMIT+900,wall:true},{x:VW,y:0,w:60,h:SUMMIT+900,wall:true});
 P.forEach(([x,t,w,ty,amp,per,ph],i)=>{const s={x,y:t-16,w,h:16,idx:i,crumble:ty===1,bounce:ty===2,ice:ty===3,
-move:ty===4?4:ty===5?5:0,clock:ty===6?1:0,duty:ty===6?(amp||.6):0,bx:x,by:t-16,amp:amp||60,period:per||2.4,phase:ph||0,dead:false,bounceT:0,respawnT:0};PLATS.push(s);SOLIDS.push(s);});
+move:ty===4?4:ty===5?5:ty===7?7:0,dir:ty===8?1:0,dvx:ty===8?(amp||0):0,dvy:ty===8?(per||800):0,
+clock:ty===6?1:0,duty:ty===6?(amp||.6):0,bx:x,by:t-16,amp:amp||60,period:per||2.4,phase:ph||0,dead:false,bounceT:0,respawnT:0};PLATS.push(s);SOLIDS.push(s);});
 for(const z of(LVL.zones||[]))ZONES.push({x:z[0],y:z[1],w:z[2],h:z[3],ax:z[4],ay:z[5]});
 for(const[x,t,w]of CEIL)SOLIDS.push({x,y:t-16,w,h:16,ceil:true});
 GOAL={x:LVL.goal[0],y:SUMMIT-16,w:LVL.goal[1],h:16,goal:true};SOLIDS.push(GOAL);

@@ -10,11 +10,12 @@ call registering a JSON object:
 ```js
 COMMIT_LEVEL({ "id":3, "name":"TOWER 3", "tag":"THE CLOCKWORK SPIRE", "summit":6000,
   "goal":[240,120],
-  "plats":[[x,topY,width,type], …],   // type 0 solid · 1 crumble · 2 bounce · 3 ice · 4 move·h · 5 move·v · 6 clock
-  // movers append three params: [x,topY,width,4|5, amp, period, phase]
-  //   x/topY = oscillation CENTRE · amp px · period s (≤3) · phase 0..1 of a cycle
+  "plats":[[x,topY,width,type], …],   // 0 solid · 1 crumble · 2 bounce · 3 ice · 4 move·h · 5 move·v · 6 clock · 7 orbit · 8 dir
+  // movers append three params: [x,topY,width,4|5|7, amp, period, phase]
+  //   x/topY = oscillation CENTRE (orbit: circle centre) · amp px · period s (≤3) · phase 0..1
   // clock (6) appends: [x,topY,width,6, duty, period, phase]
   //   solid for duty fraction of each period, ghost (pass-through) otherwise; on-window ≥1.2 s
+  // dir spring (8) appends: [x,topY,width,8, vx, vy] — fixed launch vector (|v|≤950, vy>0)
   "zones":[[x,y,w,h,ax,ay], …],        // constant extra accel px/s² on the body in flight only
   //   ay>0 updraft (cuts effective gravity) · ax gust (pushes sideways) · |a| ≤ 1600
   "ceil":[[x,topY,width], …],
@@ -124,6 +125,17 @@ pass-through / drop-through window). Period ≤3 s (fuse). Rect is static; only 
 so the solver samples launch phases exactly as for movers and demands the ±0.12 s tolerance.
 Ghost = fully pass-through (no bonk from below, no land from above) → timed one-way gate.
 
+**Orbiter math (T5+).** Type 7: `x=bx+amp·cos(2π(t/period+phase))`, `y=by+amp·sin(…)`. Pure
+`rectOf` → Contract holds; carry is 2-D (`body += Δcentre`). Orbit speed = `2π·amp/period`
+(constant); keep ≤140 px/s and period ≤3 s for the ±0.12 s fairness window. Sweep must stay
+inside the walls (`x±amp`, `y±amp`). Solver samples launch phases exactly as for movers.
+
+**Direction-spring math (T5+).** Type 8: on contact it sets `(vx,vy)` to the authored fixed
+vector (not `BOUNCE_V`, not preserved `vx`) and stays airborne → a deterministic redirect.
+Preview exact (the bounce branch sets `v`). The downstream rest must lie within the fixed
+vector's reach from the spring's contact span: `dy ≤ vy²/(2G)` and `dx ≈ vx·t(dy)`. Chains
+"follow the arrows", so the monotonic-x bounce invariant applies to type 2 only.
+
 ## 3. Geometry — Section I · First Steps (0–168 m)
 
 | # | x | top | w | type | | # | x | top | w | type |
@@ -207,6 +219,10 @@ purpose — the last emotion should be relief, not a coin flip.
     without the zone (zone is the verb, not decoration); zones act in flight only.
 11. **Phase (T4+):** period ≤ 3 s; duty·period ≥ 1.2 s (fair on-window); duty ∈ (0,1); ghost is
     fully pass-through; ghosting under a rider drops honestly and the platform always returns.
+12. **Orbit (T5+):** period ≤ 3 s; orbit speed ≤ 140 px/s; sweep inside walls; 2-D carry exact;
+    every orbiter jump survives ±0.12 s of launch-phase shift.
+13. **Dir spring (T5+):** |v| ≤ 950, vy > 0; the downstream rest lies within the fixed vector's
+    reach from the contact span; springs are hop points (excluded from rest-to-rest rests).
 
 ## 9. Tower Sketch
 
@@ -328,3 +344,17 @@ consecutive gates are not synchronous.
 Bounce chain: 31 (120,4780) → 32 (spring,240,4920) → 33 (340,5060), all rightward.
 Summit offset to x 240 (right of pad 42 at 170,6320) so the final arc is a real decision.
 Solver: 43/43 ≤98%; editor VALIDATE 43/43.
+
+## 13. Tower 5 · The Orrery (676 m) — orbit + redirect
+
+43 rests, alternating sides, widths 150→32. Four orbiters (7,13,26,37), four direction
+springs (9,16,28,43), one bounce chain (32, leftward), plus ice/crumble/movers/phase.
+No zones/ceilings (orbit + redirect are the hazards).
+
+Orbiters `[x,top,w,7,amp,period,phase]`: 7 (290,1060,50,3,0), 13 (290,1880,50,3,.5),
+26 (110,3680,45,3,0), 37 (150,5220,40,3,0). Speeds 105/105/94/84 px/s (≤140 ✓).
+Dir springs `[x,top,w,8,vx,vy]`: 9 (290,1340,-200,800)→10; 16 (110,2300,200,800)→17;
+28 (120,3960,260,820)→29; 43 (160,6060,260,860)→44. Each throws across to the opposite side.
+Spring-assisted vertical stacks (27→29, 42→44) are legal because the spring is the verb.
+Bounce chain 31 (290,4380) → 32 (200,4520) → 33 (140,4660), leftward monotonic.
+Summit offset to x 240 (right of pad 47 at 170,6620). Solver 44/44 ≤98%; editor VALIDATE 44/44.

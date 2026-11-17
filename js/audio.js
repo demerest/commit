@@ -46,6 +46,8 @@ case"reverse":tone(o.dir>0?520:390,.05,"square",.035);break;
 case"queue":tone(520,.06,"square",.045,760);noiseHit(.05,.04,2600,"highpass");break;
 case"phase":tone(o.on?880:440,.05,"square",.035);noiseHit(.03,.02,o.on?3000:1500,"highpass");break;
 case"phaseout":tone(320,.14,"sine",.05,120);noiseHit(.1,.04,1800,"highpass");break;
+case"dirspring":{const a=Math.atan2(o.vy||800,o.vx||0);const f=300+Math.round((a/Math.PI)*160)+Math.abs(o.vx||0)/6;
+tone(f,.16,"sine",.1,f*2.2);noiseHit(.07,.05,1400,"bandpass");}break;
 case"fall":tone(540,.55,"sawtooth",.08,80);break;
 case"win":[523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.22,"triangle",.09),i*95));break;
 case"ui":tone(880,.03,"sine",.035);break;

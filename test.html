@@ -31,23 +31,23 @@ cv.dispatchEvent(new w.PointerEvent(type,{pointerId:id==null?1:id,clientX:r.left
 }
 function key(w,k,shift){w.dispatchEvent(new w.KeyboardEvent("keydown",{key:k,shiftKey:!!shift,bubbles:true,cancelable:true}));}
 function keyup(w,k,shift){w.dispatchEvent(new w.KeyboardEvent("keyup",{key:k,shiftKey:!!shift,bubbles:true,cancelable:true}));}
-function rectAt(C,p,t){if(p[3]===4||p[3]===5){const s=C.PLATS[C.P.indexOf(p)];const o=C.moverXY(s,t);return[o.x,o.y+16,p[2]];}return p;}
+function rectAt(C,p,t){if(p[3]===4||p[3]===5||p[3]===7){const s=C.PLATS[C.P.indexOf(p)];const o=C.moverXY(s,t);return[o.x,o.y+16,p[2]];}return p;}
 /* Phase-aware jump search. fi/ti are platform indices (-1 = floor / goal). When a mover is involved,
    sample launch phases over its period and demand a ±0.12s phase window still lands (not frame-perfect). */
 function findLaunch(C,fi,ti){
 const CHH=C.C.CH,MV=C.C.MAXV,G=C.C.G;
 const fp=fi<0?[0,0,480,0]:C.P[fi];
 const tp=ti<0?[C.GOAL.x,C.C.SUMMIT,C.GOAL.w,0,true]:C.P[ti];
-const fm=fp[3]===4||fp[3]===5||fp[3]===6,tm=tp[3]===4||tp[3]===5||tp[3]===6;
+const fm=fp[3]===4||fp[3]===5||fp[3]===6||fp[3]===7,tm=tp[3]===4||tp[3]===5||tp[3]===6||tp[3]===7;
 const per=fm?(fp[5]||2.4):tm?(tp[5]||2.4):0;
 const phases=per?[0,per*.25,per*.5,per*.75,per*.125,per*.375,per*.625,per*.875]:[0];
-const spring=C.P.some(p=>p[3]===2&&p[1]>fp[1]&&p[1]<tp[1]);
+const spring=C.P.some(p=>(p[3]===2||(p[3]===8&&p[5]>0))&&p[1]>fp[1]&&p[1]<tp[1]);
 const zone=C.ZONES.some(z=>z.y<tp[1]+40&&z.y+z.h>fp[1]-40&&z.x+z.w>Math.min(fp[0],tp[0])&&z.x<Math.max(fp[0]+fp[2],tp[0]+tp[2]));
 for(const ph of phases){
 C.setWorldT(ph);
 const fr=rectAt(C,fp,ph),tr=rectAt(C,tp,ph);
 /* prune only direct jumps: a spring or a descending lift can do the lifting */
-const dyLo=(tp[3]===5?tp[1]-(tp[4]||60):tr[1])-(fp[3]===5?fp[1]+(fp[4]||60):fr[1]);
+const dyLo=((tp[3]===5||tp[3]===7)?tp[1]-(tp[4]||60):tr[1])-((fp[3]===5||fp[3]===7)?fp[1]+(fp[4]||60):fr[1]);
 const vyNeed=(spring||zone)?0:Math.sqrt(2*G*Math.max(0,dyLo));
 const xs=[fr[0]+fr[2]/2-CHH/2,fr[0]+1,fr[0]+fr[2]-CHH-1];
 for(const bx of xs){
@@ -74,7 +74,7 @@ return{bx,vx,vy,contacts:pr.contacts,ph};
 }}
 return null;}
 function solveTower(C,label){
-const restIdx=[];C.P.forEach((p,i)=>{if(p[3]!==2)restIdx.push(i);});
+const restIdx=[];C.P.forEach((p,i)=>{if(p[3]!==2&&p[3]!==8)restIdx.push(i);});
 const n=restIdx.length+1;
 let solved=0,maxPw=0;const fails=[];
 for(let i=0;i<n;i++){
@@ -336,10 +336,11 @@ C.resetRun();
 
 /* 23 · level switching */
 key(w,"h");
-ok("tower picker lists all four towers",d.getElementById("towers").children.length===4);
+ok("tower picker lists all five towers",d.getElementById("towers").children.length===5);
 ok("tower 2 button enabled after unlock",!d.getElementById("towers").children[1].disabled);
 ok("tower 3 button locked before T2 summit",d.getElementById("towers").children[2].disabled);
 ok("tower 4 button locked before T3 summit",d.getElementById("towers").children[3].disabled);
+ok("tower 5 button locked before T4 summit",d.getElementById("towers").children[4].disabled);
 key(w,"Escape");
 C.setLevel(2);
 ok("switch to tower 2 (560m)",C.level===2&&C.C.SUMMIT===5600&&C.body.y===0);
@@ -570,7 +571,7 @@ if(fin4){C.setWorldT(fin4.ph);C.setBody(fin4.bx,C.P[42][1]);C.launch({x:fin4.vx,
 settle();
 ok("T4 summit wins",C.state==="win"&&C.life.summits[4]===sb4+1);
 ok("T4 share text uses 640m",d.getElementById("share").value.indexOf("640m")>=0);
-ok("last tower hides NEXT",d.getElementById("bNext").hidden);
+ok("T4 summit unlocks tower 5 + NEXT shown",C.life.unlocked===5&&!d.getElementById("bNext").hidden);
 C.closeOv();
 C.resetRun();
 const zj=findLaunch(C,3,4);
@@ -637,6 +638,40 @@ d.getElementById("bWinSelect").click();
 ok("win -> LEVEL SELECT",C.overlayOpen==="select");
 d.getElementById("selectBack").click();
 ok("select BACK returns to the win screen",C.overlayOpen==="win");
+C.closeOv();
+C.resetRun();
+
+/* 34 · tower 5 (orbiters + direction springs) */
+C.setLevel(5);
+ok("switch to tower 5 (676m)",C.level===5&&C.C.SUMMIT===6760);
+ok("T5 has orbiters + dir springs",C.P.some(p=>p[3]===7)&&C.P.some(p=>p[3]===8));
+C.resetRun();
+solveTower(C,"T5");
+C.resetRun();
+const ob=C.PLATS[7];
+C.setWorldT(0);const o0=C.moverXY(ob,0);
+C.setBody(o0.x+ob.w/2-9,o0.y+16);
+ok("standing on an orbiter",C.body.on&&C.body.on.idx===7);
+const ox=C.body.x-o0.x,oy=C.body.y-(o0.y+16);
+for(let i=0;i<60;i++)tick(16.7);
+const o1=C.moverXY(ob,C.worldT);
+ok("orbiter carries in 2-D",C.state==="ready"&&Math.abs(C.body.x-(o1.x+ox))<.05&&Math.abs(C.body.y-(o1.y+16+oy))<.05);
+C.resetRun();
+const dj=findLaunch(C,8,10);
+ok("dir-spring redirect solvable",!!dj);
+if(dj){C.setWorldT(dj.ph);C.setBody(dj.bx,C.P[8][1]);
+const pd=C.preview({x:dj.vx,y:dj.vy});C.launch({x:dj.vx,y:dj.vy});settle();
+ok("dir-spring flight contacts === preview",JSON.stringify(C.flightContacts)===JSON.stringify(pd.contacts));
+ok("dir spring threw us to the target rest",C.body.on&&C.body.on.idx===10);}
+C.resetRun();
+const fin5=findLaunch(C,47,-1);
+ok("T5 final jump previews goal",!!fin5&&fin5.contacts[fin5.contacts.length-1].goal);
+const sb5=C.life.summits[5]||0;
+if(fin5){C.setWorldT(fin5.ph);C.setBody(fin5.bx,C.P[47][1]);C.launch({x:fin5.vx,y:fin5.vy});}
+settle();
+ok("T5 summit wins",C.state==="win"&&C.life.summits[5]===sb5+1);
+ok("T5 share text uses 676m",d.getElementById("share").value.indexOf("676m")>=0);
+ok("last tower hides NEXT",d.getElementById("bNext").hidden);
 C.closeOv();
 C.resetRun();
 
