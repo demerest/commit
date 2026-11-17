@@ -120,6 +120,10 @@ ctx.fillStyle=COL.blue;const r=1.5+2*(i/trail.length);ctx.fillRect(p.x-r/2,SY(p.
 ctx.globalAlpha=1;
 if(state==="aim"&&aim){const v=aimV();
 if(v){const pr=preview(v),weak=v.m<MINV;
+/* ghost the target mover at contact time so the ring visibly sits on its future position */
+if(pr.mark&&pr.mark.move){const gs=PLATS[pr.mark.idx],gr=rectOf(gs,pr.markT),gy=SY(gr.y+gr.h);
+ctx.save();ctx.strokeStyle=COL.mover;ctx.globalAlpha=.45;ctx.lineWidth=1;ctx.setLineDash([4,4]);
+ctx.strokeRect(gr.x+.5,gy+.5,gr.w-1,gr.h-1);ctx.setLineDash([]);ctx.restore();}
 for(let i=0;i<pr.pts.length;i++){const p=pr.pts[i];
 ctx.globalAlpha=weak?.35:.85;ctx.fillStyle=weak?COL.dim:COL.ink;
 ctx.fillRect(p.x-1.5,SY(p.y)-1.5,3,3);}

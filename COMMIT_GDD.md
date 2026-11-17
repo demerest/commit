@@ -64,7 +64,8 @@ GROUND → AIM (drag / keys) → read the dotted arc → RELEASE
   - **ice-blue / magenta ring** — same, but the surface is ice / a moving platform;
   - **red ✕** — you will strike a wall or ceiling here and drop.
 - Against movers the arc simulates the platform's *future* motion on the same world clock,
-  so the ring sits where the platform **will be** when you arrive.
+  so the ring sits where the platform **will be** when you arrive. A dashed ghost outline of
+  the mover at that future moment is drawn under the ring, so the mark never looks adrift.
 - A live **power %** readout sits beside the character.
 - This contract is the product. Any tuning change must keep preview ≡ simulation.
 
@@ -136,7 +137,10 @@ period ≤ 3 s so every phase is reachable inside one aim fuse). Standing on one
 carried exactly — even over the edge; you leave only by launching, and the launch **discards
 the carry**, so the arc is exactly what you drew. Horizontal movers slide you sideways;
 vertical lifts raise and lower you (ride up, jump at the top). A lift that presses you into
-a ceiling drops you honestly. The preview knows all of this: it runs the same world clock.
+a ceiling drops you honestly. A lift that rises into a descending body **lands it in place** —
+contacts are classified against the platform's previous-step position, so a moving surface
+never side-ejects you to its edge or bonks you through it. The preview knows all of this: it
+runs the same world clock.
 
 Geometry, gravity, the fuse and the slide are the antagonists; the springs are the only mercy.
 There is no instant-death hazard.
@@ -247,7 +251,8 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
   slide, kicking pale spray backwards. The preview's landing ring turns ice-blue on ice.
 - **Movers:** magenta top edge over a violet-black slab with a thin outline; a dashed travel
   track with end stops shows the whole sweep; chevrons point the current direction of travel;
-  the square leans into the carry. The preview's landing ring turns magenta on a mover.
+  the square leans into the carry. The preview's landing ring turns magenta on a mover and
+  sits on a dashed ghost of the slab at contact time, so the mark reads as "here, then".
 - **Parallax:** 80 deterministic twinkling specks at 0.35× camera depth.
 - **Grid:** faint 10 m lines, labeled every 50 m; section titles stenciled in the world.
 - **Character:** 18 px rounded white square, two dark eyes that look toward the aim
@@ -381,3 +386,4 @@ leaderboard, moving ceilings, alternate game modes. None required for the core e
 13. Movers carry the rider exactly (through reversals and edge overhang); launching discards carry; preview ≡ flight against moving platforms, pixel-exact; the world clock persists so refresh restores phase + footing.
 14. Every mover-involved jump survives a ±0.12 s launch-phase shift (fair timing); mover periods ≤ 3 s; sweeps stay inside the walls; mandatory elevator rides satisfy the low/high dy bounds.
 15. Any launch angle/power is reachable by keyboard within ~3 s of holding arrows (continuous sweep, Shift fine), with a visible angle/power readout; full pointer power needs ≤ 210 px of drag.
+16. Arriving onto a rising lift (straight down or drifting) lands in place — no edge teleport, no pass-through; the aim ring sits on a dashed ghost of the mover at contact time; fuse launches commit the exact previewed phase.

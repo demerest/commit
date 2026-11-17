@@ -469,6 +469,33 @@ ok("T3 share text uses 600m",d.getElementById("share").value.indexOf("600m")>=0)
 ok("last tower hides NEXT",d.getElementById("bNext").hidden);
 C.closeOv();
 
+/* 30 · vertical lift collision fairness — a lift rising into the body must land, not side-eject */
+C.resetRun();
+const lift=C.PLATS[15];
+C.setWorldT(lift.period*.25);
+const liftV=C.moverV(lift,C.worldT).y;
+ok("test phase: lift is rising",liftV>50);
+const gap=liftV*C.C.DT*.5;
+const lr=C.moverXY(lift,C.worldT);
+C.setBody(lr.x+20,lr.y+16+gap);
+const pv0=C.preview({x:1e-9,y:0});
+ok("straight-down preview onto rising lift lands",!!pv0.mark&&pv0.mark.ok&&pv0.mark.idx===15);
+C.launch({x:1e-9,y:0});settle();
+ok("straight-down jump lands on rising lift (no eject)",C.state==="ready"&&C.body.on&&C.body.on.idx===15&&Math.abs(C.body.x-(lr.x+20))<.01);
+ok("lift landing flight ≡ preview",JSON.stringify(C.flightContacts)===JSON.stringify(pv0.contacts));
+ok("no wall contact during lift landing",!C.flightContacts.some(c=>c.t==="wall"));
+C.resetRun();C.setWorldT(lift.period*.25);
+const lr2=C.moverXY(lift,C.worldT);
+C.setBody(lr2.x+20,lr2.y+16+gap);
+C.launch({x:140,y:0});settle();
+ok("drifting jump onto rising lift lands in place (no edge teleport)",C.state==="ready"&&C.body.on&&C.body.on.idx===15&&C.body.x>lr2.x&&C.body.x+C.C.CH<lr2.x+lift.w,"x="+C.body.x.toFixed(1));
+C.resetRun();C.setWorldT(lift.period*.25);
+const lr3=C.moverXY(lift,C.worldT);
+C.setBody(lr3.x+20,lr3.y+16+2);
+C.launch({x:0,y:40});settle();
+ok("lift catching a slow riser lands on top",C.state==="ready"&&C.body.on&&C.body.on.idx===15&&C.body.y>=C.moverXY(lift,C.worldT).y+16-.01);
+C.resetRun();
+
 ok("no runtime errors during suite",errs.length===0,errs.join(" | "));
 out.innerHTML+="\n\n"+(RM?"MODE: prefers-reduced-motion":"MODE: standard")+" · DONE";
 }

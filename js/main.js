@@ -148,12 +148,13 @@ function frameLoop(now){if(!manual)rafId=requestAnimationFrame(frameLoop);
 let dt=(now-lastT)/1000;lastT=now;if(dt>.25)dt=.25;
 const paused=overlayOpen!==null||document.hidden;
 if(!paused){if(run.started&&state!=="win")run.time+=dt;
-acc+=dt;while(acc>=DT){worldT+=DT;if(state==="flight")simStep();else groundStep();acc-=DT;}
+/* fuse decides before the clock advances so the flight starts on the exact previewed phase */
 if(state==="aim"){aimT-=dt;const sec=Math.ceil(aimT);
 if(sec!==lastTickSec){lastTickSec=sec;if(sec>0&&sec<=AIM_TIME)sfx("tick",{urgent:aimT<1});}
 if(aimT<=0){const v=aimV();
 if(v&&v.m>=MINV){sfx("forced");launch(v);}
 else{aim=null;state="ready";stopHum();spawnDust(body.x+CH/2,body.y+CH/2,3,COL.dim);sfx("puff");}}}
+acc+=dt;while(acc>=DT){worldT+=DT;if(state==="flight")simStep();else groundStep();acc-=DT;}
 kbSweep(dt);
 updateCrumble(dt);
 updateRespawn(dt);

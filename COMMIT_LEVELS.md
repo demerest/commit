@@ -85,6 +85,11 @@ fair counter. Ice widths in T2 are ≥ 40 (gates) to 110 (teachers) to keep that
 The rider is carried **exactly** (relative offset frozen — you can overhang an edge and stay
 on); launching discards the carry, so the Commit Contract holds from a moving origin.
 The preview clones the world clock, therefore the arc meets the platform *where it will be*.
+**Contact classification:** a lift can move into the body between substeps, so `step()` checks
+the platform's rect at `t−DT` first — a body that was above the old top lands on the new top
+(even if the lift rose into it, even mid-rise), a body below the old bottom bonks; only bodies
+already inside the slab's vertical span side-hit. Without this, arrivals within one substep of
+the top were ejected to the platform edge ("teleport") instead of landing.
 
 - **Period ≤ 3.0 s** (= `AIM_TIME`): any phase is reachable within one fuse, so waiting for
   the machine is always a legal strategy.
