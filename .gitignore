@@ -2,5 +2,5 @@
 Thumbs.db
 desktop.ini
 .DS_Store
-# editor.html + js/editor.js ARE committed (dev tool) but excluded from the
-# Pages deploy by .github/workflows/pages.yml (whitelist publish).
+# editor.html + js/editor.js ARE committed and published with the game (branch deploy).
+# The game UI never links to the editor; the README does.

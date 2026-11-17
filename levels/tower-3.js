@@ -1,5 +1,5 @@
 /* COMMIT level descriptor · Tower 3 · format: COMMIT_LEVEL(<json>) — see COMMIT_LEVELS.md §1.
-   Edit with the local level editor (editor.html), not by hand.
+   Edit with the level editor (editor.html), not by hand.
    Movers: type 4 horizontal / 5 vertical, trailing [amp, period, phase]; x/top = oscillation centre. */
 COMMIT_LEVEL({
 "id":3,"name":"TOWER 3","tag":"THE CLOCKWORK SPIRE","summit":6000,"goal":[240,120],

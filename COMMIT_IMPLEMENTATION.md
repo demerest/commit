@@ -25,10 +25,10 @@ CSS + Web Audio. Zero dependencies, zero network requests, zero image assets, ze
 | `js/render.js` | Canvas sizing + one render pass (sky→parallax→grid→solids incl. ice/mover tracks→trail→preview→body+fuse→FX→rail) |
 | `js/ui.js` | DOM overlays, HUD cache, toast, **tower picker**, tower tag |
 | `js/main.js` | Persistence v3, **level switching/unlock**, win/reset, input, loop, boot, `__COMMIT__` hook |
-| `editor.html` + `js/editor.js` | **Local-only** visual level editor (committed, but excluded from the Pages deploy by the whitelist workflow; origin-gated). Loads the real `sim.js` so VALIDATE uses the same `step()`/`preview()`; exports/imports descriptors |
-| `.github/workflows/pages.yml` | Pages deploy (build_type=workflow): publishes a **game-only** whitelist (index/style/test, `js/` minus editor, `levels/`); editor never ships |
+| `editor.html` + `js/editor.js` | **Public** web level editor, published with the game (the game UI never links to it; the README does). Loads the real `sim.js` so VALIDATE uses the same `step()`/`preview()`; exports/imports descriptors |
+| GitHub Pages | Standard branch deployment (`main`, repo root) — everything committed ships, editor included; no custom workflow |
 
-Adding a tower = drop `levels/tower-N.js` + one `<script>` tag (or author it in the local editor);
+Adding a tower = drop `levels/tower-N.js` + one `<script>` tag (or author it in the web editor);
 adding a mechanic = a new type flag + a branch in `sim`/`render`. Game modes can wrap the same sim later.
 
 | Concern | Responsibility |
@@ -522,7 +522,7 @@ the `window.__COMMIT__` manual-clock hook and asserts the matrix below, includin
 chains, elevator rides and mover catches included) are solvable at ≤ 98 % power** using the
 real integrator; mover jumps must also land with the launch phase shifted ±0.12 s (not
 frame-perfect). Last full run: **126/126 pass** in both standard and `prefers-reduced-motion`
-modes (headless Chrome). The local editor's VALIDATE runs the same solver + invariants
+modes (headless Chrome). The editor's VALIDATE runs the same solver + invariants
 (`editor.html#validateN` headless: VALID 36/40/42).
 
 | # | Test | Expected |

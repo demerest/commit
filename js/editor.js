@@ -1,11 +1,8 @@
-/* COMMIT — local-only level editor. Loads the real integrator (js/sim.js) so VALIDATE uses the
+/* COMMIT — web level editor. Loads the real integrator (js/sim.js) so VALIDATE uses the
    same step()/preview() as the game. Exports/imports COMMIT_LEVEL(<json>) descriptors.
-   This file is gitignored (never deployed); the origin gate below is defense-in-depth. */
+   Published alongside the game; the game UI never links to it (the README does). */
 "use strict";
 (function(){
-const host=location.hostname;
-const local=location.protocol==="file:"||host==="localhost"||host==="127.0.0.1"||host==="[::1]"||host==="";
-if(!local){document.getElementById("gate").hidden=false;document.getElementById("wrap").style.display="none";return;}
 const cv=$("cv"),ctx=cv.getContext("2d");
 const TY=["solid","crumble","bounce","ice","move·h","move·v"];
 const TCOL=[COL.edge,"#8a6a3a",COL.spring,COL.ice,COL.mover,COL.mover];

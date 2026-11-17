@@ -1,5 +1,5 @@
 /* COMMIT level descriptor · Tower 1 · format: COMMIT_LEVEL(<json>) — see COMMIT_LEVELS.md §1.
-   Edit with the local level editor (editor.html), not by hand. */
+   Edit with the level editor (editor.html), not by hand. */
 COMMIT_LEVEL({
 "id":1,"name":"TOWER 1","tag":"FIRST ASCENT","summit":5080,"goal":[180,120],
 "plats":[[60,120,150,0],[270,240,150,0],[90,370,140,0],[280,500,150,0],

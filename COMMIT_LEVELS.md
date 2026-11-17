@@ -23,9 +23,9 @@ The argument is plain JSON (the editor parses/exports exactly this). `js/levels.
 engine then each descriptor as classic `<script>` tags, so the game still runs from `file://`
 with zero fetch. To add a tower: drop `levels/tower-N.js` and add one `<script>` tag.
 
-**Authoring tool:** `editor.html` (+ `js/editor.js`) is a **local-only** web level editor. It is
-committed for development but excluded from the Pages deploy (`.github/workflows/pages.yml`
-publishes a game-only whitelist) and origin-gated to `file://`/localhost. Open it locally, pick or
+**Authoring tool:** `editor.html` (+ `js/editor.js`) is a web level editor, published with the
+game at <https://demerest.github.io/commit/editor.html> (also works from `file://`/localhost).
+The game UI never links to it; the README does. Open it, pick or
 import a tower, drag platforms / resize / set type, edit ceilings/goal/summit/notes, press
 **VALIDATE** (runs the real `step()`/`preview()` solver + invariants), then **EXPORT** to download
 a `tower-N.js` descriptor.
@@ -185,7 +185,7 @@ purpose — the last emotion should be relief, not a coin flip.
 8. **Movers:** period ≤ 3 s; sweep inside the walls; lift speed ≤ ~100 px/s; elevator chains
    obey the low/high dy bounds (§2); every mover jump must survive ±0.12 s of launch-phase shift.
 9. Re-run the `test.html` solver after any edit — it proves all 36 T1 + 40 T2 + 42 T3
-   rest-to-rest jumps solvable (or press VALIDATE in the local editor).
+   rest-to-rest jumps solvable (or press VALIDATE in the editor).
 
 ## 9. Tower Sketch
 

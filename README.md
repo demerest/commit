@@ -67,10 +67,10 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   `3` ice `4` move·h `5` move·v; movers append `amp, period, phase`). `js/levels.js` is just the
   loader/engine. Adding a tower = drop a descriptor + one `<script>` tag. Format spec:
   `COMMIT_LEVELS.md` §0.
-- **Local level editor.** `editor.html` is a dev-only visual editor (drag/resize/type platforms,
-  ceilings, goal, notes; live solver validation; export/import descriptors). It is committed for
-  development but **excluded from the Pages deploy** (`.github/workflows/pages.yml` publishes a
-  game-only whitelist) and origin-gated, so it never ships to the public site.
+- **Web level editor.** `editor.html` is a visual editor (drag/resize/type platforms, ceilings,
+  goal, notes; live solver validation; export/import descriptors), published with the game at
+  <https://demerest.github.io/commit/editor.html>. The game itself never links to it — this
+  README is the only place it is referenced.
 - **The Commit Contract:** preview ≡ simulation, pixel-exact, including wall hits, ceiling
   bonks, bounce hops and moving platforms (green/ice/magenta ring = landing, red ✕ = strike,
   teal ring = bounce).
@@ -92,13 +92,12 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
 Open `index.html` directly in any modern browser — no server, no build step, works offline
 from `file://` (classic scripts + stylesheet, no modules).
 
-### Level editor (local only)
+### Level editor
 
-Open `editor.html` locally (double-click, or serve the folder and visit `/editor.html`). It is
-committed but **not deployed** — the Pages workflow publishes only the game, and the editor is
-gated to `file://`/localhost. Pick a tower or import a descriptor, edit visually, **VALIDATE**
-(real-integrator solver + design invariants), then **EXPORT** a `tower-N.js` to drop into
-`levels/` (and add a `<script>` tag in `index.html`).
+Open <https://demerest.github.io/commit/editor.html> — or `editor.html` locally (double-click,
+or serve the folder and visit `/editor.html`). Pick a tower or import a descriptor, edit
+visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPORT** a
+`tower-N.js` to drop into `levels/` (and add a `<script>` tag in `index.html`).
 
 ## Verification
 

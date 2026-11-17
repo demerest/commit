@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>COMMIT · level editor (local only)</title>
+<title>COMMIT · level editor</title>
 <style>
 :root{--bg:#07090f;--panel:#0e1320;--ink:#e9edf4;--dim:#8b93a7;--line:#26304a;--blue:#5aa7ff;--green:#57e389;--amber:#ffb454;--red:#ff5d5d;--spring:#3fe0c5;--ice:#bfe3ff}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -27,11 +27,9 @@ button:hover{filter:brightness(1.1)}
 #issues .bad{color:var(--red)}
 #issues .good{color:var(--green)}
 .hint{color:var(--dim);font-size:10.5px;line-height:1.6;margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
-#gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--dim);font-size:13px;text-align:center;padding:20px}
 </style>
 </head>
 <body>
-<div id="gate" hidden>This is a local development tool.<br>Open it from file:// or http://localhost only.</div>
 <div id="wrap">
 <div id="left"><canvas id="cv"></canvas></div>
 <div id="side">

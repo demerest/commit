@@ -364,7 +364,7 @@ guarded so a sound failure can never break the simulation.
 
 **Shipped:** three towers (T1 36 platforms, T2 40, T3 42), crumble/bounce/ice/movers,
 ceilings, stats, per-tower persistence (incl. mover phase), tower select + unlock, share,
-local level editor with real-integrator validation. Modular `js/` + data-driven
+web level editor with real-integrator validation. Modular `js/` + data-driven
 `levels/tower-N.js` so new towers/mechanics/modes are additive.
 **Candidates (not built):** daily seeded tower, ghost of your best run, launch-count
 leaderboard, moving ceilings, alternate game modes. None required for the core experience.
