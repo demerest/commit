@@ -370,12 +370,12 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 | Mover reversal | Direction-pitched tick-tock blip under your feet (520 Hz one way, 390 Hz the other) |
 | Commit queued | Rising square latch (520→760 Hz) + bright click — the arc is armed for touchdown |
 | Lift crush | A vertical lift pressing you into a solid drops you with a bonk blip |
-| Phase toggle | Pitched clock tick on solid↔ghost (880 Hz on / 440 Hz off) + bright click |
+| Phase toggle | Soft local sine woodblock (660→520 on / 440→330 off), only for on-screen platforms near the rider (underfoot slightly louder + tiny click); off-screen toggles silent |
 | Phase-out drop | Descending sine sigh + air puff as the platform ghosts under you |
-| Gust zone | Localized wind bed (gain by inside-ness, pitch by strength); streaks stream along the accel |
+| Gust zone | Silent by design (tint + streaming streaks only); no continuous zone audio, so wind columns never drone |
 | Orbiter carry | Continuous mechanical hum-free ride; tangent chevrons show travel; no reversal tick (circular) |
 | Dir spring throw | Boing pitched by launch angle + |vx| (direction-varied, not one identical cue) |
-| Ambient wind (T4+) | Constant altitude wind bed halved on towers 4+ so the upper climbs sit quieter; SFX unchanged |
+| Ambient wind | Constant altitude wind bed, uniform across all towers (gain rises with height fraction) |
 | Tower unlock | Rising triad + ice-blue "TOWER N UNLOCKED" line on the win screen |
 | Idle > 2.2 s, 0 launches | Pulsing "drag anywhere · release to commit" |
 | Summit | Confetti + overlay + lifetime records updated |
@@ -457,4 +457,4 @@ leaderboard, moving ceilings, alternate game modes. None required for the core e
 17. Pre-aim: aiming starts mid-flight with the fuse running; release/Space/fuse expiry while airborne queues the arc and fires it on true landing (never on bounce hops); no cancel key (Esc/P pause instead); grounded aiming is unchanged.
 18. Gust zones bend the arc identically in preview and flight (pure position-based accel, flight-only); a zone-assisted gap is unsolvable without the zone. Phase platforms keep preview ≡ flight via a pure solidAt(s,t); on-window ≥1.2 s and ±0.12 s launch tolerance; ghosting under a rider drops honestly and always returns.
 19. Boot lands on a main-menu start page (Continue/Start Game, Level Select of unlocked towers only, How to Play). Esc/P/II pause with the clock frozen and a drawn aim preserved; pause and the summit between-levels screen both reach the main menu and level select; Help/Select BACK returns to its caller.
-20. Orbiters carry in 2-D with preview ≡ flight (pure circular rectOf); orbit speed ≤140 px/s, period ≤3 s, ±0.12 s launch tolerance. Direction springs set a fixed launch vector (preview exact), |v|≤950, vy>0, and the downstream rest lies within the vector's reach. Tower 4+ halve the constant ambient wind bed (SFX unchanged).
+20. Orbiters carry in 2-D with preview ≡ flight (pure circular rectOf); orbit speed ≤140 px/s, period ≤3 s, ±0.12 s launch tolerance. Direction springs set a fixed launch vector (preview exact), |v|≤950, vy>0, and the downstream rest lies within the vector's reach. Phase-platform clock ticks are diegetic (on-screen + near/underfoot only, soft sine), never a global metronome; the ambient wind bed is uniform across towers.

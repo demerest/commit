@@ -179,8 +179,7 @@ blinkT=Math.max(0,blinkT-dt);blinkTimer-=dt;
 if(blinkTimer<0){blinkT=.12;blinkTimer=2.6+Math.random()*2;}
 if(state==="ready")idleT+=dt;}
 if(SND.ctx&&SND.wind){const tt=clamp01(body.y/SUMMIT);
-/* upper towers (4+): halve the constant ambient wind bed; SFX unchanged */
-const base=(SND.on&&state!=="win")?(.006+tt*.03)*(level>=4?.5:1):0;
+const base=(SND.on&&state!=="win")?.006+tt*.03:0;
 SND.wind.wg.gain.setTargetAtTime(base,SND.ctx.currentTime,.5);
 SND.wind.bp.frequency.setTargetAtTime(260+tt*240,SND.ctx.currentTime,.5);}
 if(state==="aim"&&aim&&SND.hum&&SND.ctx){const v=aimV();

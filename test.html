@@ -675,6 +675,21 @@ ok("last tower hides NEXT",d.getElementById("bNext").hidden);
 C.closeOv();
 C.resetRun();
 
+/* 35 · phase ticks are diegetic (local), not a global metronome */
+C.setLevel(4);C.resetRun();
+const origSfx=w.sfx;let phaseCalls=0;
+w.sfx=function(n,o){if(n==="phase")phaseCalls++;return origSfx(n,o);};
+C.setWorldT(0);C.setBody(240,0);
+for(let i=0;i<240;i++)tick(16.7);
+ok("off-screen phase toggles are silent",phaseCalls===0,"calls="+phaseCalls);
+phaseCalls=0;
+const phP=C.P[11];
+C.setWorldT(0);C.setBody(phP[0]+phP[2]/2-9,phP[1]);
+for(let i=0;i<240;i++)tick(16.7);
+ok("underfoot/near phase toggles tick",phaseCalls>0,"calls="+phaseCalls);
+w.sfx=origSfx;
+C.resetRun();
+
 ok("no runtime errors during suite",errs.length===0,errs.join(" | "));
 out.innerHTML+="\n\n"+(RM?"MODE: prefers-reduced-motion":"MODE: standard")+" · DONE";
 }

@@ -19,9 +19,9 @@ CSS + Web Audio. Zero dependencies, zero network requests, zero image assets, ze
 | `js/core.js` | Tuning constants (incl. `ICE_V`, `ICE_RAMP`), palette (`ice`, `mover` tokens), math, sky keyframes, `LS` storage helper |
 | `js/levels.js` | Level **engine**: `COMMIT_LEVEL()` registrar + `LEVELS` + `buildLevel(n)`; holds no data |
 | `levels/tower-N.js` | **Descriptors** (one per tower): a single `COMMIT_LEVEL({…json…})` call; classic scripts so `file://` works with zero fetch |
-| `js/audio.js` | Lazy `AudioContext`; synthesized SFX (incl. ice chime/scrape/slip, unlock triad, direction-pitched dir-spring), aim hum, wind bed (halved on towers 4+); master mute |
+| `js/audio.js` | Lazy `AudioContext`; synthesized SFX (incl. ice chime/scrape/slip, unlock triad, direction-pitched dir-spring, soft local phase woodblock), aim hum, uniform wind bed; master mute |
 | `js/fx.js` | Pooled dust/spray/shards/confetti/floats, shake, flash, squash timers |
-| `js/sim.js` | `step(b,t)` single integrator; preview; aim/launch; land/bounce/dir-spring; crumble + reform; **ice drift** (`updateIce`); **movers** h/v/orbit (`worldT` clock, `moverXY/moverV/rectOf`, `groundStep` 1-D/2-D carry); **phase** `solidAt`; run stats |
+| `js/sim.js` | `step(b,t)` single integrator; preview; aim/launch; land/bounce/dir-spring; crumble + reform; **ice drift** (`updateIce`); **movers** h/v/orbit (`worldT` clock, `moverXY/moverV/rectOf`, `groundStep` 1-D/2-D carry); **phase** `solidAt` + diegetic `updateClocks` ticks; run stats |
 | `js/render.js` | Canvas sizing + one render pass (sky→parallax→grid→solids incl. ice/mover tracks→trail→preview→body+fuse→FX→rail) |
 | `js/ui.js` | DOM overlays (**menu / pause / select** / help / confirm / win) with `ovPrev` return-stack, HUD cache, toast, tower picker, available-only level select, tower tag |
 | `js/main.js` | Persistence v3, **level switching/unlock**, win/reset, input, loop, boot, `__COMMIT__` hook |
@@ -537,7 +537,7 @@ the `window.__COMMIT__` manual-clock hook and asserts the matrix below, includin
 jumps (bounce chains, elevator rides, mover catches, wind gaps, phase gates, orbits and
 redirects included) are solvable at ≤ 98 % power** using the real integrator; mover/phase/orbit
 jumps must also land with the launch phase shifted ±0.12 s (not frame-perfect). Last full run:
-**191/191 pass** in both standard and `prefers-reduced-motion` modes (headless Chrome). The
+**193/193 pass** in both standard and `prefers-reduced-motion` modes (headless Chrome). The
 editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VALID 36/40/42/43/44).
 
 | # | Test | Expected |
@@ -571,6 +571,7 @@ editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VA
 | 27 | Tower 4 wind + phase (`test.html` §32) | 43/43 jumps solvable ≤98%; zone-assisted gap solvable and flight≡preview through the updraft; phase gate solvable + ±0.12 s tolerant, flight≡preview, and ghosts under the rider into an honest drop; T4 summit/share/NEXT-hidden |
 | 28 | Menu / pause / select (`test.html` §1, §33) | Boot = main menu start page; Start/Continue; Esc/P/II pause freezes clock and preserves aim; level select lists unlocked only; pause/win → menu & select; help/select BACK returns to caller; win = between-levels screen |
 | 29 | Tower 5 orbit + redirect (`test.html` §34) | 44/44 jumps solvable ≤98%; orbiter 2-D carry exact; dir-spring redirect flight≡preview and lands the target rest; T5 summit/share 676m/NEXT-hidden |
+| 30 | Phase-audio locality (`test.html` §35) | Off-screen phase toggles emit zero sfx; underfoot/near toggles tick (soft local woodblock); wind bed uniform across towers |
 
 ## 6. Tuning Pointers
 

@@ -72,8 +72,9 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   you in 2-D; the arc knows where they'll be. Time your stop on the orbit.
 - **Direction springs (Tower 5+).** Orange pads throw you on a fixed authored vector (the
   arrow), not your momentum — deterministic redirects and routing chains.
-- **Quiet upper winds.** From Tower 4 the constant ambient wind bed is halved (SFX unchanged),
-  so the tall climbs sit quieter under their effects.
+- **Local clock ticks.** Phase platforms tick softly only when on-screen and near you (a touch
+  louder underfoot); off-screen clocks are silent, so a tower full of them isn't a metronome.
+  The ambient wind bed is uniform across towers.
 - **Main menu, pause & level select.** Boot lands on a start page: Continue / Start Game,
   Level Select (unlocked towers only, with your best height), How to Play. `Esc`/`P` or the
   `II` button pauses with the clock frozen; pause and the summit (between-levels) screen both
@@ -126,7 +127,7 @@ visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPO
 
 ## Verification
 
-`test.html` is an automated harness (**191 assertions**) that drives the game through a
+`test.html` is an automated harness (**193 assertions**) that drives the game through a
 manual-clock hook: commit contract, fuse, pre-aim queue, crumble break + reform, bounce-chain preview ≡ flight,
 ice slide / stand-still / walk-off / launch-discards-slide / persistence, mover carry / reversal /
 launch-discards-carry / moving-target contract / phase persistence / lift collision fairness, tower lock + unlock +
@@ -142,7 +143,7 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **191/191 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **193/193 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 

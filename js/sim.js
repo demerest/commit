@@ -22,8 +22,13 @@ function rectOf(s,t){if(!s.move)return s;const o=moverXY(s,t);return{x:o.x,y:o.y
 /* phase platforms: solid for duty fraction of each cycle, ghost (pass-through) otherwise.
    Pure predicate of (s,t) read inside step — never mutate s.dead (keeps preview===flight). */
 function solidAt(s,t){if(!s.clock)return true;const u=((t/s.period+s.phase)%1+1)%1;return u<s.duty;}
+/* phase ticks are diegetic: only on-screen platforms near the rider (or the one underfoot)
+   make a sound, so a tower full of clocks isn't a global metronome */
 function updateClocks(){for(const s of PLATS){if(!s.clock||s.dead)continue;
-const a=solidAt(s,worldT-DT),b=solidAt(s,worldT);if(a!==b)sfx("phase",{on:b});}}
+const a=solidAt(s,worldT-DT),b=solidAt(s,worldT);if(a===b)continue;
+const vis=s.y+s.h>camY-40&&s.y<camY+VH+40;
+const near=Math.abs((s.y+s.h)-body.y)<300;
+if(vis&&(body.on===s||near))sfx("phase",{on:b,local:body.on===s});}}
 function findGround(x,y){for(const s of SOLIDS){if(s.dead||s.wall||!solidAt(s,worldT))continue;const r=rectOf(s,worldT);
 if(Math.abs((r.y+r.h)-y)<.6&&x<r.x+r.w&&x+CH>r.x)return s;}return null;}
 /* ---------- physics (shared by flight and preview) ---------- */
