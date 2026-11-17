@@ -226,9 +226,12 @@ Strict zig-zag; ice `I` introduced at #5 and recurring. 40 platforms + summit, 3
 | 20 | 300 | 2740 | 64 | **C** | | 40 | 180 | 5480 | 36 | N |
 | | | | | | | **GOAL** | 240 | 5600 | 120 | |
 
-Ceilings: `[280,2300,200]` (over ice-adjacent pad 16, exit left), `[280,3140,200]` (pad 22 ice,
+Ceilings: `[280,2300,200]` (over ice-adjacent pad 16, exit left), `[320,3140,160]` (pad 22 ice,
 exit left), `[300,4910,180]` (pad 35 ice, exit left). Each forces a flat arc off a sliding or
-narrow pad — the "commit fast" lesson under a bonk threat.
+narrow pad — the "commit fast" lesson under a bonk threat. The 3140 ceiling starts at x 320
+(not 280): ice drift carries you right while the exit is left, so the span must leave room for
+a normal flat arc (~95%, vx≈−380) to clear from anywhere on the 60 px pad; steeper panic arcs
+still bonk. (v2.3 fix: at x 280 the legal launch window was a few px wide — unfair.)
 
 Bounce chain: 27 (A, 3720) → 28 (spring, 3830) → 29 (C ice, 3950; 230 px above A). All rightward;
 the spring carries `vx` onto wide ice (80 px) so you land drifting and must commit within ~1 s.
