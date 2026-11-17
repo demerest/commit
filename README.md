@@ -33,7 +33,7 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
 | Fine aim | — | hold `Shift` (¼ rate) |
 | Commit | Release | `Space` / `Enter` (press once to raise the arc, again to commit) |
 | Pre-aim | Drag mid-flight; release queues the commit for landing | Arrows mid-flight; `Space` queues |
-| Cancel aim | Tiny drag (< 90 px/s) | `Esc` (also clears a queue) |
+| Cancel aim | Tiny drag (< 90 px/s) only | — (no cancel key; `Esc` closes menus) |
 | Reset run | ↺ button (confirm) | `R` (confirm) |
 | Help / towers | ? button / tower tag | `H` |
 | Sound on/off | ♪ button | `M` |
@@ -44,7 +44,8 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   for you. The ring shifts blue → amber → red and ticks.
 - **Pre-aim.** Start aiming mid-flight; the fuse runs as usual. Releasing (or the fuse
   expiring) before you land queues the arc — amber ring, `QUEUED · n%` — and it fires the
-  instant you touch down. Bounce hops don't trigger it; `Esc` cancels.
+  instant you touch down. Bounce hops don't trigger it. There is no cancel key — once drawn,
+  the arc commits (release, `Space` or the fuse).
 - **Crumbling platforms.** Cracked ledges give you 1.6 s of standing before they shatter and
   drop you — then reform after ~3 s (a dashed ghost counts down). Never a softlock.
 - **Bounce springs.** Teal pads relaunch you automatically (keeping horizontal speed). Some
@@ -105,7 +106,7 @@ visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPO
 
 ## Verification
 
-`test.html` is an automated harness (**143 assertions**) that drives the game through a
+`test.html` is an automated harness (**142 assertions**) that drives the game through a
 manual-clock hook: commit contract, fuse, pre-aim queue, crumble break + reform, bounce-chain preview ≡ flight,
 ice slide / stand-still / walk-off / launch-discards-slide / persistence, mover carry / reversal /
 launch-discards-carry / moving-target contract / phase persistence / lift collision fairness, tower lock + unlock +
@@ -121,7 +122,7 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **143/143 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **142/142 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 

@@ -110,8 +110,7 @@ if(kbHeld.ArrowRight)kb.a=Math.max(8,kb.a-60*dt*f);
 if(kbHeld.ArrowUp)kb.p=Math.min(1,kb.p+.45*dt*f);
 if(kbHeld.ArrowDown)kb.p=Math.max(.12,kb.p-.45*dt*f);}
 addEventListener("keydown",e=>{
-if(e.key==="Escape"){if(overlayOpen){if(overlayOpen!=="win")closeOv();}
-else if(aim&&(state==="aim"||state==="flight")){aim=null;pendingV=null;if(state==="aim")state="ready";stopHum();sfx("puff");}return;}
+if(e.key==="Escape"){if(overlayOpen&&overlayOpen!=="win")closeOv();return;}
 if(e.key==="m"||e.key==="M"){audio();setSound(!SND.on);return;}
 if(overlayOpen)return;
 audio();
