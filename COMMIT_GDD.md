@@ -147,6 +147,19 @@ contacts are classified against the platform's previous-step position, so a movi
 never side-ejects you to its edge or bonks you through it. The preview knows all of this: it
 runs the same world clock.
 
+**Gust-zone rule (Tower 4+):** blue rectangular columns apply a constant extra acceleration to
+the body *in flight only* (updraft `ay>0` cuts effective gravity; gust `ax` pushes sideways).
+Static in time → no timing-fairness cost; the arc visibly bends and the preview bends with it
+(same integrator). Grounded bodies are unaffected. |accel| ≤ 1600 px/s² so speed clamps bound.
+A zone must be the *enabling* verb for its gap (the jump is unsolvable without it).
+
+**Phase-platform rule (Tower 4+):** gold platforms are solid for a `duty` fraction of each
+`period` (≤3 s) on the world clock, and **ghost / pass-through** otherwise — you can fall
+straight through a ghost, making them timed one-way gates as well as timed rests. Standing on
+one when it ghosts drops you honestly; it always returns (no softlock). On-window ≥1.2 s so a
+±0.12 s launch shift still lands. The solidity is a pure `solidAt(s,t)` predicate read inside
+`step` (never shared-state mutation), keeping preview ≡ flight.
+
 Geometry, gravity, the fuse and the slide are the antagonists; the springs are the only mercy.
 There is no instant-death hazard.
 
@@ -198,6 +211,17 @@ prior mechanic.
 | IV | Escapement | 446–600 m | 36–52 px | Spring chain onto a *moving* catch; narrow ice; timed lift gates; crumble gates |
 | V | Summit | 600 m | 120 px | Mercy at the top, offset right of the last pad |
 
+**Tower 4 · The Tempest Engine (640 m)** — the storm tower: wind columns and blinking gold
+platforms plus every prior mechanic.
+
+| # | Name | Altitude | Platform width | Teaches / tests |
+|---|---|---|---|---|
+| I | The Bellows | 0–160 m | 90–150 px | First updraft (a >205 px gap only reachable through wind); a gust lane; ice + crumble recall |
+| II | Escapement Lights | 160–326 m | 72–90 px | First phase platforms; land on the beat; ghost = fall through; second updraft |
+| III | Storm Clock | 326–450 m | 62–72 px | Wind + light together; a left gust; mover + crumble + ice under time pressure |
+| IV | The Eye | 450–632 m | 36–60 px | Calm but narrow: third updraft, bounce chain, narrow ice/crumble, timed lift + phase gate |
+| V | Summit | 640 m | 36 px | Mercy at the top, offset so the last arc is a real decision |
+
 Design invariants for every tower (enforced by the solver): consecutive platforms alternate
 sides (a platform directly above another is unreachable — you'd bonk its underside); bounce
 chains keep one horizontal direction (bounce preserves `vx`); `dy ≤ 160`, required speed
@@ -240,6 +264,8 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 | `spring` | `#3fe0c5` | Bounce pads, bounce-hop markers in the preview |
 | `ice` | `#bfe3ff` | Ice top edge, sheen, drift chevrons, ice landing ring, spray |
 | `mover` | `#d17bff` | Moving platforms: top edge, travel track, direction chevrons, mover landing ring, carry dust |
+| `phase` | `#ffd166` | Phase platforms: gold top edge, clock ticks, draining/refilling clock-bar, ghost outline, phase landing ring |
+| `zone` | `#6fc3ff` | Gust zones: tinted column, dashed boundary, streaming wind streaks (vertical updraft / horizontal gust) |
 
 ### World rendering
 - **Sky:** three-stop vertical gradient keyed to altitude — cold navy at the floor, steel
@@ -320,6 +346,9 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 | Mover reversal | Direction-pitched tick-tock blip under your feet (520 Hz one way, 390 Hz the other) |
 | Commit queued | Rising square latch (520→760 Hz) + bright click — the arc is armed for touchdown |
 | Lift crush | A vertical lift pressing you into a solid drops you with a bonk blip |
+| Phase toggle | Pitched clock tick on solid↔ghost (880 Hz on / 440 Hz off) + bright click |
+| Phase-out drop | Descending sine sigh + air puff as the platform ghosts under you |
+| Gust zone | Localized wind bed (gain by inside-ness, pitch by strength); streaks stream along the accel |
 | Tower unlock | Rising triad + ice-blue "TOWER N UNLOCKED" line on the win screen |
 | Idle > 2.2 s, 0 launches | Pulsing "drag anywhere · release to commit" |
 | Summit | Confetti + overlay + lifetime records updated |
@@ -364,6 +393,9 @@ guarded so a sound failure can never break the simulation.
 | `ICE_RAMP` | 0.5 | 0.2–1.0 | Grace period after an ice landing before full drift |
 | Mover `amp` | per platform | 10–90 | Sweep half-width; bigger = more travel, more timing pressure |
 | Mover `period` | per platform | 0.6–3.0 | Full cycle; must stay ≤ the 3 s fuse so every phase is aimable |
+| Zone `ax/ay` | per zone | −1600…1600 | Extra accel px/s² in flight; ay>0 updraft, ax gust; bigger = more bend |
+| Clock `duty` | per platform | 0.1–0.9 | Solid fraction of each cycle; duty·period ≥ 1.2 s for fair timing |
+| Clock `period` | per platform | 0.6–3.0 | Blink cycle; ≤ the 3 s fuse so every phase is aimable |
 | Platform widths | per level | ≥ 28 | Primary difficulty dial |
 | Camera lerp | 6 / 10 | 4–12 | Fall visibility vs. motion comfort |
 
@@ -395,3 +427,4 @@ leaderboard, moving ceilings, alternate game modes. None required for the core e
 15. Any launch angle/power is reachable by keyboard within ~3 s of holding arrows (continuous sweep, Shift fine), with a visible angle/power readout; full pointer power needs ≤ 210 px of drag.
 16. Arriving onto a rising lift (straight down or drifting) lands in place — no edge teleport, no pass-through; the aim ring sits on a dashed ghost of the mover at contact time; fuse launches commit the exact previewed phase.
 17. Pre-aim: aiming starts mid-flight with the fuse running; release/Space/fuse expiry while airborne queues the arc and fires it on true landing (never on bounce hops); no cancel key (Esc only closes menus); grounded aiming is unchanged.
+18. Gust zones bend the arc identically in preview and flight (pure position-based accel, flight-only); a zone-assisted gap is unsolvable without the zone. Phase platforms keep preview ≡ flight via a pure solidAt(s,t); on-window ≥1.2 s and ±0.12 s launch tolerance; ghosting under a rider drops honestly and always returns.

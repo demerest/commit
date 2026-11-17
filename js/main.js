@@ -150,7 +150,7 @@ if(!paused){if(run.started&&state!=="win")run.time+=dt;
 if(aim&&!pendingV&&(state==="aim"||state==="flight")){aimT-=dt;const sec=Math.ceil(aimT);
 if(sec!==lastTickSec){lastTickSec=sec;if(sec>0&&sec<=AIM_TIME)sfx("tick",{urgent:aimT<1});}
 if(aimT<=0){const v=aimV();if(v&&v.m>=MINV&&state==="aim")sfx("forced");commitAim();}}
-acc+=dt;while(acc>=DT){worldT+=DT;if(state==="flight")simStep();else groundStep();acc-=DT;}
+acc+=dt;while(acc>=DT){worldT+=DT;if(state==="flight")simStep();else groundStep();updateClocks();acc-=DT;}
 kbSweep(dt);
 updateCrumble(dt);
 updateRespawn(dt);
@@ -189,6 +189,7 @@ get aimT(){return aimT},get crumbleT(){return crumbleT},get bounceChain(){return
 get trail(){return trail},get parts(){return parts},get shards(){return shards},get confetti(){return confetti},get floats(){return floats},
 get overlayOpen(){return overlayOpen},get flightContacts(){return flightContacts},get flightContact(){return flightContacts[0]||null},get safePos(){return safePos},
 get SOLIDS(){return SOLIDS},get PLATS(){return PLATS},get GOAL(){return GOAL},get P(){return P},get CEIL(){return CEIL},
-RM,LEVELS,snd:SND,skyAt,moverXY,moverV,
+RM,LEVELS,snd:SND,skyAt,moverXY,moverV,solidAt,
+get ZONES(){return ZONES},
 get worldT(){return worldT},setWorldT(t){worldT=Math.max(0,+t||0);},
 get C(){return{VW,VH,DT,G,MAXV,MINV,KDRAG,CH,SUMMIT,FALL_MIN,VFALL,AIM_TIME,CRUMBLE_TIME,BOUNCE_V,RESPAWN_TIME,ICE_V,ICE_RAMP}}};

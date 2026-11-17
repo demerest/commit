@@ -6,8 +6,9 @@ Draw an arc, release, and live with exactly what you drew.
 ▶ **Play: <https://demerest.github.io/commit/>**
 
 A minimalist precision rage-platformer. Climb shrinking platforms, amber ceilings, crumbling
-ledges, bounce springs — slick ice from Tower 2 that slides you the way you came in, and
-magenta moving platforms from Tower 3 that carry you while you aim.
+ledges, bounce springs — slick ice from Tower 2 that slides you the way you came in,
+magenta moving platforms from Tower 3 that carry you while you aim, and Tower 4's blue wind
+columns that bend your arc plus gold platforms that blink in and out of solidity.
 The dotted preview is simulated by the *same integrator* as the real flight — what you see is,
 to the pixel, what you get, including every bounce hop and every platform's future motion.
 Release is irreversible. Miss, and you fall for real: no death, no respawn, no checkpoints.
@@ -20,6 +21,7 @@ The only punishment is gravity, and it is always enough.
 | 1 | First Ascent | 508 m | drag/commit, fuse, crumble, bounce, ceilings |
 | 2 | The Ice Ascent | 560 m | **ice** — slow drift away from the side you entered from |
 | 3 | The Clockwork Spire | 600 m | **movers** — travelling platforms + lifts, combined with everything above |
+| 4 | The Tempest Engine | 640 m | **gust zones** (updrafts/gusts bend the arc) + **phase platforms** (solid/ghost on a clock), combined with everything above |
 
 Clearing a tower's summit unlocks the next. Switch towers from the help overlay (`?` / `H`) or
 the **NEXT TOWER** button on the win screen. Each tower keeps its own run; lifetime records are
@@ -58,6 +60,12 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   ignores their motion. The preview runs the same world clock, so the magenta landing ring sits
   where the platform *will be*. Some climbs only exist while the machine is in the right phase;
   every phase is reachable within one 3 s fuse. Ride a lift up, jump at the top.
+- **Gust zones (Tower 4+).** Blue columns of wind act on you in flight: updrafts cut effective
+  gravity (reaching gaps no spring can), gusts push your arc sideways. The dotted arc bends
+  through them — trust it. Static, so no timing luck involved.
+- **Phase platforms (Tower 4+).** Gold ledges blink on the world clock: solid while the
+  clock-bar drains, ghost (fall straight through) while it refills. Land on the beat, or drop
+  through a ghost as a timed shortcut. Ghosting under you drops you honestly; it always returns.
 - **Altitude light.** The sky climbs from cold navy through steel teal and violet dusk to a
   warm rose dawn at each summit.
 
@@ -106,7 +114,7 @@ visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPO
 
 ## Verification
 
-`test.html` is an automated harness (**142 assertions**) that drives the game through a
+`test.html` is an automated harness (**157 assertions**) that drives the game through a
 manual-clock hook: commit contract, fuse, pre-aim queue, crumble break + reform, bounce-chain preview ≡ flight,
 ice slide / stand-still / walk-off / launch-discards-slide / persistence, mover carry / reversal /
 launch-discards-carry / moving-target contract / phase persistence / lift collision fairness, tower lock + unlock +
@@ -122,7 +130,7 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **142/142 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **157/157 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 

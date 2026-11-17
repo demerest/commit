@@ -38,16 +38,17 @@ function findLaunch(C,fi,ti){
 const CHH=C.C.CH,MV=C.C.MAXV,G=C.C.G;
 const fp=fi<0?[0,0,480,0]:C.P[fi];
 const tp=ti<0?[C.GOAL.x,C.C.SUMMIT,C.GOAL.w,0,true]:C.P[ti];
-const fm=fp[3]===4||fp[3]===5,tm=tp[3]===4||tp[3]===5;
+const fm=fp[3]===4||fp[3]===5||fp[3]===6,tm=tp[3]===4||tp[3]===5||tp[3]===6;
 const per=fm?(fp[5]||2.4):tm?(tp[5]||2.4):0;
 const phases=per?[0,per*.25,per*.5,per*.75,per*.125,per*.375,per*.625,per*.875]:[0];
 const spring=C.P.some(p=>p[3]===2&&p[1]>fp[1]&&p[1]<tp[1]);
+const zone=C.ZONES.some(z=>z.y<tp[1]+40&&z.y+z.h>fp[1]-40&&z.x+z.w>Math.min(fp[0],tp[0])&&z.x<Math.max(fp[0]+fp[2],tp[0]+tp[2]));
 for(const ph of phases){
 C.setWorldT(ph);
 const fr=rectAt(C,fp,ph),tr=rectAt(C,tp,ph);
 /* prune only direct jumps: a spring or a descending lift can do the lifting */
 const dyLo=(tp[3]===5?tp[1]-(tp[4]||60):tr[1])-(fp[3]===5?fp[1]+(fp[4]||60):fr[1]);
-const vyNeed=spring?0:Math.sqrt(2*G*Math.max(0,dyLo));
+const vyNeed=(spring||zone)?0:Math.sqrt(2*G*Math.max(0,dyLo));
 const xs=[fr[0]+fr[2]/2-CHH/2,fr[0]+1,fr[0]+fr[2]-CHH-1];
 for(const bx of xs){
 C.setBody(bx,fr[1]);
@@ -332,9 +333,10 @@ C.resetRun();
 
 /* 23 · level switching */
 key(w,"h");
-ok("tower picker lists all three towers",d.getElementById("towers").children.length===3);
+ok("tower picker lists all four towers",d.getElementById("towers").children.length===4);
 ok("tower 2 button enabled after unlock",!d.getElementById("towers").children[1].disabled);
 ok("tower 3 button locked before T2 summit",d.getElementById("towers").children[2].disabled);
+ok("tower 4 button locked before T3 summit",d.getElementById("towers").children[3].disabled);
 key(w,"Escape");
 C.setLevel(2);
 ok("switch to tower 2 (560m)",C.level===2&&C.C.SUMMIT===5600&&C.body.y===0);
@@ -464,7 +466,7 @@ if(fin3){C.setWorldT(fin3.ph);C.setBody(fin3.bx,C.P[41][1]);C.launch({x:fin3.vx,
 settle();
 ok("T3 summit wins",C.state==="win"&&C.life.summits[3]===sb3+1);
 ok("T3 share text uses 600m",d.getElementById("share").value.indexOf("600m")>=0);
-ok("last tower hides NEXT",d.getElementById("bNext").hidden);
+ok("T3 summit unlocks tower 4 + NEXT shown",C.life.unlocked===4&&!d.getElementById("bNext").hidden);
 C.closeOv();
 
 /* 30 · vertical lift collision fairness — a lift rising into the body must land, not side-eject */
@@ -547,6 +549,42 @@ let n=0;while(C.bounceChain<1&&n<400){tick(16.7);n++;}
 ok("queue waits through bounce hop",C.bounceChain>=1&&!!C.pendingV&&C.state==="flight");
 const lF=C.run.launches;settle();
 ok("queue fires after the chain lands",C.run.launches===lF+1&&C.pendingV===null);
+settle();}
+C.resetRun();
+
+/* 32 · tower 4 (gust zones + phase platforms) */
+C.setLevel(4);
+ok("switch to tower 4 (640m)",C.level===4&&C.C.SUMMIT===6400);
+ok("T4 has zones + phase platforms",C.ZONES.length>0&&C.P.some(p=>p[3]===6));
+C.resetRun();
+solveTower(C,"T4");
+C.resetRun();
+const fin4=findLaunch(C,42,-1);
+ok("T4 final jump previews goal",!!fin4&&fin4.contacts[fin4.contacts.length-1].goal);
+const sb4=C.life.summits[4]||0;
+if(fin4){C.setWorldT(fin4.ph);C.setBody(fin4.bx,C.P[42][1]);C.launch({x:fin4.vx,y:fin4.vy});}
+settle();
+ok("T4 summit wins",C.state==="win"&&C.life.summits[4]===sb4+1);
+ok("T4 share text uses 640m",d.getElementById("share").value.indexOf("640m")>=0);
+ok("last tower hides NEXT",d.getElementById("bNext").hidden);
+C.closeOv();
+C.resetRun();
+const zj=findLaunch(C,3,4);
+ok("updraft gap solvable (zone-assisted)",!!zj);
+if(zj){C.setWorldT(zj.ph);C.setBody(zj.bx,C.P[3][1]);
+const pz=C.preview({x:zj.vx,y:zj.vy});C.launch({x:zj.vx,y:zj.vy});settle();
+ok("zone flight contacts === preview contacts",JSON.stringify(C.flightContacts)===JSON.stringify(pz.contacts));
+ok("zone jump landed on the high ledge",C.body.on&&C.body.on.idx===4);}
+C.resetRun();
+const pj=findLaunch(C,10,11);
+ok("phase gate solvable + tolerant",!!pj);
+if(pj){C.setWorldT(pj.ph);C.setBody(pj.bx,C.P[10][1]);
+const pp=C.preview({x:pj.vx,y:pj.vy});C.launch({x:pj.vx,y:pj.vy});settle();
+ok("phase flight contacts === preview contacts",JSON.stringify(C.flightContacts)===JSON.stringify(pp.contacts));
+ok("landed on phase platform",C.body.on&&C.body.on.idx===11);
+const y0=C.body.y;let dropped=false;
+for(let i=0;i<200;i++){tick(16.7);if(C.state==="flight"){dropped=true;break;}}
+ok("phase platform drops you honestly when it ghosts",dropped&&C.body.y<y0);
 settle();}
 C.resetRun();
 

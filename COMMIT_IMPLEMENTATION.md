@@ -46,7 +46,10 @@ adding a mechanic = a new type flag + a branch in `sim`/`render`. Game modes can
 `preview()` and the flight loop call the same `step()` with the same `DT`. The preview is
 therefore pixel-exact by construction — there is no second physics code path to drift.
 Movers keep the contract: their rects are **pure functions of the world clock** (`rectOf(s,t)`),
-never mutated shared state. The loop advances `worldT` by `DT` before each flight step; the
+never mutated shared state. Tower 4 adds two more pure rules read inside `step`: gust-zone
+accel (`ZONES`, position-based, flight-only) and phase solidity (`solidAt(s,t)`, a duty-cycle
+predicate — never toggle `s.dead`, which would break preview≡flight). `groundStep` drops a
+rider when its phase platform ghosts; `updateClocks` ticks the solid↔ghost toggle sfx. The loop advances `worldT` by `DT` before each flight step; the
 preview clones `worldT` and advances its copy identically, so the dotted arc simulates the
 *future* platform motion the flight will meet — including a spring hop onto a moving catch.
 `worldT` is persisted per run (`wt`) so a refresh resumes mid-phase with your footing intact.
@@ -526,12 +529,12 @@ lastT=performance.now();requestAnimationFrame(frameLoop);
 
 Automated: serve the folder over HTTP and open `test.html` — it drives the game through
 the `window.__COMMIT__` manual-clock hook and asserts the matrix below, including a
-**phase-aware** solver that proves **all 36 T1 + 40 T2 + 42 T3 rest-to-rest jumps (bounce
-chains, elevator rides and mover catches included) are solvable at ≤ 98 % power** using the
-real integrator; mover jumps must also land with the launch phase shifted ±0.12 s (not
-frame-perfect). Last full run: **142/142 pass** in both standard and `prefers-reduced-motion`
-modes (headless Chrome). The editor's VALIDATE runs the same solver + invariants
-(`editor.html#validateN` headless: VALID 36/40/42).
+**phase-aware** solver that proves **all 36 T1 + 40 T2 + 42 T3 + 43 T4 rest-to-rest jumps
+(bounce chains, elevator rides, mover catches, wind gaps and phase gates included) are
+solvable at ≤ 98 % power** using the real integrator; mover/phase jumps must also land with the
+launch phase shifted ±0.12 s (not frame-perfect). Last full run: **157/157 pass** in both
+standard and `prefers-reduced-motion` modes (headless Chrome). The editor's VALIDATE runs the
+same solver + invariants (`editor.html#validateN` headless: VALID 36/40/42/43).
 
 | # | Test | Expected |
 |---|---|---|
@@ -558,9 +561,10 @@ modes (headless Chrome). The editor's VALIDATE runs the same solver + invariants
 | 21 | Mover carry (`test.html` §27) | Rider x/y tracks the platform exactly, through reversals and edge overhang; launch discards carry |
 | 22 | Mover contract (`test.html` §27) | Flight contacts ≡ preview contacts on a moving target; landing ring magenta on movers |
 | 23 | Mover persistence (`test.html` §27) | `wt` saved per run; refresh restores phase + footing on the mover |
-| 24 | Tower 3 flow (`test.html` §27–29) | Locked until T2 summit; picker lists 3; summit wins, share says 600m, NEXT hidden at last tower |
+| 24 | Tower 3 flow (`test.html` §27–29) | Locked until T2 summit; picker lists 4; summit wins, share says 600m, unlocks T4 |
 | 25 | Lift collision fairness (`test.html` §30) | Straight-down and drifting jumps onto a rising lift land in place (no edge teleport / no wall contact); flight ≡ preview; a lift catching a slow riser lands it on top |
 | 26 | Pre-aim queue (`test.html` §31) | Mid-flight aim keeps physics running and the fuse counting; early release / Space / fuse expiry queue instead of launching; queue survives bonks, bounce hops and Esc, and fires on true landing; grounded flow unchanged |
+| 27 | Tower 4 wind + phase (`test.html` §32) | 43/43 jumps solvable ≤98%; zone-assisted gap solvable and flight≡preview through the updraft; phase gate solvable + ±0.12 s tolerant, flight≡preview, and ghosts under the rider into an honest drop; T4 summit/share/NEXT-hidden |
 
 ## 6. Tuning Pointers
 

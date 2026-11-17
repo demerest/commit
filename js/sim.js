@@ -15,21 +15,30 @@ return s.move===4?{x:s.bx+o,y:s.by}:{x:s.bx,y:s.by+o};}
 function moverV(s,t){const u=((t/s.period+s.phase)%1+1)%1;const sp=4*s.amp/s.period*(u<.5?1:-1);
 return s.move===4?{x:sp,y:0}:{x:0,y:sp};}
 function rectOf(s,t){if(!s.move)return s;const o=moverXY(s,t);return{x:o.x,y:o.y,w:s.w,h:s.h};}
-function findGround(x,y){for(const s of SOLIDS){if(s.dead||s.wall)continue;const r=rectOf(s,worldT);
+/* phase platforms: solid for duty fraction of each cycle, ghost (pass-through) otherwise.
+   Pure predicate of (s,t) read inside step — never mutate s.dead (keeps preview===flight). */
+function solidAt(s,t){if(!s.clock)return true;const u=((t/s.period+s.phase)%1+1)%1;return u<s.duty;}
+function updateClocks(){for(const s of PLATS){if(!s.clock||s.dead)continue;
+const a=solidAt(s,worldT-DT),b=solidAt(s,worldT);if(a!==b)sfx("phase",{on:b});}}
+function findGround(x,y){for(const s of SOLIDS){if(s.dead||s.wall||!solidAt(s,worldT))continue;const r=rectOf(s,worldT);
 if(Math.abs((r.y+r.h)-y)<.6&&x<r.x+r.w&&x+CH>r.x)return s;}return null;}
 /* ---------- physics (shared by flight and preview) ---------- */
 function hitR(b,r){return b.x<r.x+r.w&&b.x+CH>r.x&&b.y<r.y+r.h&&b.y+CH>r.y}
-function step(b,t){b.vy-=G*DT;if(b.vy<VFALL)b.vy=VFALL;let ev=null;
+function step(b,t){
+/* gust zones: constant extra accel while the body centre is inside, flight only (pure fn of pos) */
+for(const z of ZONES){const cx=b.x+CH/2,cy=b.y+CH/2;
+if(cx>z.x&&cx<z.x+z.w&&cy>z.y&&cy<z.y+z.h){b.vx+=z.ax*DT;b.vy+=z.ay*DT;}}
+b.vy-=G*DT;if(b.vy<VFALL)b.vy=VFALL;let ev=null;
 const y0=b.y;
 b.x+=b.vx*DT;
-for(const s of SOLIDS){if(s.dead)continue;const r=rectOf(s,t);if(hitR(b,r)){
+for(const s of SOLIDS){if(s.dead||!solidAt(s,t))continue;const r=rectOf(s,t);if(hitR(b,r)){
 /* overlap created by the platform's own motion is a top/bottom approach, not a side wall */
 if(s.move){const pr=rectOf(s,t-DT);
 if(y0>=pr.y+pr.h-1e-6||y0+CH<=pr.y+1e-6)continue;}
 if(b.vx>0)b.x=r.x-CH;else if(b.vx<0)b.x=r.x+r.w;
 if(b.vx!==0){b.vx=0;ev={t:"wall",x:b.x+CH/2,y:b.y+CH/2};}}}
 b.y+=b.vy*DT;b.grounded=false;
-for(const s of SOLIDS){if(s.dead)continue;const r=rectOf(s,t);if(hitR(b,r)){
+for(const s of SOLIDS){if(s.dead||!solidAt(s,t))continue;const r=rectOf(s,t);if(hitR(b,r)){
 const pr=s.move?rectOf(s,t-DT):r;
 const above=y0>=pr.y+pr.h-1e-6,below=y0+CH<=pr.y+1e-6;
 if(above||(!below&&b.vy<=0)){b.y=r.y+r.h;
@@ -38,7 +47,7 @@ else{b.vy=0;b.grounded=true;ev={t:"land",s};}}
 else{b.y=r.y-CH;b.vy=0;ev={t:"bonk",x:b.x+CH/2,y:b.y+CH};}}}
 return ev;}
 function contactOf(b,ev){return{x:b.x+CH/2,y:b.y+(ev.t==="land"||ev.t==="bounce"?0:CH/2),t:ev.t,ok:ev.t==="land",
-goal:!!(ev.s&&ev.s.goal),ice:!!(ev.s&&ev.s.ice),move:(ev.s&&ev.s.move)||0,idx:ev.s&&ev.s.idx!=null?ev.s.idx:-1};}
+goal:!!(ev.s&&ev.s.goal),ice:!!(ev.s&&ev.s.ice),move:(ev.s&&ev.s.move)||0,clock:!!(ev.s&&ev.s.clock),idx:ev.s&&ev.s.idx!=null?ev.s.idx:-1};}
 function preview(v){const b={x:body.x,y:body.y,vx:v.x,vy:v.y,grounded:false};
 const pts=[],contacts=[];let mark=null,markT=0,t=worldT;
 for(let i=0;i<900;i++){t+=DT;const ev=step(b,t);
@@ -124,6 +133,7 @@ function dropRider(vx,vy,sound){body.on=null;body.grounded=false;body.vx=vx;body
 state="flight";aim=null;stopHum();stopSlide();launchY=body.y;flightContacts.length=0;trail.length=0;bounceChain=0;
 sfx(sound);save();}
 function groundStep(){const s=body.on;
+if((state==="ready"||state==="aim")&&s&&s.clock&&!s.dead&&!solidAt(s,worldT)){dropRider(0,0,"phaseout");return;}
 if((state==="ready"||state==="aim")&&s&&s.move&&!s.dead){
 const a=moverXY(s,worldT-DT),b=moverXY(s,worldT);
 const va=moverV(s,worldT-DT),vb=moverV(s,worldT);

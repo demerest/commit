@@ -10,9 +10,13 @@ call registering a JSON object:
 ```js
 COMMIT_LEVEL({ "id":3, "name":"TOWER 3", "tag":"THE CLOCKWORK SPIRE", "summit":6000,
   "goal":[240,120],
-  "plats":[[x,topY,width,type], …],   // type 0 solid · 1 crumble · 2 bounce · 3 ice · 4 move·h · 5 move·v
+  "plats":[[x,topY,width,type], …],   // type 0 solid · 1 crumble · 2 bounce · 3 ice · 4 move·h · 5 move·v · 6 clock
   // movers append three params: [x,topY,width,4|5, amp, period, phase]
   //   x/topY = oscillation CENTRE · amp px · period s (≤3) · phase 0..1 of a cycle
+  // clock (6) appends: [x,topY,width,6, duty, period, phase]
+  //   solid for duty fraction of each period, ghost (pass-through) otherwise; on-window ≥1.2 s
+  "zones":[[x,y,w,h,ax,ay], …],        // constant extra accel px/s² on the body in flight only
+  //   ay>0 updraft (cuts effective gravity) · ax gust (pushes sideways) · |a| ≤ 1600
   "ceil":[[x,topY,width], …],
   "sections":[[y,"I · NAME"], …],
   "notes":[[x,y,"TEXT"], …] });
@@ -107,6 +111,19 @@ the top were ejected to the platform edge ("teleport") instead of landing.
 - **Sweeps inside the walls:** `x−amp ≥ 0` and `x+amp+w ≤ 480` (horizontal); `top−amp ≥ 0`
   (vertical). The editor rejects violations.
 
+**Gust-zone math (T4+).** A zone adds constant accel `(ax,ay)` while the body centre is inside,
+flight only. Effective gravity inside an updraft = `G − ay` (e.g. 2200−1400 = 800), so apex gain
+for a given `vy` scales by `G/(G−ay)` — a dy-260 gap becomes reachable (direct apex at 98% is
+~205). Gust `ax` adds `½·ax·t²` lateral drift over the time spent in the lane; aim upstream to
+compensate. Zones are static → no phase sampling needed; the solver exempts zone-assisted gaps
+from the analytic `vyNeed` prune and relies on numeric preview. |ax|,|ay| ≤ 1600.
+
+**Phase-platform math (T4+).** `solidAt(s,t) = frac(t/period + phase) < duty`. On-window =
+`duty·period` (≥1.2 s so ±0.12 s launch shift lands); off-window = `(1−duty)·period` (the
+pass-through / drop-through window). Period ≤3 s (fuse). Rect is static; only solidity varies,
+so the solver samples launch phases exactly as for movers and demands the ±0.12 s tolerance.
+Ghost = fully pass-through (no bonk from below, no land from above) → timed one-way gate.
+
 ## 3. Geometry — Section I · First Steps (0–168 m)
 
 | # | x | top | w | type | | # | x | top | w | type |
@@ -184,8 +201,12 @@ purpose — the last emotion should be relief, not a coin flip.
 7. Target visible from the launch pad; never a blind jump, frame-perfect input, or RNG.
 8. **Movers:** period ≤ 3 s; sweep inside the walls; lift speed ≤ ~100 px/s; elevator chains
    obey the low/high dy bounds (§2); every mover jump must survive ±0.12 s of launch-phase shift.
-9. Re-run the `test.html` solver after any edit — it proves all 36 T1 + 40 T2 + 42 T3
+9. Re-run the `test.html` solver after any edit — it proves all 36 T1 + 40 T2 + 42 T3 + 43 T4
    rest-to-rest jumps solvable (or press VALIDATE in the editor).
+10. **Zones (T4+):** |accel| ≤ 1600; inside the walls; a zone-assisted gap must be unsolvable
+    without the zone (zone is the verb, not decoration); zones act in flight only.
+11. **Phase (T4+):** period ≤ 3 s; duty·period ≥ 1.2 s (fair on-window); duty ∈ (0,1); ghost is
+    fully pass-through; ghosting under a rider drops honestly and the platform always returns.
 
 ## 9. Tower Sketch
 
@@ -287,3 +308,23 @@ rightward; the spring keeps `vx` and the catch sweeps x∈[280,400] — the prev
 and the magenta ring where the catch will be.
 
 The summit is offset to x 240 (right of pad 42) so the final arc is a real decision.
+
+## 12. Tower 4 · The Tempest Engine (640 m) — wind + light
+
+43 rests, alternating sides, widths 150→36. Five zones and four phase platforms; ice, crumble,
+bounce and both mover types recur. No ceilings (wind and blink are the hazards).
+
+Zones `[x,y,w,h,ax,ay]`:
+- Z1 updraft `[140,520,200,260,0,1400]` — pad 3 (90,510) → pad 4 (280,760): dy 250, only via wind.
+- Z2 left gust `[120,1330,220,150,-700,0]` — pad 8 (290,1320) → pad 9 (120,1460): aim into the push.
+- Z3 updraft `[140,2310,200,270,0,1500]` — pad 15 (120,2300) → pad 16 (290,2560): dy 260.
+- Z4 left gust `[120,3410,220,150,-700,0]` — pad 22 (290,3400) → pad 23 (110,3540).
+- Z5 updraft `[140,4250,200,270,0,1500]` — pad 28 (290,4240) → pad 29 (110,4500): dy 260.
+
+Phase platforms `[x,top,w,6,duty,period,phase]`: 11 (120,1740,.6,2.4,0), 13 (120,2020,.6,2.4,.5),
+21 (120,3260,.6,2.6,0), 35 (320,5340,.6,2.6,.5). On-window 1.44–1.56 s (≥1.2 ✓); offset phases so
+consecutive gates are not synchronous.
+
+Bounce chain: 31 (120,4780) → 32 (spring,240,4920) → 33 (340,5060), all rightward.
+Summit offset to x 240 (right of pad 42 at 170,6320) so the final arc is a real decision.
+Solver: 43/43 ≤98%; editor VALIDATE 43/43.

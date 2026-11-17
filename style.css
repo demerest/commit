@@ -1,5 +1,6 @@
 :root{--bg:#07090f;--panel:#0e1320;--ink:#e9edf4;--dim:#8b93a7;--line:#26304a;
---blue:#5aa7ff;--green:#57e389;--amber:#ffb454;--red:#ff5d5d;--spring:#3fe0c5;--ice:#bfe3ff;--mover:#d17bff}
+--blue:#5aa7ff;--green:#57e389;--amber:#ffb454;--red:#ff5d5d;--spring:#3fe0c5;--ice:#bfe3ff;--mover:#d17bff;
+--phase:#ffd166;--zone:#6fc3ff}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--ink);
 font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
@@ -41,6 +42,8 @@ border-radius:.7em;padding:1.5em 1.6em;box-shadow:0 24px 60px #000a;scrollbar-wi
 .rules li.spring::before{color:var(--spring)}
 .rules li.ice::before{color:var(--ice)}
 .rules li.move::before{color:var(--mover)}
+.rules li.phase::before{color:var(--phase)}
+.rules li.zone::before{color:var(--zone)}
 .unlock{color:var(--ice);letter-spacing:.08em;font-weight:700}
 #towers{margin-bottom:.8em}
 #towers .cta{font-size:.7em;padding:.6em .6em}

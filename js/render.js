@@ -59,6 +59,18 @@ if(s.move===4){ctx.moveTo(cx-3*d,cy-3);ctx.lineTo(cx+3*d,cy);ctx.lineTo(cx-3*d,c
 else{ctx.moveTo(cx-3,cy+3*d);ctx.lineTo(cx,cy-3*d);ctx.lineTo(cx+3,cy+3*d);}
 ctx.closePath();ctx.fill();}
 ctx.globalAlpha=1;return;}
+if(s.clock){const x=s.x,y=sy;const on=solidAt(s,worldT);
+const u=((worldT/s.period+s.phase)%1+1)%1;
+const frac=on?(s.duty-u)/s.duty:(u-s.duty)/(1-s.duty);
+if(on){ctx.fillStyle="#241d0e";ctx.fillRect(x,y,s.w,s.h);
+ctx.fillStyle=COL.phase;ctx.fillRect(x,y,s.w,2);
+ctx.strokeStyle="rgba(255,209,102,.35)";ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,s.w-1,s.h-1);
+ctx.fillStyle=COL.phase;ctx.globalAlpha=.6;for(let i=1;i<4;i++)ctx.fillRect(x+s.w*i/4-1,y+4,2,4);
+ctx.globalAlpha=.85;ctx.fillRect(x,y+s.h-3,s.w*clamp01(frac),3);ctx.globalAlpha=1;}
+else{ctx.save();ctx.strokeStyle=COL.phase;ctx.globalAlpha=.4;ctx.lineWidth=1;ctx.setLineDash([4,4]);
+ctx.strokeRect(x+.5,y+.5,s.w-1,s.h-1);ctx.setLineDash([]);
+ctx.globalAlpha=.85;ctx.fillStyle=COL.phase;ctx.fillRect(x,y+s.h-3,s.w*clamp01(frac),3);ctx.restore();}
+return;}
 let jx=0,jy=0,prog=0;
 if(s.crumble&&body.on===s&&crumbleT>0){prog=clamp01(crumbleT/CRUMBLE_TIME);
 if(!RM){jx=(Math.random()-.5)*prog*3;jy=(Math.random()-.5)*prog*2;}}
@@ -104,6 +116,19 @@ ctx.textAlign="left";ctx.globalAlpha=1;
 ctx.fillStyle=COL.plat;ctx.fillRect(0,0,4,VH);ctx.fillRect(VW-4,0,4,VH);
 ctx.fillStyle=COL.edge;ctx.fillRect(3,0,1,VH);ctx.fillRect(VW-4,0,1,VH);
 const gy=SY(0);if(gy<VH+2){ctx.fillStyle=COL.plat;ctx.fillRect(0,gy,VW,VH-gy+2);ctx.fillStyle=COL.edge;ctx.fillRect(0,gy,VW,2);}
+for(const z of ZONES){const zy=SY(z.y+z.h);if(zy>VH+20||zy+z.h<-20)continue;
+ctx.save();ctx.beginPath();ctx.rect(z.x,zy,z.w,z.h);ctx.clip();
+ctx.fillStyle=COL.zone;ctx.globalAlpha=.06;ctx.fillRect(z.x,zy,z.w,z.h);
+ctx.globalAlpha=.35;ctx.strokeStyle=COL.zone;ctx.lineWidth=1;
+const horiz=z.ax!==0,n=RM?4:10;
+for(let i=0;i<n;i++){
+if(horiz){const dir=Math.sign(z.ax);const off=((now*.06*dir)+(i*37))%(z.w+40)-20;
+const ly=zy+z.h*(i+.5)/n;
+ctx.beginPath();ctx.moveTo(z.x+off,ly);ctx.lineTo(z.x+off+14*dir,ly);ctx.stroke();}
+else{const px=z.x+((i*53)%z.w);const off=((now*.05)+(i*41))%(z.h+40)-20;
+ctx.beginPath();ctx.moveTo(px,zy+z.h-off);ctx.lineTo(px,zy+z.h-off-14);ctx.stroke();}}
+ctx.restore();ctx.globalAlpha=.25;ctx.strokeStyle=COL.zone;ctx.lineWidth=1;
+ctx.setLineDash([2,6]);ctx.strokeRect(z.x+.5,zy+.5,z.w-1,z.h-1);ctx.setLineDash([]);ctx.globalAlpha=1;}
 for(const s of SOLIDS){if(s.wall||s.ground||s.goal)continue;
 if(s.ceil){const sy=SY(s.y+s.h);if(sy>VH+20||sy+s.h<-20)continue;
 ctx.fillStyle=COL.plat;ctx.fillRect(s.x,sy,s.w,s.h);
@@ -133,7 +158,7 @@ if(m.t==="bounce"){ctx.strokeStyle=COL.spring;ctx.lineWidth=2;
 ctx.beginPath();ctx.arc(m.x,sy,7,0,6.29);ctx.stroke();
 ctx.beginPath();ctx.moveTo(m.x-4,sy+2);ctx.lineTo(m.x,sy-4);ctx.lineTo(m.x+4,sy+2);ctx.stroke();}
 else if(m.ok){const pulse=3+Math.sin(now*.012)*1.5;
-const rc=m.move?COL.mover:m.ice?COL.ice:COL.green;
+const rc=m.move?COL.mover:m.clock?COL.phase:m.ice?COL.ice:COL.green;
 ctx.strokeStyle=rc;ctx.lineWidth=2;ctx.beginPath();ctx.arc(m.x,sy,6+pulse,0,6.29);ctx.stroke();
 ctx.fillStyle=rc;ctx.beginPath();ctx.arc(m.x,sy,2,0,6.29);ctx.fill();}
 else{ctx.strokeStyle=COL.red;ctx.lineWidth=2;
