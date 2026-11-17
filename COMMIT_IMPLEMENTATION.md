@@ -36,7 +36,7 @@ adding a mechanic = a new type flag + a branch in `sim`/`render`. Game modes can
 | Physics | `step(body,t)` — the **single** integrator used by flight AND preview; handles land/bounce/wall/bonk; mover rects read purely from `t` |
 | Preview | Clones the body **and the world clock**, runs `step()` ≤ 900 times, returns dots + **all** contacts (bounce hops + final, each tagged with platform idx/ice/move) |
 | Movers | Types 4/5 ping-pong at constant speed (`4·amp/period`) on the shared fixed-step `worldT`; `groundStep` carries the rider exactly (no relative slide); launch discards carry; a lift pressing you into a solid drops you. `step()` classifies contacts against the platform's rect at `t-DT`: a body that was above the old top **lands** even if the lift rose into it (no sideways eject), a body below the old bottom bonks; only genuine side approaches wall-hit |
-| Fuse | Aim countdown; auto-commits the drawn arc on expiry, cancels if sub-threshold. Expiry is evaluated **before** the accumulator advances `worldT`, so a forced launch starts on the exact phase the last preview drew |
+| Fuse | Aim countdown; auto-commits the drawn arc on expiry, cancels if sub-threshold. Expiry is evaluated **before** the accumulator advances `worldT`, so a forced launch starts on the exact phase the last preview drew. Mid-air expiry (or early release/Space) queues the arc in `pendingV` instead; it fires on true landing |
 | Crumble | Per-visit dwell timer; shatters + drops; auto-reforms after `RESPAWN_TIME` (no softlock); transient `run.dead` |
 | Ice | On land, `slide = sign(entry vx)`; `updateIce` ramps drift, walks off the edge into an honest fall; launch discards drift |
 | Input | Pointer Events (capture, relative drag) + keyboard aim FSM |
@@ -75,6 +75,13 @@ Keyboard arrows are **hold-to-sweep**: `kbHeld` flags set on keydown/keyup, inte
 used. Held flags auto-clear whenever not aiming (launch, cancel, overlay). The render pass
 shows `angle° · power%` for keyboard aim. Pointer drag maps linearly at `KDRAG 4.8`
 (full power ≈ 198 px), so short screens can reach every arc.
+**Pre-aim:** `pointerdown`/arrows also start an aim while `state==="flight"` (physics keeps
+running; the aim is orthogonal to flight). `commitAim()` is the single launch gate: grounded
+it launches (or cancels sub-threshold); airborne it stores `pendingV` (latch sfx, amber full
+ring, `QUEUED · n%`) and `simStep`'s land branch fires it the instant `state` becomes `ready`
+(bounce hops keep `flight`, so they never trigger it). `Esc`, `pointercancel`, reset, level
+switch and load all clear aim + queue; a queued aim locks editing (sweep/move ignored) so the
+drawn arc is exactly what fires.
 
 ### Persistence schema (`commit.v3`)
 ```json
@@ -521,7 +528,7 @@ the `window.__COMMIT__` manual-clock hook and asserts the matrix below, includin
 **phase-aware** solver that proves **all 36 T1 + 40 T2 + 42 T3 rest-to-rest jumps (bounce
 chains, elevator rides and mover catches included) are solvable at ≤ 98 % power** using the
 real integrator; mover jumps must also land with the launch phase shifted ±0.12 s (not
-frame-perfect). Last full run: **126/126 pass** in both standard and `prefers-reduced-motion`
+frame-perfect). Last full run: **143/143 pass** in both standard and `prefers-reduced-motion`
 modes (headless Chrome). The editor's VALIDATE runs the same solver + invariants
 (`editor.html#validateN` headless: VALID 36/40/42).
 
@@ -552,6 +559,7 @@ modes (headless Chrome). The editor's VALIDATE runs the same solver + invariants
 | 23 | Mover persistence (`test.html` §27) | `wt` saved per run; refresh restores phase + footing on the mover |
 | 24 | Tower 3 flow (`test.html` §27–29) | Locked until T2 summit; picker lists 3; summit wins, share says 600m, NEXT hidden at last tower |
 | 25 | Lift collision fairness (`test.html` §30) | Straight-down and drifting jumps onto a rising lift land in place (no edge teleport / no wall contact); flight ≡ preview; a lift catching a slow riser lands it on top |
+| 26 | Pre-aim queue (`test.html` §31) | Mid-flight aim keeps physics running and the fuse counting; early release / Space / fuse expiry queue instead of launching; queue survives bonks and bounce hops and fires on true landing; Esc cancels; grounded flow unchanged |
 
 ## 6. Tuning Pointers
 

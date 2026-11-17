@@ -30,14 +30,14 @@ launches:+L.launches||0,falls:+L.falls||0,seen:!!L.seen,unlocked:(+L.summits||0)
 else{const v1=LS.get("commit.v1");if(v1&&v1.life){const L=v1.life;
 life={...life,best:{1:+L.best||0},bestTime:{1:L.bestTime!=null?+L.bestTime:null},summits:{1:+L.summits||0},
 launches:+L.launches||0,falls:+L.falls||0,seen:!!L.seen};}
-sanitize();buildLevel(1);worldT=0;return;}}
+sanitize();buildLevel(1);worldT=0;pendingV=null;return;}}
 if(d.life)life={...life,...d.life};
 if(d.runs&&typeof d.runs==="object")runs=d.runs;
 sanitize();
 level=Math.min(Math.max(1,Math.round(+d.level||1)),life.unlocked);
 buildLevel(level);
 run={...defaultRun(),...(runs[level]||{})};sanitize();
-worldT=run.wt;
+worldT=run.wt;pendingV=null;
 for(const i of run.dead){PLATS[i].dead=true;PLATS[i].respawnT=RESPAWN_TIME;}
 if(Number.isFinite(run.x)&&Number.isFinite(run.y)&&run.y>=0&&run.y<=SUMMIT){
 body.x=Math.min(Math.max(run.x,0),VW-CH);body.y=run.y;}
@@ -53,7 +53,7 @@ worldT=run.wt;
 for(const i of run.dead){PLATS[i].dead=true;PLATS[i].respawnT=RESPAWN_TIME;}
 body.x=Math.min(Math.max(run.x,0),VW-CH);body.y=run.y;body.vx=0;body.vy=0;body.grounded=true;
 body.on=findGround(body.x,body.y);body.slide=(body.on&&body.on.ice)?run.slide:0;body.slideT=body.slide?ICE_RAMP:0;
-state="ready";aim=null;stopHum();stopSlide();
+state="ready";aim=null;pendingV=null;stopHum();stopSlide();
 safePos.x=body.x;safePos.y=body.y;
 trail.length=0;floats.length=0;confetti.length=0;shards.length=0;flightContacts.length=0;flash=0;shake=0;
 crumbleT=0;crumbleStage=0;bounceChain=0;aimT=AIM_TIME;idleT=0;
@@ -77,7 +77,7 @@ $("share").value="COMMIT · "+LVL.name+" · "+(SUMMIT/10)+"m in "+fmt(run.time)+
 if(!RM)for(let i=0;i<90;i++)confetti.push({x:body.x+CH/2,y:body.y+20,vx:(Math.random()-.5)*560,vy:Math.random()*620+120,r:Math.random()*6.28,vr:(Math.random()-.5)*9,c:[COL.blue,COL.green,COL.amber,COL.red,COL.ink][i%5],t:0});
 sfx("win");if(newUnlock)sfx("unlock");openOv("win");}
 function resetRun(){body.x=VW/2-CH/2;body.y=0;body.vx=0;body.vy=0;body.grounded=true;body.slide=0;body.slideT=0;
-state="ready";aim=null;stopHum();stopSlide();run=defaultRun();worldT=0;
+state="ready";aim=null;pendingV=null;stopHum();stopSlide();run=defaultRun();worldT=0;
 for(const s of PLATS){s.dead=false;s.bounceT=0;s.respawnT=0;}
 body.on=findGround(body.x,body.y);crumbleT=0;crumbleStage=0;bounceChain=0;aimT=AIM_TIME;
 safePos.x=body.x;safePos.y=body.y;
@@ -86,24 +86,24 @@ camY=clampCam(body.y-VH*.38);save();}
 /* ---------- input ---------- */
 function toLogical(e){const r=cv.getBoundingClientRect();
 return{x:(e.clientX-r.left)/scale,y:(e.clientY-r.top)/scale};}
-cv.addEventListener("pointerdown",e=>{if(overlayOpen||state!=="ready")return;
+cv.addEventListener("pointerdown",e=>{if(overlayOpen||(state!=="ready"&&state!=="flight"))return;
 e.preventDefault();audio();try{cv.setPointerCapture(e.pointerId)}catch(_){}
-const p=toLogical(e);aim={mode:"p",id:e.pointerId,ox:p.x,oy:p.y,cx:p.x,cy:p.y};state="aim";idleT=0;
+const p=toLogical(e);aim={mode:"p",id:e.pointerId,ox:p.x,oy:p.y,cx:p.x,cy:p.y};pendingV=null;
+if(state==="ready")state="aim";idleT=0;
 beginAim();sfx("aim");startHum();});
-cv.addEventListener("pointermove",e=>{if(!aim||aim.mode!=="p"||e.pointerId!==aim.id)return;
+cv.addEventListener("pointermove",e=>{if(!aim||aim.mode!=="p"||e.pointerId!==aim.id||pendingV)return;
 const p=toLogical(e);aim.cx=p.x;aim.cy=p.y;});
 function endPointer(e,cancel){if(!aim||aim.mode!=="p"||e.pointerId!==aim.id)return;
-if(cancel){aim=null;state="ready";stopHum();return;}
-const v=aimV();
-if(!v||v.m<MINV){aim=null;state="ready";stopHum();spawnDust(body.x+CH/2,body.y+CH/2,3,COL.dim);sfx("puff");return;}
-launch(v);}
+if(cancel){aim=null;pendingV=null;if(state==="aim")state="ready";stopHum();return;}
+commitAim();}
 cv.addEventListener("pointerup",e=>endPointer(e,false));
 cv.addEventListener("pointercancel",e=>endPointer(e,true));
 cv.addEventListener("contextmenu",e=>e.preventDefault());
 const kbHeld={ArrowLeft:false,ArrowRight:false,ArrowUp:false,ArrowDown:false};let kbFine=false;
-function kbAim(){if(state==="ready"){aim={mode:"k"};state="aim";beginAim();sfx("aim");startHum();}}
+function kbAim(){if(state==="ready"||state==="flight"){aim={mode:"k"};pendingV=null;
+if(state==="ready")state="aim";beginAim();sfx("aim");startHum();}}
 /* hold-to-sweep: continuous rates from the loop clock, not OS key-repeat; Shift = quarter rate */
-function kbSweep(dt){if(state!=="aim"||!aim||aim.mode!=="k"){for(const k in kbHeld)kbHeld[k]=false;return;}
+function kbSweep(dt){if(!aim||aim.mode!=="k"||pendingV||(state!=="aim"&&state!=="flight")){for(const k in kbHeld)kbHeld[k]=false;return;}
 const f=kbFine?.25:1;
 if(kbHeld.ArrowLeft)kb.a=Math.min(172,kb.a+60*dt*f);
 if(kbHeld.ArrowRight)kb.a=Math.max(8,kb.a-60*dt*f);
@@ -111,23 +111,22 @@ if(kbHeld.ArrowUp)kb.p=Math.min(1,kb.p+.45*dt*f);
 if(kbHeld.ArrowDown)kb.p=Math.max(.12,kb.p-.45*dt*f);}
 addEventListener("keydown",e=>{
 if(e.key==="Escape"){if(overlayOpen){if(overlayOpen!=="win")closeOv();}
-else if(state==="aim"){aim=null;state="ready";stopHum();sfx("puff");}return;}
+else if(aim&&(state==="aim"||state==="flight")){aim=null;pendingV=null;if(state==="aim")state="ready";stopHum();sfx("puff");}return;}
 if(e.key==="m"||e.key==="M"){audio();setSound(!SND.on);return;}
 if(overlayOpen)return;
 audio();
 if(e.key==="h"||e.key==="H"){openOv("help");return;}
 if(e.key==="r"||e.key==="R"){openOv("confirm");return;}
-if(state==="flight"||state==="win")return;
+if(state==="win")return;
 let used=true;
 switch(e.key){
 case"ArrowLeft":case"ArrowRight":case"ArrowUp":case"ArrowDown":kbHeld[e.key]=true;break;
 case" ":case"Enter":
-if(state==="aim"&&aim&&aim.mode==="k"){const v=aimV();
-if(v&&v.m>=MINV)launch(v);else{aim=null;state="ready";stopHum();}}
+if(aim&&aim.mode==="k"&&(state==="aim"||state==="flight"))commitAim();
 else kbAim();
 e.preventDefault();return;
 default:used=false;}
-if(used){e.preventDefault();kbFine=e.shiftKey;if(state==="ready")kbAim();idleT=0;}});
+if(used){e.preventDefault();kbFine=e.shiftKey;if(state==="ready"||(state==="flight"&&!aim))kbAim();idleT=0;}});
 addEventListener("keyup",e=>{if(e.key in kbHeld)kbHeld[e.key]=false;kbFine=e.shiftKey;});
 addEventListener("blur",()=>{for(const k in kbHeld)kbHeld[k]=false;});
 $("bHelp").onclick=()=>{sfx("ui");openOv("help");};
@@ -149,11 +148,9 @@ let dt=(now-lastT)/1000;lastT=now;if(dt>.25)dt=.25;
 const paused=overlayOpen!==null||document.hidden;
 if(!paused){if(run.started&&state!=="win")run.time+=dt;
 /* fuse decides before the clock advances so the flight starts on the exact previewed phase */
-if(state==="aim"){aimT-=dt;const sec=Math.ceil(aimT);
+if(aim&&!pendingV&&(state==="aim"||state==="flight")){aimT-=dt;const sec=Math.ceil(aimT);
 if(sec!==lastTickSec){lastTickSec=sec;if(sec>0&&sec<=AIM_TIME)sfx("tick",{urgent:aimT<1});}
-if(aimT<=0){const v=aimV();
-if(v&&v.m>=MINV){sfx("forced");launch(v);}
-else{aim=null;state="ready";stopHum();spawnDust(body.x+CH/2,body.y+CH/2,3,COL.dim);sfx("puff");}}}
+if(aimT<=0){const v=aimV();if(v&&v.m>=MINV&&state==="aim")sfx("forced");commitAim();}}
 acc+=dt;while(acc>=DT){worldT+=DT;if(state==="flight")simStep();else groundStep();acc-=DT;}
 kbSweep(dt);
 updateCrumble(dt);
@@ -185,10 +182,10 @@ lastT=performance.now();rafId=requestAnimationFrame(frameLoop);
 /* ---------- test hook (manual clock for test.html; inert in normal play) ---------- */
 window.__COMMIT__={takeControl(){manual=true;cancelAnimationFrame(rafId);},tick(now){frameLoop(now);},
 launch,preview,step,resetRun,openOv,closeOv,save,load,spawnDust,resize,setSound,beginAim,setLevel,
-setBody(x,y){body.x=x;body.y=y;body.vx=0;body.vy=0;body.grounded=true;body.slide=0;body.slideT=0;state="ready";aim=null;
+setBody(x,y){body.x=x;body.y=y;body.vx=0;body.vy=0;body.grounded=true;body.slide=0;body.slideT=0;state="ready";aim=null;pendingV=null;
 body.on=findGround(x,y);crumbleT=0;crumbleStage=0;aimT=AIM_TIME;safePos.x=x;safePos.y=y;},
 get state(){return state},get body(){return body},get run(){return run},get life(){return life},get aim(){return aim},
-get kb(){return kb},get camY(){return camY},get flash(){return flash},get shake(){return shake},get idleT(){return idleT},
+get kb(){return kb},get pendingV(){return pendingV},get camY(){return camY},get flash(){return flash},get shake(){return shake},get idleT(){return idleT},
 get aimT(){return aimT},get crumbleT(){return crumbleT},get bounceChain(){return bounceChain},get level(){return level},
 get trail(){return trail},get parts(){return parts},get shards(){return shards},get confetti(){return confetti},get floats(){return floats},
 get overlayOpen(){return overlayOpen},get flightContacts(){return flightContacts},get flightContact(){return flightContacts[0]||null},get safePos(){return safePos},

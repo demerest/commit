@@ -118,7 +118,7 @@ ctx.fillStyle=COL.green;ctx.fillRect(GOAL.x,fy,GOAL.w,2);}
 for(let i=0;i<trail.length;i++){const p=trail[i];ctx.globalAlpha=(i+1)/trail.length*.5;
 ctx.fillStyle=COL.blue;const r=1.5+2*(i/trail.length);ctx.fillRect(p.x-r/2,SY(p.y)-r/2,r,r);}
 ctx.globalAlpha=1;
-if(state==="aim"&&aim){const v=aimV();
+if(aim&&(state==="aim"||state==="flight")){const v=pendingV||aimV();
 if(v){const pr=preview(v),weak=v.m<MINV;
 /* ghost the target mover at contact time so the ring visibly sits on its future position */
 if(pr.mark&&pr.mark.move){const gs=PLATS[pr.mark.idx],gr=rectOf(gs,pr.markT),gy=SY(gr.y+gr.h);
@@ -139,29 +139,29 @@ ctx.fillStyle=rc;ctx.beginPath();ctx.arc(m.x,sy,2,0,6.29);ctx.fill();}
 else{ctx.strokeStyle=COL.red;ctx.lineWidth=2;
 ctx.beginPath();ctx.moveTo(m.x-6,sy-6);ctx.lineTo(m.x+6,sy+6);ctx.moveTo(m.x+6,sy-6);ctx.lineTo(m.x-6,sy+6);ctx.stroke();}}
 ctx.fillStyle=weak?COL.dim:COL.blue;ctx.font="700 12px ui-monospace,monospace";
-const lbl=aim.mode==="k"?Math.round(kb.a)+"° · "+Math.round(v.m/MAXV*100)+"%":Math.round(v.m/MAXV*100)+"%";
-ctx.fillText(lbl,Math.min(body.x+CH+8,VW-(aim.mode==="k"?86:42)),SY(body.y+CH)-6);
-if(aim.mode==="p"){ctx.strokeStyle=COL.blue;ctx.globalAlpha=.5;ctx.lineWidth=1.5;
+const lbl=pendingV?"QUEUED · "+Math.round(v.m/MAXV*100)+"%":aim.mode==="k"?Math.round(kb.a)+"° · "+Math.round(v.m/MAXV*100)+"%":Math.round(v.m/MAXV*100)+"%";
+ctx.fillText(lbl,Math.min(body.x+CH+8,VW-(pendingV?118:aim.mode==="k"?86:42)),SY(body.y+CH)-6);
+if(aim.mode==="p"&&!pendingV){ctx.strokeStyle=COL.blue;ctx.globalAlpha=.5;ctx.lineWidth=1.5;
 ctx.beginPath();ctx.arc(aim.ox,aim.oy,10,0,6.29);ctx.stroke();
 ctx.beginPath();ctx.moveTo(aim.ox,aim.oy);ctx.lineTo(aim.cx,aim.cy);ctx.stroke();ctx.globalAlpha=1;}}}
 {let sx=1,sy=1;
 if(landT>0){const k=landT/.18;sy=1-.3*k;sx=1+.3*k;}
 else if(launchT>0){const k=launchT/.18;sy=1+.28*k;sx=1-.22*k;}
 const cx=body.x+CH/2,by=SY(body.y);
-if(state==="aim"){const f=clamp01(aimT/AIM_TIME),rad=15,ccx=cx,ccy=by-CH/2;
-const col=f>.5?COL.blue:f>.25?COL.amber:COL.red;
+if(aim&&(state==="aim"||state==="flight")){const f=pendingV?1:clamp01(aimT/AIM_TIME),rad=15,ccx=cx,ccy=by-CH/2;
+const col=pendingV?COL.amber:f>.5?COL.blue:f>.25?COL.amber:COL.red;
 ctx.strokeStyle=COL.line;ctx.lineWidth=3;ctx.globalAlpha=.5;
 ctx.beginPath();ctx.arc(ccx,ccy,rad,0,6.29);ctx.stroke();ctx.globalAlpha=1;
 ctx.strokeStyle=col;ctx.lineWidth=3;
 ctx.beginPath();ctx.arc(ccx,ccy,rad,-Math.PI/2,-Math.PI/2+f*6.283);ctx.stroke();
-if(f<.3){ctx.globalAlpha=.4+.4*Math.sin(now*.03);ctx.strokeStyle=COL.red;ctx.lineWidth=1.5;
+if(!pendingV&&f<.3){ctx.globalAlpha=.4+.4*Math.sin(now*.03);ctx.strokeStyle=COL.red;ctx.lineWidth=1.5;
 ctx.beginPath();ctx.arc(ccx,ccy,rad+4,0,6.29);ctx.stroke();ctx.globalAlpha=1;}}
 ctx.save();ctx.translate(cx,by);ctx.scale(sx,sy);
 if(body.on&&body.on.ice&&body.slide!==0)ctx.rotate(body.slide*.07);
 else if(body.on&&body.on.move===4)ctx.rotate(moverV(body.on,worldT).x>0?.05:-.05);
 ctx.fillStyle=COL.ink;rr(-CH/2,-CH,CH,CH,4);ctx.fill();
 let lx=0,ly=0;
-if(state==="aim"&&aim){const v=aimV();if(v){const m=Math.hypot(v.x,v.y)||1;lx=v.x/m*2.4;ly=-v.y/m*2.4;}}
+if(aim&&(state==="aim"||state==="flight")){const v=pendingV||aimV();if(v){const m=Math.hypot(v.x,v.y)||1;lx=v.x/m*2.4;ly=-v.y/m*2.4;}}
 else if(state==="flight"){const m=Math.hypot(body.vx,body.vy)||1;lx=body.vx/m*2.4;ly=-body.vy/m*2.4;}
 else if(body.slide!==0){lx=body.slide*1.6;}
 const blink=blinkT>0?.15:1;ctx.fillStyle="#0a0e1a";

@@ -76,13 +76,17 @@ GROUND → AIM (drag / keys) → read the dotted arc → RELEASE
 | Aim | Press anywhere, drag (relative vector) | `←/→` angle, `↑/↓` power — **hold to sweep** |
 | Fine aim | — | hold `Shift` (¼ rate) |
 | Commit | Release | `Space`/`Enter` (first press raises the arc, second commits) |
-| Cancel aim | Drag < 90 px/s equivalent, or `pointercancel` | `Esc` |
+| Pre-aim | drag mid-flight; release queues the commit for landing | arrows mid-flight; `Space` queues |
+| Cancel aim | Drag < 90 px/s equivalent, or `pointercancel` | `Esc` (also clears a queue) |
 | Reset run | ↺ button (confirm) | `R` (confirm) |
 | Help | ? button | `H` |
 | Sound on/off | ♪ button | `M` |
 
 Rules:
-- Aiming is only possible while **grounded**. Airborne input is ignored entirely.
+- **Pre-aim:** aiming may start mid-flight (drag or arrows); the fuse runs as usual from the
+  moment you start. A launch attempt while airborne — release, `Space`, or fuse expiry —
+  **queues** the drawn arc (`QUEUED · n%`, amber ring) and fires it on the instant of true
+  landing; bounce hops are not landings. Nothing launches mid-air. `Esc` cancels aim + queue.
 - Drag is relative (press anywhere — thumb ergonomics on mobile), direction = drag
   direction, magnitude × 4.8 = launch speed, clamped to 950 px/s.
 - Releases below 90 px/s cancel silently with a small puff — twitchy micro-drags are
@@ -240,7 +244,8 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 - **Sky:** three-stop vertical gradient keyed to altitude — cold navy at the floor, steel
   teal, violet dusk, then a warm rose dawn at the summit. The climb literally changes the light.
 - **Aim fuse:** a draining ring around the square (blue → amber → red), pulsing and ticking
-  in the last second; on expiry it commits the drawn arc for you.
+  in the last second; on expiry it commits the drawn arc for you. Mid-air, expiry (or an early
+  release) instead latches a full amber ring + `QUEUED · n%` and commits on touchdown.
 - **Crumble platforms:** cracked amber→red edges, spreading fissures, jitter and trickling
   dust as they fail, then a shard burst. They reform after a 3 s cooldown — a dashed ghost
   with a filling teal edge counts down — so a broken stepping-stone never blocks the climb.
@@ -312,6 +317,7 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 | Ice walk-off | Soft descending slip blip, then honest fall (fall alarm if ≥ 25 m) |
 | Mover land | Impact thud + mechanical clank (pitch varies with impact) + magenta dust |
 | Mover reversal | Direction-pitched tick-tock blip under your feet (520 Hz one way, 390 Hz the other) |
+| Commit queued | Rising square latch (520→760 Hz) + bright click — the arc is armed for touchdown |
 | Lift crush | A vertical lift pressing you into a solid drops you with a bonk blip |
 | Tower unlock | Rising triad + ice-blue "TOWER N UNLOCKED" line on the win screen |
 | Idle > 2.2 s, 0 launches | Pulsing "drag anywhere · release to commit" |
@@ -387,3 +393,4 @@ leaderboard, moving ceilings, alternate game modes. None required for the core e
 14. Every mover-involved jump survives a ±0.12 s launch-phase shift (fair timing); mover periods ≤ 3 s; sweeps stay inside the walls; mandatory elevator rides satisfy the low/high dy bounds.
 15. Any launch angle/power is reachable by keyboard within ~3 s of holding arrows (continuous sweep, Shift fine), with a visible angle/power readout; full pointer power needs ≤ 210 px of drag.
 16. Arriving onto a rising lift (straight down or drifting) lands in place — no edge teleport, no pass-through; the aim ring sits on a dashed ghost of the mover at contact time; fuse launches commit the exact previewed phase.
+17. Pre-aim: aiming starts mid-flight with the fuse running; release/Space/fuse expiry while airborne queues the arc and fires it on true landing (never on bounce hops); Esc cancels aim and queue; grounded aiming is unchanged.

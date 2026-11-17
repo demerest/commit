@@ -4,7 +4,7 @@
    preview simulates the same future platform motion the flight will meet. Launch discards carry. */
 "use strict";
 const body={x:VW/2-CH/2,y:0,vx:0,vy:0,grounded:true,on:null,slide:0,slideT:0};
-let state="ready",aim=null;const kb={a:65,p:.6};
+let state="ready",aim=null,pendingV=null;const kb={a:65,p:.6};
 let run={launches:0,falls:0,biggest:0,time:0,started:false,dead:[],slide:0};
 let launchY=0,bounceChain=0,crumbleT=0,crumbleStage=0,aimT=AIM_TIME,lastTickSec=99,idleT=0,stepN=0,worldT=0;
 const flightContacts=[];
@@ -53,8 +53,15 @@ else{const a=kb.a*Math.PI/180;vx=Math.cos(a)*kb.p*MAXV;vy=Math.sin(a)*kb.p*MAXV;
 const m=Math.hypot(vx,vy);if(m>MAXV){vx*=MAXV/m;vy*=MAXV/m;}
 return{x:vx,y:vy,m:Math.min(m,MAXV)};}
 function beginAim(){aimT=AIM_TIME;lastTickSec=99;}
+/* Pre-aim: aiming may start mid-flight; a launch attempt while airborne buffers the arc
+   (pendingV) and fires it on the instant of true landing. Nothing launches mid-air. */
+function commitAim(){const v=aimV();
+if(!v||v.m<MINV){aim=null;pendingV=null;if(state==="aim")state="ready";stopHum();
+spawnDust(body.x+CH/2,body.y+CH/2,3,COL.dim);sfx("puff");return;}
+if(state==="flight"){pendingV=v;stopHum();sfx("queue");return;}
+launch(v);}
 function launch(v){body.vx=v.x;body.vy=v.y;body.grounded=false;body.on=null;body.slide=0;body.slideT=0;
-state="flight";aim=null;launchY=body.y;trail.length=0;launchT=.18;flightContacts.length=0;bounceChain=0;
+state="flight";aim=null;pendingV=null;launchY=body.y;trail.length=0;launchT=.18;flightContacts.length=0;bounceChain=0;
 run.launches++;life.launches++;run.started=true;idleT=0;stopHum();stopSlide();
 spawnDust(body.x+CH/2,body.y,6,COL.dim);sfx("launch");}
 function simStep(){if(state!=="flight")return;
@@ -76,7 +83,8 @@ if(drop>FALL_MIN){run.falls++;life.falls++;run.biggest=Math.max(run.biggest,drop
 flash=Math.min(.45,drop/1600);sfx("fall");
 floats.push({x:body.x+CH/2,y:body.y+30,txt:"−"+(drop/10).toFixed(0)+"m",c:COL.red,t:0});}
 life.best[level]=Math.max(life.best[level]||0,body.y);safePos.x=body.x;safePos.y=body.y;save();
-if(ev.s.goal)win();}
+if(ev.s.goal)win();
+if(pendingV&&state==="ready"){const v=pendingV;pendingV=null;launch(v);}}
 else{spawnDust(ev.x,ev.y,4,ev.t==="bonk"?COL.amber:COL.dim);sfx(ev.t==="bonk"?"bonk":"wall");if(!RM)shake=Math.max(shake,2.5);}}
 /* ---------- crumble ---------- */
 function breakPlatform(s){s.dead=true;s.respawnT=RESPAWN_TIME;if(run.dead.indexOf(s.idx)<0)run.dead.push(s.idx);

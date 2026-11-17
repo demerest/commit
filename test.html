@@ -496,6 +496,61 @@ C.launch({x:0,y:40});settle();
 ok("lift catching a slow riser lands on top",C.state==="ready"&&C.body.on&&C.body.on.idx===15&&C.body.y>=C.moverXY(lift,C.worldT).y+16-.01);
 C.resetRun();
 
+/* 31 · pre-aim: aim mid-flight, launch attempts queue until true landing */
+C.setLevel(1);C.resetRun();
+C.setBody(120,120);C.launch({x:200,y:500});
+tick(100);
+ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",300,450);
+ok("pointerdown mid-flight starts aim without freezing physics",C.state==="flight"&&C.aim&&C.aim.mode==="p");
+const yA=C.body.y;tick(50);
+ok("flight keeps simulating while aiming",C.body.y!==yA&&C.aimT<C.C.AIM_TIME);
+const lA=C.run.launches;
+ptr(w,d,"pointerup",300,450);
+ok("early release queues instead of launching",!!C.pendingV&&C.state==="flight"&&C.run.launches===lA);
+ok("queued arc equals the drawn drag",!!C.pendingV&&Math.abs(C.pendingV.x-288)<1e-6&&Math.abs(C.pendingV.y-720)<1e-6);
+tick(50);
+ok("queue holds mid-air",!!C.pendingV&&C.state==="flight");
+settle();
+ok("queued commit fires on landing",C.run.launches===lA+1&&C.pendingV===null);
+settle();
+C.resetRun();C.setBody(120,120);C.launch({x:200,y:500});tick(100);
+ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",300,450);ptr(w,d,"pointerup",300,450);
+key(w,"Escape");
+ok("Esc cancels mid-air aim + queue",C.aim===null&&C.pendingV===null&&C.state==="flight");
+const lE=C.run.launches;settle();
+ok("cancelled queue never launches",C.run.launches===lE);
+C.setLevel(3);C.resetRun();C.setBody(310,3720);C.launch({x:0,y:900});
+tick(50);
+key(w,"ArrowUp");keyup(w,"ArrowUp");C.kb.a=90;C.kb.p=.5;
+ok("arrows start keyboard aim mid-flight",C.state==="flight"&&C.aim&&C.aim.mode==="k");
+key(w," ");
+ok("Space mid-flight queues the kb arc",!!C.pendingV&&C.state==="flight");
+tick(200);
+ok("queue survives a ceiling bonk",!!C.pendingV&&C.state==="flight");
+const lB=C.run.launches;settle();
+ok("queued kb commit fires on landing",C.run.launches===lB+1&&C.pendingV===null);
+settle();
+C.resetRun();C.setWorldT(1.32);C.setBody(440,9000);C.launch({x:0,y:0});
+tick(200);
+key(w,"ArrowUp");keyup(w,"ArrowUp");C.kb.a=90;C.kb.p=.5;
+for(let i=0;i<186;i++)tick(16.7);
+ok("fuse expiry mid-air queues instead of launching",!!C.pendingV&&C.state==="flight");
+const lC=C.run.launches;settle();
+ok("fuse-queued commit fires on landing",C.run.launches===lC+1&&C.pendingV===null);
+settle();
+C.setLevel(1);C.resetRun();
+const bq=findLaunch(C,17,19);
+ok("bounce chain solvable for queue test",!!bq);
+if(bq){C.setWorldT(bq.ph);C.setBody(bq.bx,C.P[17][1]);C.launch({x:bq.vx,y:bq.vy});
+tick(50);
+ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",300,450);ptr(w,d,"pointerup",300,450);
+let n=0;while(C.bounceChain<1&&n<400){tick(16.7);n++;}
+ok("queue waits through bounce hop",C.bounceChain>=1&&!!C.pendingV&&C.state==="flight");
+const lF=C.run.launches;settle();
+ok("queue fires after the chain lands",C.run.launches===lF+1&&C.pendingV===null);
+settle();}
+C.resetRun();
+
 ok("no runtime errors during suite",errs.length===0,errs.join(" | "));
 out.innerHTML+="\n\n"+(RM?"MODE: prefers-reduced-motion":"MODE: standard")+" · DONE";
 }
