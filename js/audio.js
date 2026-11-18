@@ -192,6 +192,13 @@ function sfx(name, opts) {
         noiseHit(0.07, 0.05, 1400, "bandpass");
         break;
       }
+      case "warp": { // one-way door: layered shimmer glide, rising when the fold climbs
+        const up = opts.up !== false;
+        tone(up ? 240 : 720, 0.3, "sine", 0.07, up ? 960 : 180);
+        tone(up ? 480 : 1440, 0.22, "triangle", 0.04, up ? 1920 : 360);
+        noiseHit(0.24, 0.05, up ? 2600 : 1400, "bandpass");
+        break;
+      }
       case "fall": // long descending alarm
         tone(540, 0.55, "sawtooth", 0.08, 80);
         break;

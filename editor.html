@@ -40,9 +40,11 @@ button:hover{filter:brightness(1.1)}
 <label>SUMMIT (px) · GOAL x,w</label>
 <div class="row"><input id="fSummit" type="number"><input id="fGoalX" type="number"><input id="fGoalW" type="number"></div>
 <label>SELECTED PLATFORM (x, top, width, type)</label>
-<div class="row"><input id="pX" type="number"><input id="pT" type="number"><input id="pW" type="number"><select id="pTy"><option value="0">solid</option><option value="1">crumble</option><option value="2">bounce</option><option value="3">ice</option><option value="4">move·h</option><option value="5">move·v</option><option value="6">clock</option><option value="7">orbit</option><option value="8">dir</option></select></div>
+<div class="row"><input id="pX" type="number"><input id="pT" type="number"><input id="pW" type="number"><select id="pTy"><option value="0">solid</option><option value="1">crumble</option><option value="2">bounce</option><option value="3">ice</option><option value="4">move·h</option><option value="5">move·v</option><option value="6">clock</option><option value="7">orbit</option><option value="8">dir</option><option value="9">warp</option></select></div>
 <label id="pAmpLab">amp px · period s · phase</label>
 <div class="row" id="moverRow" hidden><input id="pAmp" type="number" step="0.05" title="amplitude px (or duty 0-1 for clock)"><input id="pPer" type="number" step="0.1" title="period s (≤3)"><input id="pPh" type="number" step="0.05" title="phase 0..1"></div>
+<label id="pTargetLab" hidden>WARP TARGET (platform index, 0-based)</label>
+<div class="row" id="warpRow" hidden><input id="pTarget" type="number" min="0" step="1" title="index of the platform this door opens on (non-warp)"></div>
 <div class="row"><button id="bAddP" class="ghost">+ PLATFORM</button><button id="bAddC" class="ghost">+ CEILING</button><button id="bDel" class="danger">DELETE</button></div>
 <label>SECTIONS (json [[y,"name"],…])</label>
 <textarea id="fSec"></textarea>
@@ -53,7 +55,8 @@ button:hover{filter:brightness(1.1)}
 <div class="row"><button id="bValidate">VALIDATE</button><button id="bExport">EXPORT</button><button id="bImport" class="ghost">IMPORT</button></div>
 <input id="file" type="file" accept=".js,.json" hidden>
 <div id="issues"></div>
-<div class="hint">drag = move · drag right edge = width · double-click empty = add platform · wheel = pan · click ceiling to select · Del = delete · 0-8 = type.<br>Movers (4/5): x/top = oscillation centre; amp px · period s (≤3, the fuse window) · phase 0..1. Dashed line = travel track.<br>Clock (6): duty 0-1 · period s (≤3) · phase 0..1; solid duty fraction of each cycle, ghost otherwise (on-window ≥1.2s).<br>Orbit (7): amp px · period s (≤3) · phase; circular carry, speed ≤140 px/s, sweep inside walls.<br>Dir (8): launch vx · vy (fixed vector, |v|≤950, vy&gt;0); throws you on the arrow, not your momentum.<br>Zones: [x,y,w,h,ax,ay] constant accel px/s² in flight only (|a|≤1600); ay&gt;0 updraft, ax gust.<br>Export downloads a <b>tower-N.js</b> descriptor; drop it in <b>levels/</b> and add a &lt;script&gt; tag in index.html.</div>
+<div class="hint">drag = move · drag right edge = width · double-click empty = add platform · wheel = pan · click ceiling to select · Del = delete · 0-8 = type.<br>Movers (4/5): x/top = oscillation centre; amp px · period s (≤3, the fuse window) · phase 0..1. Dashed line = travel track.<br>Clock (6): duty 0-1 · period s (≤3) · phase 0..1; solid duty fraction of each cycle, ghost otherwise (on-window ≥1.2s).<br>Orbit (7): amp px · period s (≤3) · phase; circular carry, speed ≤140 px/s, sweep inside walls.<br>Dir (8): launch vx · vy (fixed vector, |v|≤950, vy&gt;0); throws you on the arrow, not your momentum.<br>
+Warp (9): target index — a top landing folds you to that platform's top centre (one-way; the dashed pink line shows the door's destination). Target must be a non-warp rest (not bounce/dir).<br>Zones: [x,y,w,h,ax,ay] constant accel px/s² in flight only (|a|≤1600); ay&gt;0 updraft, ax gust.<br>Export downloads a <b>tower-N.js</b> descriptor; drop it in <b>levels/</b> and add a &lt;script&gt; tag in index.html.</div>
 </div>
 </div>
 <script src="js/constants.js"></script>
@@ -64,6 +67,7 @@ button:hover{filter:brightness(1.1)}
 <script src="levels/tower-3.js"></script>
 <script src="levels/tower-4.js"></script>
 <script src="levels/tower-5.js"></script>
+<script src="levels/tower-6.js"></script>
 <script src="js/sim.js"></script>
 <script src="js/editor.js"></script>
 </body>

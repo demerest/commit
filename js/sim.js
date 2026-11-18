@@ -123,19 +123,30 @@ function step(b, t) {
       const above = y0 >= pr.y + pr.h - CONTACT_EPS;
       const below = y0 + CHAR_SIZE <= pr.y + CONTACT_EPS;
       if (above || (!below && b.vy <= 0)) {
-        b.y = r.y + r.h;
-        if (plat.dir) {
-          b.vx = plat.dvx;
-          b.vy = plat.dvy;
-          ev = { t: "bounce", s: plat, x: b.x + CHAR_SIZE / 2, y: b.y };
-        } else if (plat.bounce) {
+        /* one-way warp pad: a top landing folds the body to the target's top centre, then
+           resolves as an ordinary landing THERE (same code path → preview ≡ flight).
+           Side hits and bonks are not landings, so they never warp. */
+        let land = plat, lr = r, warpFrom = -1;
+        if (plat.warp) {
+          land = PLATS[plat.warpTo];
+          lr = rectOf(land, t);
+          warpFrom = plat.idx;
+          b.x = lr.x + lr.w / 2 - CHAR_SIZE / 2;
+        }
+        b.y = lr.y + lr.h;
+        if (land.dir) {
+          b.vx = land.dvx;
+          b.vy = land.dvy;
+          ev = { t: "bounce", s: land, x: b.x + CHAR_SIZE / 2, y: b.y, warp: warpFrom };
+        } else if (land.bounce) {
           b.vy = BOUNCE_SPEED;
-          ev = { t: "bounce", s: plat, x: b.x + CHAR_SIZE / 2, y: b.y };
+          ev = { t: "bounce", s: land, x: b.x + CHAR_SIZE / 2, y: b.y, warp: warpFrom };
         } else {
           b.vy = 0;
           b.grounded = true;
-          ev = { t: "land", s: plat };
+          ev = { t: "land", s: land, warp: warpFrom };
         }
+        if (warpFrom >= 0) break;
       } else {
         b.y = r.y - CHAR_SIZE;
         b.vy = 0;
@@ -157,6 +168,7 @@ function contactOf(b, ev) {
     move: (ev.s && ev.s.move) || 0,
     clock: !!(ev.s && ev.s.clock),
     dir: !!(ev.s && ev.s.dir),
+    warp: ev.warp == null ? -1 : ev.warp,
     idx: ev.s && ev.s.idx != null ? ev.s.idx : -1
   };
 }
@@ -265,6 +277,18 @@ function simStep() {
   if (!ev) return;
   flightContacts.push(contactOf(body, ev));
 
+  /* the fold itself: ring bursts at both ends, pink glow, direction-pitched shimmer */
+  const warped = ev.warp >= 0;
+  if (warped) {
+    const src = PLATS[ev.warp];
+    spawnWarp(src.x + src.w / 2, src.y + src.h);
+    spawnWarp(ev.x, ev.y);
+    warpGlow = Math.max(warpGlow, WARP_FLASH);
+    if (!RM) shake = Math.max(shake, WARP_SHAKE);
+    floats.push({ x: ev.x, y: ev.y + FALL_POPUP_DY, txt: "WARP", c: COL.warp, t: 0 });
+    sfx("warp", { up: ev.y >= launchY });
+  }
+
   if (ev.t === "bounce") {
     bounceChain++;
     ev.s.bounceT = SPRING_COMP_TIME;
@@ -286,10 +310,13 @@ function simStep() {
     crumbleT = 0;
     crumbleStage = 0;
     bounceChain = 0;
-    body.slide = ev.s.ice ? (prevVx > 0 ? 1 : prevVx < 0 ? -1 : 0) : 0;
+    /* a warp arrival stands still: the fold discards momentum, ice drift included */
+    body.slide = warped ? 0 : (ev.s.ice ? (prevVx > 0 ? 1 : prevVx < 0 ? -1 : 0) : 0);
     body.slideT = 0;
     run.slide = body.slide;
-    if (ev.s.ice) {
+    if (warped) {
+      spawnDust(body.x + CHAR_SIZE / 2, body.y, LAND_DUST_BASE, COL.warp);
+    } else if (ev.s.ice) {
       sfx("ice", { impact });
       spawnSpray(body.x + CHAR_SIZE / 2, body.y, body.slide || 1);
       if (body.slide) startSlide();

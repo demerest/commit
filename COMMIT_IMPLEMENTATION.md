@@ -534,12 +534,13 @@ lastT=performance.now();requestAnimationFrame(frameLoop);
 
 Automated: serve the folder over HTTP and open `test.html` — it drives the game through
 the `window.__COMMIT__` manual-clock hook and asserts the matrix below, including a
-**phase-aware** solver that proves **all 36 T1 + 40 T2 + 42 T3 + 43 T4 + 44 T5 rest-to-rest
-jumps (bounce chains, elevator rides, mover catches, wind gaps, phase gates, orbits and
-redirects included) are solvable at ≤ 98 % power** using the real integrator; mover/phase/orbit
-jumps must also land with the launch phase shifted ±0.12 s (not frame-perfect). Last full run:
-**193/193 pass** in both standard and `prefers-reduced-motion` modes (headless Chrome). The
-editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VALID 36/40/42/43/44).
+**phase-aware** solver that proves **all 36 T1 + 40 T2 + 42 T3 + 43 T4 + 44 T5 + 23 T6 rest-to-rest
+jumps (bounce chains, elevator rides, mover catches, wind gaps, phase gates, orbits,
+redirects and warp folds included) are solvable at ≤ 98 % power** using the real integrator;
+mover/phase/orbit jumps must also land with the launch phase shifted ±0.12 s (not frame-perfect).
+Warp hops solve by launching onto the door whose fold opens on the next rest. Last full run:
+**222/222 pass** in both standard and `prefers-reduced-motion` modes (headless Chrome). The
+editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VALID 36/40/42/43/44/23).
 
 | # | Test | Expected |
 |---|---|---|
@@ -562,17 +563,18 @@ editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VA
 | 17 | Reduced-motion OS setting | No shake/confetti; particles halved; game fully playable |
 | 18 | Network panel | Zero requests after document load |
 | 19 | ♪ / M mute | Master mute persists (`commit.snd`); `aria-pressed` + strikethrough show state; SFX and wind silent |
-| 20 | Level solver (`test.html`) | All 36/40/42/43/44 jumps solvable at ≤ 98 % power; preview ≡ flight contact pixel-exact |
+| 20 | Level solver (`test.html`) | All 36/40/42/43/44/23 jumps solvable at ≤ 98 % power; preview ≡ flight contact pixel-exact |
 | 21 | Mover carry (`test.html` §27) | Rider x/y tracks the platform exactly, through reversals and edge overhang; launch discards carry |
 | 22 | Mover contract (`test.html` §27) | Flight contacts ≡ preview contacts on a moving target; landing ring magenta on movers |
 | 23 | Mover persistence (`test.html` §27) | `wt` saved per run; refresh restores phase + footing on the mover |
-| 24 | Tower 3 flow (`test.html` §27–29) | Locked until T2 summit; picker lists 5; summit wins, share says 600m, unlocks T4 |
+| 24 | Tower 3 flow (`test.html` §27–29) | Locked until T2 summit; picker lists 6; summit wins, share says 600m, unlocks T4 |
 | 25 | Lift collision fairness (`test.html` §30) | Straight-down and drifting jumps onto a rising lift land in place (no edge teleport / no wall contact); flight ≡ preview; a lift catching a slow riser lands it on top |
 | 26 | Pre-aim queue (`test.html` §31) | Mid-flight aim keeps physics running and the fuse counting; early release / Space / fuse expiry queue instead of launching; queue survives bonks, bounce hops and Esc, and fires on true landing; grounded flow unchanged |
 | 27 | Tower 4 wind + phase (`test.html` §32) | 43/43 jumps solvable ≤98%; zone-assisted gap solvable and flight≡preview through the updraft; phase gate solvable + ±0.12 s tolerant, flight≡preview, and ghosts under the rider into an honest drop; T4 summit/share/NEXT-hidden |
 | 28 | Menu / pause / select (`test.html` §1, §33) | Boot = main menu start page; Start/Continue; Esc/P/II pause freezes clock and preserves aim; level select lists unlocked only; pause/win → menu & select; help/select BACK returns to caller; win = between-levels screen |
-| 29 | Tower 5 orbit + redirect (`test.html` §34) | 44/44 jumps solvable ≤98%; orbiter 2-D carry exact; dir-spring redirect flight≡preview and lands the target rest; T5 summit/share 676m/NEXT-hidden |
+| 29 | Tower 5 orbit + redirect (`test.html` §34) | 44/44 jumps solvable ≤98%; orbiter 2-D carry exact; dir-spring redirect flight≡preview and lands the target rest; T5 summit/share 676m/unlocks T6 |
 | 30 | Phase-audio locality (`test.html` §35) | Off-screen phase toggles emit zero sfx; underfoot/near toggles tick (soft local woodblock); wind bed uniform across towers |
+| 31 | Tower 6 warp doors (`test.html` §36–37) | 23/23 jumps solvable ≤98% (folds included); preview rings the fold destination + dashed fold-link; warp flight≡preview pixel-exact; arrival stands still; side hit/bonk never fold; unkind door folds back down and counts as a fall; down-jump door solves a >205 px rise; queued pre-aim fires from the fold destination; fold position persists; T6 summit/share 480m/last tower hides NEXT |
 
 ## 6. Tuning Pointers
 
@@ -585,5 +587,9 @@ editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VA
   ±0.12 s fairness window closes. Sweeps must stay inside the walls (editor enforces).
 - Feel dials: `CAM_LERP_GROUND`/`CAM_LERP_FLIGHT` (6/10), `HARD_LAND_IMPACT` (650) and
   `HARD_SHAKE_MAX` (11), `FLASH_DECAY` (3).
+- Warp dials (T6): `WARP_FLASH`/`WARP_SHAKE`/`WARP_PARTS`/`WARP_SPREAD`/`WARP_GRAVITY` in
+  `js/constants.js`; routing lives in the descriptor's door targets. Door width is a fairness
+  dial when a door sits below an overhanging rest — the fall corridor beside the overhang must
+  stay wide (see `COMMIT_LEVELS.md` §2 warp-door math).
 - The preview must never get its own physics. If you touch `step()`, both flight and
   preview change together — that is the Commit Contract, and it is the game.

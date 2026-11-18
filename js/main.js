@@ -135,6 +135,7 @@ function setLevel(n) {
   flightContacts.length = 0;
   flash = 0;
   shake = 0;
+  warpGlow = 0;
   crumbleT = 0;
   crumbleStage = 0;
   bounceChain = 0;
@@ -219,6 +220,7 @@ function resetRun() {
   flightContacts.length = 0;
   flash = 0;
   shake = 0;
+  warpGlow = 0;
   camY = clampCam(body.y - VIEW_H * CAM_ANCHOR);
   save();
 }
@@ -444,6 +446,7 @@ function frameLoop(now) {
 
   shake *= Math.exp(-SHAKE_DECAY * dt);
   flash *= Math.exp(-FLASH_DECAY * dt);
+  warpGlow *= Math.exp(-FLASH_DECAY * dt);
   updParts(dt);
   render(now);
   hud();
@@ -501,6 +504,7 @@ window.__COMMIT__ = {
   get camY() { return camY; },
   get flash() { return flash; },
   get shake() { return shake; },
+  get warpGlow() { return warpGlow; },
   get idleT() { return idleT; },
   get aimT() { return aimT; },
   get crumbleT() { return crumbleT; },
@@ -531,7 +535,8 @@ window.__COMMIT__ = {
       CHAR_SIZE, SUMMIT, FALL_COUNT_MIN_PX, TERMINAL_FALL_SPEED, AIM_FUSE_TIME, CRUMBLE_DWELL_TIME,
       BOUNCE_SPEED, CRUMBLE_REFORM_TIME, ICE_SLIDE_SPEED, ICE_SLIDE_RAMP_TIME, PLATFORM_HEIGHT, PX_PER_METER,
       MOVER_DEFAULT_AMP, MOVER_DEFAULT_PERIOD, CLOCK_DEFAULT_DUTY, DIR_DEFAULT_VY,
-      PLAT_SOLID, PLAT_CRUMBLE, PLAT_BOUNCE, PLAT_ICE, PLAT_MOVE_H, PLAT_MOVE_V, PLAT_CLOCK, PLAT_ORBIT, PLAT_DIR,
+      PLAT_SOLID, PLAT_CRUMBLE, PLAT_BOUNCE, PLAT_ICE, PLAT_MOVE_H, PLAT_MOVE_V, PLAT_CLOCK, PLAT_ORBIT, PLAT_DIR, PLAT_WARP,
+      WARP_FLASH, WARP_SHAKE, WARP_PARTS, WARP_PARTS_RM,
       SOLVER_MAX_POWER, SOLVER_MIN_POWER, SOLVER_POWER_STEP, SOLVER_ANGLE_MIN, SOLVER_ANGLE_MAX, SOLVER_ANGLE_UP, SOLVER_ANGLE_STEP, SOLVER_PHASE_TOL,
       DESIGN_MAX_DY, DESIGN_MIN_PLAT_W, DESIGN_MAX_PERIOD, DESIGN_MIN_ON_WINDOW, DESIGN_MAX_ORBIT_SPEED, ZONE_MAX_ACCEL,
       IDLE_HINT_DELAY, CONFETTI_COUNT, PARTS_MAX, KB_ANGLE_RATE, KB_POWER_RATE, KB_FINE_FACTOR

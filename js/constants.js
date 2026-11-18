@@ -66,6 +66,7 @@ const PLAT_MOVE_V = 5;             // vertical lift
 const PLAT_CLOCK = 6;              // phase platform (solid/ghost on a duty cycle)
 const PLAT_ORBIT = 7;              // circular mover
 const PLAT_DIR = 8;                // direction spring (fixed launch vector)
+const PLAT_WARP = 9;               // one-way warp pad (Tower 6): landing folds you to its target
 
 /* ---------- platforms & mechanics ---------- */
 const PLATFORM_HEIGHT = 16;        // px, every slab (platforms, ceilings, goal)
@@ -87,6 +88,14 @@ const CLOCK_DEFAULT_DUTY = 0.6;    // descriptor default solid fraction
 const CLOCK_VIS_MARGIN = 40;       // px beyond the view for a clock to be "on-screen"
 const CLOCK_NEAR_DIST = 300;       // px, a clock ticks only this near the rider
 const DIR_DEFAULT_VY = 800;        // px/s, descriptor default dir-spring vy
+const WARP_FLASH = 0.3;            // pink screen glow alpha on a warp
+const WARP_SHAKE = 5;              // px, warp shake
+const WARP_PARTS = 16;             // ring-burst sparks per warp end
+const WARP_PARTS_RM = 8;           // ... reduced-motion variant
+const WARP_SPREAD = 260;           // px/s, radial spark speed
+const WARP_LIFE_MIN = 0.4;         // s, spark lifetime floor
+const WARP_LIFE_VAR = 0.3;         // s, spark lifetime variance
+const WARP_GRAVITY = 0.15;         // fraction of GRAVITY on warp sparks (floaty shimmer)
 const FALL_COUNT_MIN_PX = 250;     // px drop (25 m) that counts as a fall
 const FALL_FLASH_MAX = 0.45;       // red flash alpha cap on a counted fall
 const FALL_FLASH_DIV = 1600;       // px divisor scaling fall flash with drop

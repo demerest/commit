@@ -7,8 +7,10 @@ Draw an arc, release, and live with exactly what you drew.
 
 A minimalist precision rage-platformer. Climb shrinking platforms, amber ceilings, crumbling
 ledges, bounce springs — slick ice from Tower 2 that slides you the way you came in,
-magenta moving platforms from Tower 3 that carry you while you aim, and Tower 4's blue wind
-columns that bend your arc plus gold platforms that blink in and out of solidity.
+magenta moving platforms from Tower 3 that carry you while you aim, Tower 4's blue wind
+columns that bend your arc plus gold platforms that blink in and out of solidity, and
+Tower 6's pink one-way doors that fold you somewhere else entirely — sometimes downward,
+sometimes somewhere unkind.
 The dotted preview is simulated by the *same integrator* as the real flight — what you see is,
 to the pixel, what you get, including every bounce hop and every platform's future motion.
 Release is irreversible. Miss, and you fall for real: no death, no respawn, no checkpoints.
@@ -23,6 +25,7 @@ The only punishment is gravity, and it is always enough.
 | 3 | The Clockwork Spire | 600 m | **movers** — travelling platforms + lifts, combined with everything above |
 | 4 | The Tempest Engine | 640 m | **gust zones** (updrafts/gusts bend the arc) + **phase platforms** (solid/ghost on a clock), combined with everything above |
 | 5 | The Orrery | 676 m | **orbiters** (platforms ride a circle, 2-D carry) + **direction springs** (fixed-vector redirect), combined with everything above |
+| 6 | The Switchboard | 480 m | **warp doors** (one-way teleport pads) — a routing puzzle: jump down to go up, choose between twin doors, beware the unkind ones; gentler platforming, wider ledges |
 
 Clearing a tower's summit unlocks the next. Switch towers from the help overlay (`?` / `H`) or
 the **NEXT TOWER** button on the win screen. Each tower keeps its own run; lifetime records are
@@ -72,6 +75,11 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   you in 2-D; the arc knows where they'll be. Time your stop on the orbit.
 - **Direction springs (Tower 5+).** Orange pads throw you on a fixed authored vector (the
   arrow), not your momentum — deterministic redirects and routing chains.
+- **Warp doors (Tower 6 only).** Pink pads are one-way teleporters: land on one and you fold
+  to its target ledge, standing still. The preview rings the destination in pink and draws a
+  dashed fold-link, so a door's secret is visible before you commit. Some doors open downward
+  (the way up is a jump down); two are unkind and fold you back down the tower — the drop
+  counts as a fall like any other. Side hits and bonks never fold.
 - **Local clock ticks.** Phase platforms tick softly only when on-screen and near you (a touch
   louder underfoot); off-screen clocks are silent, so a tower full of them isn't a metronome.
   The ambient wind bed is uniform across towers.
@@ -93,8 +101,9 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   and design invariants); the logic files stay formatted and free of magic numbers.
 - **Data-driven levels.** Each tower is a separate descriptor `levels/tower-N.js` — a single
   `COMMIT_LEVEL({…json…})` call (`[x, top, width, type]`, type `0` solid `1` crumble `2` bounce
-  `3` ice `4` move·h `5` move·v `6` clock `7` orbit `8` dir; movers append `amp, period, phase`,
-  clocks `duty, period, phase`, dir springs `vx, vy`). `js/levels.js` is just the
+  `3` ice `4` move·h `5` move·v `6` clock `7` orbit `8` dir `9` warp; movers append
+  `amp, period, phase`, clocks `duty, period, phase`, dir springs `vx, vy`, warp pads
+  `targetIdx`). `js/levels.js` is just the
   loader/engine. Adding a tower = drop a descriptor + one `<script>` tag. Format spec:
   `COMMIT_LEVELS.md` §0.
 - **Web level editor.** `editor.html` is a visual editor (drag/resize/type platforms, ceilings,
@@ -102,8 +111,8 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   <https://demerest.github.io/commit/editor.html>. The game itself never links to it — this
   README is the only place it is referenced.
 - **The Commit Contract:** preview ≡ simulation, pixel-exact, including wall hits, ceiling
-  bonks, bounce hops and moving platforms (green/ice/magenta ring = landing, red ✕ = strike,
-  teal ring = bounce).
+  bonks, bounce hops, moving platforms and warp folds (green/ice/magenta/pink ring = landing,
+  red ✕ = strike, teal ring = bounce).
 - **Honest failure economy:** falls ≥ 25 m flash red and float a `−Xm` popup; your last
   flight's trail hangs in the air until you launch again.
 - **Persistence (`commit.v3`):** per-tower runs + shared lifetime records in `localStorage`,
@@ -131,14 +140,16 @@ visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPO
 
 ## Verification
 
-`test.html` is an automated harness (**193 assertions**) that drives the game through a
+`test.html` is an automated harness (**222 assertions**) that drives the game through a
 manual-clock hook: commit contract, fuse, pre-aim queue, crumble break + reform, bounce-chain preview ≡ flight,
 ice slide / stand-still / walk-off / launch-discards-slide / persistence, mover carry / reversal /
 launch-discards-carry / moving-target contract / phase persistence / lift collision fairness, tower lock + unlock +
 switching, input FSM, fall economy, overlays, mute, summit flow, reduced-motion, altitude
-palette, zero-network — plus a phase-aware solver proving **all 36 Tower-1, 40 Tower-2 and
-42 Tower-3 rest-to-rest jumps** are solvable at ≤ 98 % power with the real integrator (mover
-jumps must also survive a ±0.12 s launch-phase shift).
+palette, zero-network, warp-fold contract / one-way rule / traps / down-jumps / queue-through-fold —
+plus a phase-aware solver proving **all 36 Tower-1, 40 Tower-2, 42 Tower-3, 43 Tower-4,
+44 Tower-5 and 23 Tower-6 rest-to-rest jumps** are solvable at ≤ 98 % power with the real
+integrator (mover jumps must also survive a ±0.12 s launch-phase shift; warp hops solve through
+the door whose fold opens on the next rest).
 
 Serve the folder over HTTP (the harness iframes the game same-origin), then open `test.html`:
 
@@ -147,7 +158,7 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **193/193 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **222/222 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 

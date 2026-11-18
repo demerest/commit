@@ -2,9 +2,11 @@
    each a single COMMIT_LEVEL({...}) call whose argument is a JSON object (see COMMIT_LEVELS.md).
    Descriptors are classic scripts so the game still runs from file:// with zero fetch.
    Platform authoring [x, topY, width, type]: 0 solid, 1 crumble, 2 bounce, 3 ice,
-   4 mover·horizontal, 5 mover·vertical, 6 clock (phase), 7 mover·orbit, 8 direction spring.
+   4 mover·horizontal, 5 mover·vertical, 6 clock (phase), 7 mover·orbit, 8 direction spring,
+   9 one-way warp pad.
    Movers append [amp, period, phase] (px, s, cycle fraction); x/topY is the oscillation centre
-   (orbit: circle centre). Clock appends [duty, period, phase]. Dir spring appends [vx, vy]. */
+   (orbit: circle centre). Clock appends [duty, period, phase]. Dir spring appends [vx, vy].
+   Warp appends [targetIdx]: landing on the pad folds you to that platform's top centre. */
 "use strict";
 
 const LEVELS = [];
@@ -44,6 +46,8 @@ function buildLevel(n) {
       dvy: ty === PLAT_DIR ? (per || DIR_DEFAULT_VY) : 0,
       clock: ty === PLAT_CLOCK ? 1 : 0,
       duty: ty === PLAT_CLOCK ? (amp || CLOCK_DEFAULT_DUTY) : 0,
+      warp: ty === PLAT_WARP ? 1 : 0,
+      warpTo: ty === PLAT_WARP ? (amp || 0) : 0,
       bx: x, by: top - PLATFORM_HEIGHT,
       amp: amp || MOVER_DEFAULT_AMP,
       period: per || MOVER_DEFAULT_PERIOD,

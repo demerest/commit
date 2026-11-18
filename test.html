@@ -12,7 +12,7 @@ h1{font-size:14px;letter-spacing:.1em;margin:0 0 8px}
 </style>
 </head>
 <body>
-<div><h1>COMMIT · VERIFICATION (v5 · five towers)</h1><div id="out">running…</div></div>
+<div><h1>COMMIT · VERIFICATION (v6 · six towers)</h1><div id="out">running…</div></div>
 <iframe id="f" src="index.html"></iframe>
 <script>
 "use strict";
@@ -49,11 +49,15 @@ function rectAt(C, p, t) {
 }
 
 /* Phase-aware jump search. fi/ti are platform indices (-1 = floor / goal). When a mover is involved,
-   sample launch phases over its period and demand a ±SOLVER_PHASE_TOL window still lands (not frame-perfect). */
-function findLaunch(C, fi, ti) {
+   sample launch phases over its period and demand a ±SOLVER_PHASE_TOL window still lands (not frame-perfect).
+   warpDest: search a launch onto pad `ti` whose fold opens on rest `warpDest` (the mark rings the
+   destination, so acceptance + range use that rect). */
+function findLaunch(C, fi, ti, warpDest) {
   const charSize = C.C.CHAR_SIZE, maxV = C.C.MAX_LAUNCH_SPEED, grav = C.C.GRAVITY;
   const fp = fi < 0 ? [0, 0, C.C.VIEW_W, 0] : C.RAW_PLATS[fi];
   const tp = ti < 0 ? [C.GOAL.x, C.C.SUMMIT, C.GOAL.w, 0, true] : C.RAW_PLATS[ti];
+  const accept = warpDest == null ? ti : warpDest;
+  const rp = warpDest == null ? tp : C.RAW_PLATS[warpDest];
   const fm = fp[3] === C.C.PLAT_MOVE_H || fp[3] === C.C.PLAT_MOVE_V || fp[3] === C.C.PLAT_CLOCK || fp[3] === C.C.PLAT_ORBIT;
   const tm = tp[3] === C.C.PLAT_MOVE_H || tp[3] === C.C.PLAT_MOVE_V || tp[3] === C.C.PLAT_CLOCK || tp[3] === C.C.PLAT_ORBIT;
   const per = fm ? (fp[5] || C.C.MOVER_DEFAULT_PERIOD) : tm ? (tp[5] || C.C.MOVER_DEFAULT_PERIOD) : 0;
@@ -62,7 +66,7 @@ function findLaunch(C, fi, ti) {
   const zone = C.ZONES.some(z => z.y < tp[1] + 40 && z.y + z.h > fp[1] - 40 && z.x + z.w > Math.min(fp[0], tp[0]) && z.x < Math.max(fp[0] + fp[2], tp[0] + tp[2]));
   for (const ph of phases) {
     C.setWorldT(ph);
-    const fr = rectAt(C, fp, ph), tr = rectAt(C, tp, ph);
+    const fr = rectAt(C, fp, ph), tr = rectAt(C, tp, ph), rr = rectAt(C, rp, ph);
     /* prune only direct jumps: a spring or a descending lift can do the lifting */
     const dyLo = ((tp[3] === C.C.PLAT_MOVE_V || tp[3] === C.C.PLAT_ORBIT) ? tp[1] - (tp[4] || C.C.MOVER_DEFAULT_AMP) : tr[1])
       - ((fp[3] === C.C.PLAT_MOVE_V || fp[3] === C.C.PLAT_ORBIT) ? fp[1] + (fp[4] || C.C.MOVER_DEFAULT_AMP) : fr[1]);
@@ -80,14 +84,14 @@ function findLaunch(C, fi, ti) {
         for (let pw = pw0; pw <= C.C.SOLVER_MAX_POWER + 0.001; pw += C.C.SOLVER_POWER_STEP) {
           const vx = Math.cos(rad) * pw * maxV, vy = sin * pw * maxV;
           const pr = C.preview({ x: vx, y: vy });
-          if (pr.mark && pr.mark.ok && (ti < 0 ? pr.mark.goal : pr.mark.idx === ti) && pr.mark.x > tr[0] - charSize / 2 && pr.mark.x < tr[0] + tr[2] + charSize / 2) {
+          if (pr.mark && pr.mark.ok && (ti < 0 ? pr.mark.goal : pr.mark.idx === accept) && pr.mark.x > rr[0] - charSize / 2 && pr.mark.x < rr[0] + rr[2] + charSize / 2) {
             if (per) {
               let tol = true;
               for (const d of [-C.C.SOLVER_PHASE_TOL, C.C.SOLVER_PHASE_TOL]) {
                 C.setWorldT(ph + d);
-                const tr2 = rectAt(C, tp, ph + d);
+                const tr2 = rectAt(C, rp, ph + d);
                 const p2 = C.preview({ x: vx, y: vy });
-                if (!(p2.mark && p2.mark.ok && (ti < 0 ? p2.mark.goal : p2.mark.idx === ti) && p2.mark.x > tr2[0] - charSize / 2 && p2.mark.x < tr2[0] + tr2[2] + charSize / 2)) tol = false;
+                if (!(p2.mark && p2.mark.ok && (ti < 0 ? p2.mark.goal : p2.mark.idx === accept) && p2.mark.x > tr2[0] - charSize / 2 && p2.mark.x < tr2[0] + tr2[2] + charSize / 2)) tol = false;
               }
               C.setWorldT(ph);
               if (!tol) continue;
@@ -101,17 +105,19 @@ function findLaunch(C, fi, ti) {
   return null;
 }
 
-/* every rest-to-rest jump (bounce pads and dir springs are not rests) must solve at ≤98% power */
+/* every rest-to-rest jump (bounce pads, dir springs and warp doors are not rests) must solve
+   at ≤98% power — directly, or by folding through a door whose target is the next rest */
 function solveTower(C, label) {
   const restIdx = [];
-  C.RAW_PLATS.forEach((p, i) => { if (p[3] !== C.C.PLAT_BOUNCE && p[3] !== C.C.PLAT_DIR) restIdx.push(i); });
+  C.RAW_PLATS.forEach((p, i) => { if (p[3] !== C.C.PLAT_BOUNCE && p[3] !== C.C.PLAT_DIR && p[3] !== C.C.PLAT_WARP) restIdx.push(i); });
   const n = restIdx.length + 1;
   let solved = 0, maxPw = 0;
   const fails = [];
   for (let i = 0; i < n; i++) {
     const fi = i === 0 ? -1 : restIdx[i - 1];
     const ti = i < restIdx.length ? restIdx[i] : -1;
-    const sol = findLaunch(C, fi, ti);
+    const via = C.RAW_PLATS.findIndex(p => p[3] === C.C.PLAT_WARP && p[4] === ti);
+    const sol = findLaunch(C, fi, ti) || (via >= 0 ? findLaunch(C, fi, via, ti) : null);
     if (sol) {
       solved++;
       maxPw = Math.max(maxPw, Math.round(Math.hypot(sol.vx, sol.vy) / C.C.MAX_LAUNCH_SPEED * 100));
@@ -395,11 +401,12 @@ async function main() {
 
   /* 23 · level switching */
   key(w, "h");
-  ok("tower picker lists all five towers", d.getElementById("towers").children.length === 5);
+  ok("tower picker lists all six towers", d.getElementById("towers").children.length === 6);
   ok("tower 2 button enabled after unlock", !d.getElementById("towers").children[1].disabled);
   ok("tower 3 button locked before T2 summit", d.getElementById("towers").children[2].disabled);
   ok("tower 4 button locked before T3 summit", d.getElementById("towers").children[3].disabled);
   ok("tower 5 button locked before T4 summit", d.getElementById("towers").children[4].disabled);
+  ok("tower 6 button locked before T5 summit", d.getElementById("towers").children[5].disabled);
   key(w, "Escape");
   C.setLevel(2);
   ok("switch to tower 2 (560m)", C.level === 2 && C.C.SUMMIT === 5600 && C.body.y === 0);
@@ -822,7 +829,7 @@ async function main() {
   settle();
   ok("T5 summit wins", C.state === "win" && C.life.summits[5] === sb5 + 1);
   ok("T5 share text uses 676m", d.getElementById("share").value.indexOf("676m") >= 0);
-  ok("last tower hides NEXT", d.getElementById("bNext").hidden);
+  ok("T5 summit unlocks tower 6 + NEXT shown", C.life.unlocked === 6 && !d.getElementById("bNext").hidden);
   C.closeOv();
   C.resetRun();
 
@@ -843,6 +850,104 @@ async function main() {
   for (let i = 0; i < 240; i++) tick(16.7);
   ok("underfoot/near phase toggles tick", phaseCalls > 0, "calls=" + phaseCalls);
   w.sfx = origSfx;
+  C.resetRun();
+
+  /* 36 · tower 6 (one-way warp pads): the fold obeys the Commit Contract */
+  C.setLevel(6);
+  ok("switch to tower 6 (480m)", C.level === 6 && C.C.SUMMIT === 4800);
+  ok("T6 has warp pads", C.RAW_PLATS.some(p => p[3] === C.C.PLAT_WARP));
+  C.resetRun();
+  const wj = findLaunch(C, 3, 4, 5);
+  ok("first door solvable (jump onto pad, fold up)", !!wj);
+  if (wj) {
+    C.setWorldT(wj.ph);
+    C.setBody(wj.bx, C.RAW_PLATS[3][1]);
+    const pw = C.preview({ x: wj.vx, y: wj.vy });
+    ok("preview rings the fold destination, not the pad", !!pw.mark && pw.mark.ok && pw.mark.idx === 5 && pw.mark.warp === 4);
+    C.launch({ x: wj.vx, y: wj.vy });
+    settle();
+    ok("warp flight contacts ≡ preview (pixel-exact)", JSON.stringify(C.flightContacts) === JSON.stringify(pw.contacts));
+    ok("landing on the pad folds you to the target rest", C.state === "ready" && C.body.on && C.body.on.idx === 5 && C.body.y === C.RAW_PLATS[5][1]);
+    ok("warp arrival stands still (momentum discarded)", C.body.vx === 0 && C.body.slide === 0);
+    ok("warp glow + shake fired", C.warpGlow > 0 && (RM ? C.shake === 0 : C.shake > 0));
+    ok("warp sparks burst in pink", C.parts.some(p => p.c === "#ff6ec7"));
+    C.save();
+    const stW = JSON.parse(w.localStorage.getItem("commit.v3"));
+    ok("fold destination persisted", stW.runs[6].y === C.RAW_PLATS[5][1]);
+    C.load();
+    ok("resume stands on the fold destination", C.body.on && C.body.on.idx === 5);
+  }
+  C.resetRun();
+  const pad = C.RAW_PLATS[4];
+  C.setBody(pad[0] - 60, pad[1] - 8);
+  C.launch({ x: 300, y: 0 });
+  settle();
+  ok("side hit on a door is a wall, not a warp", C.flightContact.t === "wall" && !C.flightContacts.some(c => c.warp >= 0));
+  C.resetRun();
+  C.setBody(pad[0] + pad[2] / 2 - C.C.CHAR_SIZE / 2, pad[1] - 80);
+  C.launch({ x: 0, y: 500 });
+  settle();
+  ok("bonk under a door is a bonk, not a warp", C.flightContact.t === "bonk" && !C.flightContacts.some(c => c.warp >= 0));
+  C.resetRun();
+  const tj = findLaunch(C, 6, 7, 1);
+  ok("trap door reachable (looks like progress)", !!tj);
+  if (tj) {
+    const fBefore = C.run.falls;
+    C.setWorldT(tj.ph);
+    C.setBody(tj.bx, C.RAW_PLATS[6][1]);
+    C.launch({ x: tj.vx, y: tj.vy });
+    settle();
+    ok("trap door folds you back down the tower", C.body.on && C.body.on.idx === 1 && C.body.y === C.RAW_PLATS[1][1]);
+    ok("unkind fold counts as a fall (honest economy)", C.run.falls === fBefore + 1 && C.flash > 0);
+  }
+  C.resetRun();
+  ok("direct rise past the ice shelf impossible", findLaunch(C, 6, 9) === null);
+  const dj6 = findLaunch(C, 6, 8, 9);
+  ok("jump DOWN onto the door solves the gap", !!dj6);
+  if (dj6) {
+    C.setWorldT(dj6.ph);
+    C.setBody(dj6.bx, C.RAW_PLATS[6][1]);
+    const pd6 = C.preview({ x: dj6.vx, y: dj6.vy });
+    C.launch({ x: dj6.vx, y: dj6.vy });
+    settle();
+    ok("down-jump fold contacts ≡ preview", JSON.stringify(C.flightContacts) === JSON.stringify(pd6.contacts));
+    ok("down-jump fold lands on the high rest", C.body.on && C.body.on.idx === 9);
+  }
+  C.resetRun();
+  const qj = findLaunch(C, 3, 4, 5);
+  if (qj) {
+    C.setWorldT(qj.ph);
+    C.setBody(qj.bx, C.RAW_PLATS[3][1]);
+    C.launch({ x: qj.vx, y: qj.vy });
+    tick(50);
+    ptr(w, d, "pointerdown", 240, 600);
+    ptr(w, d, "pointermove", 300, 450);
+    ptr(w, d, "pointerup", 300, 450);
+    ok("mid-flight queue arms before the fold", !!C.pendingV && C.state === "flight");
+    const lQ = C.run.launches;
+    settle();
+    ok("queued commit fires from the fold destination", C.run.launches === lQ + 1 && C.pendingV === null);
+    settle();
+  }
+  C.resetRun();
+
+  /* 37 · tower 6 solver + summit */
+  solveTower(C, "T6");
+  C.resetRun();
+  const fin6 = findLaunch(C, 28, -1);
+  ok("T6 final jump previews goal", !!fin6 && fin6.contacts[fin6.contacts.length - 1].goal);
+  const sb6 = C.life.summits[6] || 0;
+  if (fin6) {
+    C.setWorldT(fin6.ph);
+    C.setBody(fin6.bx, C.RAW_PLATS[28][1]);
+    C.launch({ x: fin6.vx, y: fin6.vy });
+  }
+  settle();
+  ok("T6 summit wins", C.state === "win" && C.life.summits[6] === sb6 + 1);
+  ok("T6 share text uses 480m", d.getElementById("share").value.indexOf("480m") >= 0);
+  ok("last tower hides NEXT", d.getElementById("bNext").hidden);
+  ok("tower 6 is the last unlock", C.life.unlocked === 6);
+  C.closeOv();
   C.resetRun();
 
   ok("no runtime errors during suite", errs.length === 0, errs.join(" | "));

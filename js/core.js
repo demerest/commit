@@ -20,6 +20,7 @@ const COL = {
   zone: "#6fc3ff",      // gust zones
   dir: "#ff9f43",       // direction springs
   orbit: "#7ee0a3",     // orbiters
+  warp: "#ff6ec7",      // one-way warp pads
   crumble: "#8a6a3a",   // cracked edge, early stage
   crack: "#07090f",     // crack lines on a crumbling ledge
   deep: "#0a0e1a",      // eyes / editor background
@@ -27,7 +28,8 @@ const COL = {
   moverBody: "#1b1230",
   orbitBody: "#10241a",
   clockBody: "#241d0e",
-  dirBody: "#2a1608"
+  dirBody: "#2a1608",
+  warpBody: "#2b1030"
 };
 
 const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;

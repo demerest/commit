@@ -1,10 +1,12 @@
-# COMMIT — Next-Level Mechanics Proposals (v0.1 · design only, NOT implemented)
+# COMMIT — Next-Level Mechanics Proposals (v0.2 · design history)
 
-Status: proposal. Nothing here is shipped. Two mechanics are recommended for **Tower 4**,
-two more are backlog for **Tower 5+**. Both recommended mechanics were prototyped in a local
-scratch playground (`.qwen/tmp/playground.html`, gitignored) that wraps the *real* integrator;
-all 8 probes pass (see §5). Read `COMMIT_GDD.md` (pillars/Contract) and `COMMIT_LEVELS.md`
-(invariants) first — every proposal below is constrained by them.
+Status: §1 gust zones + §2 phase platforms **shipped in Tower 4**; §3 orbiters + direction
+springs **shipped in Tower 5**; the one-way **warp door** (type 9, user-specified, exclusive
+to Tower 6) **shipped in Tower 6** — geometry and routing in `COMMIT_LEVELS.md` §14. What
+remains below is backlog. The two T4 mechanics were prototyped in a local scratch playground
+(`.qwen/tmp/playground.html`, gitignored) that wraps the *real* integrator; all 8 probes pass
+(see §5). Read `COMMIT_GDD.md` (pillars/Contract) and `COMMIT_LEVELS.md` (invariants) first —
+every proposal below is constrained by them.
 
 Non-negotiables every mechanic must respect:
 - **Commit Contract:** `preview()` and flight share one `step(b,t)`; any new force/solid rule
@@ -106,14 +108,23 @@ verb (drop through when off), which crumble cannot do; ensure off-window never t
 
 ## 3. Backlog — Tower 5+
 
-**ORBITERS (type 7):** movers on a circular path (`x=bx+amp·cos`, `y=by+amp·sin`), pure
+**ORBITERS (type 7) — shipped in T5:** movers on a circular path (`x=bx+amp·cos`, `y=by+amp·sin`), pure
 `rectOf` → Contract holds; carry becomes 2-D. Clockwork escalation of T3. Fairness: period ≤3 s,
 orbit speed bounded. Visual: orbit ring track. Cost: 2-D carry math + solver phase sampling.
 
-**DIRECTION SPRINGS (type 2 + vector param):** a spring that sets a *fixed* launch vector
+**DIRECTION SPRINGS (type 8) — shipped in T5:** a spring that sets a *fixed* launch vector
 instead of preserving `vx` → deterministic redirect / routing chains. Preview exact (bounce
 branch sets `v`). Visual: arrow stencil; audio pitched by direction. Cost: bounce-chain
 invariant becomes "follow the arrows", not "monotonic x".
+
+**ONE-WAY WARP DOORS (type 9) — shipped in T6, exclusive to that tower:** `[x,top,w,9,targetIdx]`.
+A top landing folds the body to the target's top centre and resolves as an ordinary landing
+there; the fold lives inside `step()` so preview ≡ flight through the teleport (pink
+destination ring + dashed fold-link before commit). Side hits/bonks never fold; arrivals stand
+still; targets must be stable rests. The routing verb: doors open downward (jump down to go
+up) and some are unkind (fold you back down; the drop counts as a fall). Solver/VALIDATE treat
+pads as non-rests and accept a hop whose fold opens on the next rest; the dy invariant applies
+to the launch onto the pad, not the fold's rise.
 
 ## 4. Considered and rejected (for now)
 
@@ -128,8 +139,9 @@ invariant becomes "follow the arrows", not "monotonic x".
 
 ## 5. Playground evidence (scratch, not shipped)
 
-`.qwen/tmp/playground.html` iframes the real game, registers a tiny tower 4, and wraps `step`
-with (a) zone accel and (b) a pure `solidAt` predicate, plus a `groundStep` phase-out drop.
+`.qwen/tmp/playground.html` iframes the real game, appends a tiny playground tower (slot 7 now
+that six towers ship), and wraps `step` with (a) zone accel and (b) a pure `solidAt` predicate,
+plus a `groundStep` phase-out drop.
 Run: serve folder over HTTP, open `/.qwen/tmp/playground.html` (or `.qwen/tmp/run-play.ps1`).
 Result **8 passed, 0 failed**:
 - gust: dy-260 solvable through updraft ≤98%; same jump UNSOLVABLE without zone; flight

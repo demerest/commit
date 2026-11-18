@@ -236,6 +236,34 @@ function drawPlatform(plat, now) {
     return;
   }
 
+  /* warp pad: pink slab + counter-rotating portal arcs (a door, not a ledge) */
+  if (plat.warp) {
+    const x = plat.x, y = sy;
+    ctx.fillStyle = COL.warpBody;
+    ctx.fillRect(x, y, plat.w, plat.h);
+    ctx.fillStyle = COL.warp;
+    ctx.fillRect(x, y, plat.w, 2);
+    ctx.strokeStyle = "rgba(255,110,199,.4)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, plat.w - 1, plat.h - 1);
+    const cx = x + plat.w / 2, cy = y + plat.h / 2, a = worldT * 2.4;
+    ctx.strokeStyle = COL.warp;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.9;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, a, a + 2.2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, a + Math.PI, a + Math.PI + 2.2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2.5, -a * 1.6, -a * 1.6 + 4);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    return;
+  }
+
   /* solid / crumble / bounce */
   let jx = 0, jy = 0, prog = 0;
   if (plat.crumble && body.on === plat && crumbleT > 0) {
@@ -501,6 +529,21 @@ function render(now) {
       ctx.globalAlpha = 1;
       for (const m of pr.contacts) {
         const sy = SY(m.y);
+        /* the fold made visible: dashed link from the door to where it opens */
+        if (m.warp >= 0) {
+          const src = PLATS[m.warp];
+          ctx.save();
+          ctx.strokeStyle = COL.warp;
+          ctx.globalAlpha = 0.5;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 6]);
+          ctx.beginPath();
+          ctx.moveTo(src.x + src.w / 2, SY(src.y + src.h));
+          ctx.lineTo(m.x, sy);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
         if (m.t === "bounce") {
           ctx.strokeStyle = COL.spring;
           ctx.lineWidth = 2;
@@ -514,7 +557,7 @@ function render(now) {
           ctx.stroke();
         } else if (m.ok) {
           const pulse = 3 + Math.sin(now * 0.012) * 1.5;
-          const rc = m.move ? COL.mover : m.clock ? COL.phase : m.ice ? COL.ice : COL.green;
+          const rc = m.warp >= 0 ? COL.warp : m.move ? COL.mover : m.clock ? COL.phase : m.ice ? COL.ice : COL.green;
           ctx.strokeStyle = rc;
           ctx.lineWidth = 2;
           ctx.beginPath();
@@ -691,9 +734,13 @@ function render(now) {
   }
   ctx.restore();
 
-  /* fall flash + vignette */
+  /* fall flash + warp glow + vignette */
   if (flash > 0.01) {
     ctx.fillStyle = "rgba(255,93,93," + flash + ")";
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+  }
+  if (warpGlow > 0.01) {
+    ctx.fillStyle = "rgba(255,110,199," + warpGlow + ")";
     ctx.fillRect(0, 0, VIEW_W, VIEW_H);
   }
   const vg = ctx.createRadialGradient(VIEW_W / 2, VIEW_H / 2, VIEW_H * 0.35, VIEW_W / 2, VIEW_H / 2, VIEW_H * 0.75);

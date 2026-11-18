@@ -1,4 +1,4 @@
-# COMMIT — Level Design & Geometry (v2.3 · three towers)
+# COMMIT — Level Design & Geometry (v2.6 · six towers)
 **Companion to `COMMIT_GDD.md` · All coordinates in logical px · y-up · 10 px = 1 m**
 **Source of truth: one descriptor file per tower, `levels/tower-N.js`. This doc explains the math and intent.**
 
@@ -10,12 +10,14 @@ call registering a JSON object:
 ```js
 COMMIT_LEVEL({ "id":3, "name":"TOWER 3", "tag":"THE CLOCKWORK SPIRE", "summit":6000,
   "goal":[240,120],
-  "plats":[[x,topY,width,type], …],   // 0 solid · 1 crumble · 2 bounce · 3 ice · 4 move·h · 5 move·v · 6 clock · 7 orbit · 8 dir
+  "plats":[[x,topY,width,type], …],   // 0 solid · 1 crumble · 2 bounce · 3 ice · 4 move·h · 5 move·v · 6 clock · 7 orbit · 8 dir · 9 warp
   // movers append three params: [x,topY,width,4|5|7, amp, period, phase]
   //   x/topY = oscillation CENTRE (orbit: circle centre) · amp px · period s (≤3) · phase 0..1
   // clock (6) appends: [x,topY,width,6, duty, period, phase]
   //   solid for duty fraction of each period, ghost (pass-through) otherwise; on-window ≥1.2 s
   // dir spring (8) appends: [x,topY,width,8, vx, vy] — fixed launch vector (|v|≤950, vy>0)
+  // warp (9) appends: [x,topY,width,9, targetIdx] — one-way door (Tower 6 only): a top landing
+  //   folds you to that platform's top centre; target must be a stable rest (non-warp/bounce/dir)
   "zones":[[x,y,w,h,ax,ay], …],        // constant extra accel px/s² on the body in flight only
   //   ay>0 updraft (cuts effective gravity) · ax gust (pushes sideways) · |a| ≤ 1600
   "ceil":[[x,topY,width], …],
@@ -40,11 +42,13 @@ a `tower-N.js` descriptor.
 - Platforms are authored as `[x, topY, width, type]`; the solid rect is `{x, y: topY−16, w, h: 16}`.
 - **Type:** `0/N` solid · `1/C` crumble (breaks after `CRUMBLE_DWELL_TIME = 1.6 s`) · `2/B` bounce
   (auto-launch at `BOUNCE_SPEED = 800 px/s`, keeping `vx`) · `3/I` **ice** (drift, see §2) ·
-  `4/H` **mover·horizontal** · `5/V` **mover·vertical** (ping-pong, see §2).
+  `4/H` **mover·horizontal** · `5/V` **mover·vertical** (ping-pong, see §2) ·
+  `9/W` **warp door** (one-way fold, Tower 6 only, see §2).
 - Character is an 18×18 AABB; `body.y` is its feet.
 - Bounds: floor top at `y=0` (full width), solid walls at `x<0` and `x>480`.
 - Ceilings are 16 px-thick solids; their **underside** is the bonk surface.
-- Goal per tower: T1 `[180, 5080, 120]`, T2 `[240, 5600, 120]`, T3 `[240, 6000, 120]`, flagged `goal: true`.
+- Goal per tower: T1 `[180, 5080, 120]`, T2 `[240, 5600, 120]`, T3 `[240, 6000, 120]`,
+  T4/T5 per descriptor, T6 `[150, 4800, 160]`, flagged `goal: true`.
 - Crumbled platforms reform after `CRUMBLE_REFORM_TIME = 3.0 s`; reset/erase rebuilds instantly.
 - Each tower = one descriptor (§0) registered into `LEVELS` as `{id,name,tag,summit,goal,plats,ceil,sections,notes}`.
 
@@ -135,6 +139,20 @@ vector (not `BOUNCE_SPEED`, not preserved `vx`) and stays airborne → a determi
 Preview exact (the bounce branch sets `v`). The downstream rest must lie within the fixed
 vector's reach from the spring's contact span: `dy ≤ vy²/(2G)` and `dx ≈ vx·t(dy)`. Chains
 "follow the arrows", so the monotonic-x bounce invariant applies to type 2 only.
+
+**Warp-door math (T6 only).** Type 9: a *top landing* on the pad repositions the body to
+`rectOf(target,t)` top centre and then runs the ordinary landing branch on the target — all
+inside `step()`, so preview ≡ flight through the fold by construction. Side hits and bonks
+never fold. The arrival stands still (momentum discarded, ice drift included); crumble dwell /
+carry / phase rules apply at the destination. Falls are still honest: an unkind fold that drops
+you ≥250 px counts as a fall with the red flash and `−Xm` popup.
+Authoring constraints: target is a stable rest (non-warp, non-bounce, non-dir); pads are
+**not rests** for the solver/VALIDATE chain — a rest whose incoming edge is a fold is reached
+by launching onto the pad, so the `dy ≤ 160` invariant applies to the *launch onto the pad*
+(often a jump DOWN), not to the fold's rise. Doors must not sit under an overhanging rest in
+the same column unless the fall corridor beside that rest is wide enough: the arc has to slip
+past the overhang's edge before descending onto the pad (T6 door 8 is 150 px wide for exactly
+this reason — a 110 px pad gave a ±1° graze window; 150 px gives ~±8°).
 
 ## 3. Geometry — Section I · First Steps (0–168 m)
 
@@ -358,3 +376,35 @@ Dir springs `[x,top,w,8,vx,vy]`: 9 (290,1340,-200,800)→10; 16 (110,2300,200,80
 Spring-assisted vertical stacks (27→29, 42→44) are legal because the spring is the verb.
 Bounce chain 31 (290,4380) → 32 (200,4520) → 33 (140,4660), leftward monotonic.
 Summit offset to x 240 (right of pad 47 at 170,6620). Solver 44/44 ≤98%; editor VALIDATE 44/44.
+
+## 14. Tower 6 · The Switchboard (480 m) — one-way doors, a routing puzzle
+
+29 platforms: 22 rests + 6 warp doors + 1 bounce spring. Widths 110–150 px throughout and
+direct rises ≤150 px — deliberately gentler platforming than T1–T5 (minimum solve power caps
+at **90%**, typical 84–88%, vs 94% caps / 90–92% typical in T2 and T5). The difficulty is
+*routing*: which door, and when to jump down. No zones, no ceilings, no orbiters; one ice
+shelf, two crumbles, one conveyor, one bounce chain as recall.
+
+Warp doors `[x,top,w,9,target]`:
+- D1 `4 (60,680,110) → 5` — the teacher: a normal jump onto the pad folds 680 px up.
+- D2 `7 (60,1680,120) → 1` — **unkind**: sits above-left of the ice shelf like progress;
+  folds you back to 26 m. The drop counts as a fall.
+- D3 `8 (170,1200,150) → 9` — the way up from the ice shelf is a jump **down** onto this door
+  (direct rise 6→9 is 260 px > 205 apex). 150 px wide so the fall corridor past rest 5's right
+  edge is ~±8° of angle, not a graze. Also reachable from rest 5 (shortcut).
+- D4 `12 (60,1780,130) → 13` — second down-jump door, in the slot between rest 10 (1900) and
+  door 7 (1680); makes the conveyor 11 optional (drop from 10 straight onto it).
+- D5 `20 (330,3380,120) → 1` — **unkind** twin: same height as D6, opposite side.
+- D6 `21 (60,3380,110) → 22` — the kind twin: folds 440 px to the last ladder.
+
+Route (rest chain, folds in brackets): floor → 0 → 1 → 2 → 3 → [D1] 5 → 6 → [D3 down-jump] 9 →
+10 → 11 → [D4 down-jump] 13 → 14 → 15 → [bounce 16] 17 → 18 → 19 → [D6] 22 → 23 → 24 → 25 →
+26 → 27 → 28 → goal. Alternate lines exist on purpose (5→D3, 9→D4, 10→D4 skip the ice or the
+conveyor); the traps are always optional and always recoverable — you land back on the early
+ladder, never in a pit.
+
+Bounce chain 15 (60,2680) → 16 (180,2820) → 17 (300,2950), rightward monotonic (hop 130 < 145).
+Conveyor 11 `(250,2040,120,4,40,2.4,0)` sweep x∈[210,410] inside walls; its two jumps survive
+±0.12 s. Summit goal `[150,160]` offset right of pad 28 (60,4660) so the last arc is a decision.
+Solver 23/23 ≤98% (min-power ceiling 90%); editor VALIDATE 23/23; harness §36–37 assert the
+fold contract, one-way rule, traps, down-jumps, queue-through-fold and persistence.

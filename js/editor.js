@@ -4,8 +4,8 @@
 "use strict";
 (function () {
   const cv = $("cv"), ctx = cv.getContext("2d");
-  const TY = ["solid", "crumble", "bounce", "ice", "move·h", "move·v", "clock", "orbit", "dir"];
-  const TCOL = [COL.edge, COL.crumble, COL.spring, COL.ice, COL.mover, COL.mover, COL.phase, COL.orbit, COL.dir];
+  const TY = ["solid", "crumble", "bounce", "ice", "move·h", "move·v", "clock", "orbit", "dir", "warp"];
+  const TCOL = [COL.edge, COL.crumble, COL.spring, COL.ice, COL.mover, COL.mover, COL.phase, COL.orbit, COL.dir, COL.warp];
   let ed = null, sel = null, camY = -100, scale = 1, drag = null;
   const clone = o => JSON.parse(JSON.stringify(o));
 
@@ -37,6 +37,8 @@
         dvy: ty === PLAT_DIR ? (per || DIR_DEFAULT_VY) : 0,
         clock: ty === PLAT_CLOCK ? 1 : 0,
         duty: ty === PLAT_CLOCK ? (amp || CLOCK_DEFAULT_DUTY) : 0,
+        warp: ty === PLAT_WARP ? 1 : 0,
+        warpTo: ty === PLAT_WARP ? (amp || 0) : 0,
         bx: x, by: top - PLATFORM_HEIGHT,
         amp: amp || MOVER_DEFAULT_AMP,
         period: per || MOVER_DEFAULT_PERIOD,
@@ -159,6 +161,7 @@
         : ty === PLAT_ORBIT ? COL.orbitBody
         : ty === PLAT_CLOCK ? COL.clockBody
         : ty === PLAT_DIR ? COL.dirBody
+        : ty === PLAT_WARP ? COL.warpBody
         : COL.plat;
       ctx.fillRect(x * scale, sy, w * scale, PLATFORM_HEIGHT * scale);
       ctx.fillStyle = TCOL[ty];
@@ -210,6 +213,32 @@
         ctx.moveTo(cx + ux * 6, cy + uy * 6);
         ctx.lineTo(cx + ux * 2 + uy * 3, cy + uy * 2 - ux * 3);
         ctx.stroke();
+      }
+      /* warp door: portal arcs + dashed fold-link to the target rest */
+      if (ty === PLAT_WARP) {
+        const cx = (x + w / 2) * scale, cy = sy + 8 * scale;
+        ctx.strokeStyle = COL.warp;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, 5 * scale, 0.6, 2.8);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, 5 * scale, 3.74, 5.94);
+        ctx.stroke();
+        const tgt = ed.plats[amp || 0];
+        if (tgt) {
+          ctx.save();
+          ctx.strokeStyle = COL.warp;
+          ctx.globalAlpha = 0.5;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 6]);
+          ctx.beginPath();
+          ctx.moveTo(cx, sy);
+          ctx.lineTo((tgt[0] + tgt[2] / 2) * scale, SY(tgt[1]));
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
       }
       /* selection highlight + resize handle */
       if (sel && sel.kind === "p" && sel.idx === i) {
@@ -271,9 +300,13 @@
     }
     return p;
   }
-  function findLaunchEd(fi, ti) {
+  /* warpDest: search a launch onto pad `ti` whose fold opens on rest `warpDest`
+     (the mark rings the destination, so acceptance + range use that rect) */
+  function findLaunchEd(fi, ti, warpDest) {
     const fp = fi < 0 ? [0, 0, VIEW_W, 0] : ed.plats[fi];
     const tp = ti < 0 ? [ed.goal[0], ed.summit, ed.goal[1], 0, true] : ed.plats[ti];
+    const accept = warpDest == null ? ti : warpDest;
+    const rp = warpDest == null ? tp : ed.plats[warpDest];
     const fm = fp[3] === PLAT_MOVE_H || fp[3] === PLAT_MOVE_V || fp[3] === PLAT_CLOCK || fp[3] === PLAT_ORBIT;
     const tm = tp[3] === PLAT_MOVE_H || tp[3] === PLAT_MOVE_V || tp[3] === PLAT_CLOCK || tp[3] === PLAT_ORBIT;
     const per = fm ? (fp[5] || MOVER_DEFAULT_PERIOD) : tm ? (tp[5] || MOVER_DEFAULT_PERIOD) : 0;
@@ -282,7 +315,7 @@
     const zone = (ed.zones || []).some(z => z[1] < tp[1] + 40 && z[1] + z[3] > fp[1] - 40 && z[0] + z[2] > Math.min(fp[0], tp[0]) && z[0] < Math.max(fp[0] + fp[2], tp[0] + tp[2]));
     for (const ph of phases) {
       worldT = ph;
-      const fr = rectAtEd(fp, ph), tr = rectAtEd(tp, ph);
+      const fr = rectAtEd(fp, ph), tr = rectAtEd(tp, ph), rr = rectAtEd(rp, ph);
       const dyLo = ((tp[3] === PLAT_MOVE_V || tp[3] === PLAT_ORBIT) ? tp[1] - (tp[4] || MOVER_DEFAULT_AMP) : tr[1])
         - ((fp[3] === PLAT_MOVE_V || fp[3] === PLAT_ORBIT) ? fp[1] + (fp[4] || MOVER_DEFAULT_AMP) : fr[1]);
       const vyNeed = (spring || zone) ? 0 : Math.sqrt(2 * GRAVITY * Math.max(0, dyLo));
@@ -300,14 +333,14 @@
           for (let pw = pw0; pw <= SOLVER_MAX_POWER + 0.001; pw += SOLVER_POWER_STEP) {
             const vx = Math.cos(rad) * pw * MAX_LAUNCH_SPEED, vy = sin * pw * MAX_LAUNCH_SPEED;
             const pr = preview({ x: vx, y: vy });
-            if (pr.mark && pr.mark.ok && (ti < 0 ? pr.mark.goal : pr.mark.idx === ti) && pr.mark.x > tr[0] - CHAR_SIZE / 2 && pr.mark.x < tr[0] + tr[2] + CHAR_SIZE / 2) {
+            if (pr.mark && pr.mark.ok && (ti < 0 ? pr.mark.goal : pr.mark.idx === accept) && pr.mark.x > rr[0] - CHAR_SIZE / 2 && pr.mark.x < rr[0] + rr[2] + CHAR_SIZE / 2) {
               if (per) {
                 let tol = true;
                 for (const d of [-SOLVER_PHASE_TOL, SOLVER_PHASE_TOL]) {
                   worldT = ph + d;
-                  const tr2 = rectAtEd(tp, ph + d);
+                  const tr2 = rectAtEd(rp, ph + d);
                   const p2 = preview({ x: vx, y: vy });
-                  if (!(p2.mark && p2.mark.ok && (ti < 0 ? p2.mark.goal : p2.mark.idx === ti) && p2.mark.x > tr2[0] - CHAR_SIZE / 2 && p2.mark.x < tr2[0] + tr2[2] + CHAR_SIZE / 2)) tol = false;
+                  if (!(p2.mark && p2.mark.ok && (ti < 0 ? p2.mark.goal : p2.mark.idx === accept) && p2.mark.x > tr2[0] - CHAR_SIZE / 2 && p2.mark.x < tr2[0] + tr2[2] + CHAR_SIZE / 2)) tol = false;
                 }
                 worldT = ph;
                 if (!tol) continue;
@@ -331,7 +364,8 @@
     const out = [];
     let bad = 0;
     const restIdx = [];
-    ed.plats.forEach((p, i) => { if (p[3] !== PLAT_BOUNCE && p[3] !== PLAT_DIR) restIdx.push(i); });
+    /* warp pads are doors, not rests: you never stand on one */
+    ed.plats.forEach((p, i) => { if (p[3] !== PLAT_BOUNCE && p[3] !== PLAT_DIR && p[3] !== PLAT_WARP) restIdx.push(i); });
     const n = restIdx.length + 1;
     const uns = [];
     for (let i = 0; i < n; i++) {
@@ -339,14 +373,17 @@
       const ti = i < restIdx.length ? restIdx[i] : -1;
       const a = fi < 0 ? [0, 0, VIEW_W, 0] : ed.plats[fi];
       const b = ti < 0 ? [ed.goal[0], ed.summit, ed.goal[1], 0] : ed.plats[ti];
-      const dy = dyMin(a, b);
+      /* a rest whose incoming edge is a fold: the rise is done by the door,
+         so the invariant applies to the launch onto the pad (often a jump DOWN) */
+      const via = ed.plats.findIndex(p => p[3] === PLAT_WARP && p[4] === ti);
+      const dy = via >= 0 ? Math.min(dyMin(a, b), dyMin(a, ed.plats[via])) : dyMin(a, b);
       const springBetween = ed.plats.some(p => (p[3] === PLAT_BOUNCE || (p[3] === PLAT_DIR && p[5] > 0)) && p[1] > a[1] && p[1] < b[1]);
       const zoneBetween = (ed.zones || []).some(z => z[1] < b[1] + 40 && z[1] + z[3] > a[1] - 40 && z[5] > 0);
       if (dy > DESIGN_MAX_DY && !springBetween && !zoneBetween) {
         out.push("jump" + (i + 1) + ": dy " + dy + " > " + DESIGN_MAX_DY + " (no spring/updraft between)");
         bad++;
       }
-      if (!findLaunchEd(fi, ti)) uns.push(i + 1);
+      if (!findLaunchEd(fi, ti) && !(via >= 0 && findLaunchEd(fi, via, ti))) uns.push(i + 1);
     }
     if (uns.length) {
       out.push("UNSOLVED ≤" + Math.round(SOLVER_MAX_POWER * 100) + "%: jump " + uns.join(", "));
@@ -381,6 +418,15 @@
         const vx = amp || 0, vy = per || DIR_DEFAULT_VY;
         if (Math.hypot(vx, vy) > MAX_LAUNCH_SPEED) { out.push("plat" + (i + 1) + ": launch vector > MAX_LAUNCH_SPEED"); bad++; }
         if (vy <= 0) { out.push("plat" + (i + 1) + ": dir spring vy must be > 0"); bad++; }
+      }
+      if (ty === PLAT_WARP) {
+        if (!Number.isInteger(amp) || amp < 0 || amp >= ed.plats.length || amp === i) {
+          out.push("plat" + (i + 1) + ": warp target index invalid");
+          bad++;
+        } else if (ed.plats[amp][3] === PLAT_WARP || ed.plats[amp][3] === PLAT_BOUNCE || ed.plats[amp][3] === PLAT_DIR) {
+          out.push("plat" + (i + 1) + ": warp target must be a stable rest (non-warp, non-bounce, non-dir)");
+          bad++;
+        }
       }
     });
     (ed.zones || []).forEach((z, i) => {
@@ -427,6 +473,10 @@
         $("pPer").value = p[3] === PLAT_DIR ? (p[5] || DIR_DEFAULT_VY) : (p[5] || MOVER_DEFAULT_PERIOD);
         $("pPh").value = p[6] || 0;
       }
+      const wp = p[3] === PLAT_WARP;
+      $("warpRow").hidden = !wp;
+      $("pTargetLab").hidden = !wp;
+      if (wp) $("pTarget").value = p[4] || 0;
     }
     $("fZones").value = JSON.stringify(ed.zones || []);
   }
@@ -490,6 +540,9 @@
         p[4] = p[4] || 0;
         p[5] = p[5] || DIR_DEFAULT_VY;
         p.length = 6;
+      } else if (p[3] === PLAT_WARP) {
+        p[4] = (Number.isInteger(p[4]) && p[4] >= 0 && p[4] < ed.plats.length && p[4] !== sel.idx) ? p[4] : 0;
+        p.length = 5;
       } else p.length = 4;
       rebuild();
       syncFields();
@@ -516,6 +569,14 @@
     }
   };
   $("pPh").oninput = e => { const p = selPlat(); if (p) { p[6] = Math.min(1, Math.max(0, +e.target.value || 0)); rebuild(); draw(); } };
+  $("pTarget").oninput = e => {
+    const p = selPlat();
+    if (p) {
+      p[4] = Math.min(ed.plats.length - 1, Math.max(0, Math.round(+e.target.value || 0)));
+      rebuild();
+      draw();
+    }
+  };
   $("bAddP").onclick = () => {
     ed.plats.push([120, Math.round(camY + cv.height / scale / 2), ED_NEW_PLAT_W, 0]);
     sel = { kind: "p", idx: ed.plats.length - 1 };
