@@ -110,6 +110,23 @@ const BOUNDARY_MARGIN = 60;        // px, floor/wall slab thickness outside the 
 const BOUNDARY_HEADROOM = 900;     // px, wall height above the summit
 const STAR_COUNT = 80;             // background stars per tower
 
+/* ---------- endless mode (NO SUMMIT) ---------- */
+const ENDLESS_WINDOW = 500;        // px, live window: generate 50m above the peak, void trails 50m below
+const ENDLESS_START_GRACE = 250;   // px, the void starts this far below the spawn ledge
+const ENDLESS_CLAIM_MIN = 1000;    // px, minimum gap between commit pads (100m)
+const ENDLESS_CLAIM_MAX = 2000;    // px, maximum gap between commit pads (200m)
+const ENDLESS_DY_MIN = 70;         // px, rest-to-rest rise floor
+const ENDLESS_DY_MAX = 150;        // px, rest-to-rest rise cap (under DESIGN_MAX_DY)
+const ENDLESS_DX_MAX = 210;        // px, rest-to-rest horizontal drift cap
+const ENDLESS_W_MIN = 70;          // px, narrowest generated rest
+const ENDLESS_W_VAR = 70;          // px, generated rest width variance (70..140)
+const ENDLESS_CLAIM_W = 140;       // px, commit pads are generous
+const ENDLESS_SKY_CYCLE = 10000;   // px, sky/wind ping-pong period (1000m) so the air keeps changing
+const ENDLESS_SPECIAL_CHANCE = 0.35; // chance a bonus spring/door is inserted between two rests
+const ENDLESS_PROBE_ANGLE_STEP = 8;  // deg, coarse reachability probe angle step
+const ENDLESS_PROBE_POWERS = [0.55, 0.7, 0.85, 0.98]; // coarse probe power ladder (≤98%)
+const ENDLESS_STAR_SPAN = VIEW_H + 40; // px, wrapped star band height in endless
+
 /* ---------- design invariants & solver (editor VALIDATE + test harness) ---------- */
 const DESIGN_MAX_DY = 160;         // px, max direct rest-to-rest rise without help
 const DESIGN_MIN_PLAT_W = 28;      // px, narrowest authorable platform

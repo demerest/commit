@@ -31,6 +31,20 @@ Clearing a tower's summit unlocks the next. Switch towers from the help overlay 
 the **NEXT TOWER** button on the win screen. Each tower keeps its own run; lifetime records are
 shared. The HUD tag (top-left) shows the current tower and opens the picker.
 
+## NO SUMMIT — endless mode
+
+A separate mode from the main menu (**NO SUMMIT · ENDLESS**): an infinite, randomized shaft
+built from every platform type, always within jump reach. The world is a live 100 m window —
+platforms generate 50 m above your peak and despawn 50 m below it, never to return. Below the
+window rises **the void**: fall into it and the run ends.
+
+Every 100–200 m a flagged **commit pad** (summit-like, amber flag) appears. Landing on one
+*commits* your height — and only committed height counts when the void takes you. Die at 295 m
+with your last commit at 272 m and your score is 272 m; uncommitted height is lost. The death
+screen shows committed / peak / launches / time, your endless best, and a copyable share text
+with the same dynamic page link as the win screen. The sky and wind keep cycling every 1000 m
+so the air never stops changing.
+
 ## Controls
 
 | Action | Pointer | Keyboard |
@@ -90,14 +104,21 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   Main Menu, and the summit (between-levels) screen links back to the main menu and level
   select. Every action has a button as well as a key.
 - **Altitude light.** The sky climbs from cold navy through steel teal and violet dusk to a
-  warm rose dawn at each summit.
+  warm rose dawn at each summit. In NO SUMMIT it ping-pongs through the same palette every
+  1000 m, forever.
+- **NO SUMMIT (endless).** Seeded random generation, probe-verified through the real integrator
+  at ≤ 98 % power (with a one-rest lookahead so a new ledge never bonks the previous arc).
+  Springs and warp doors appear as optional bonuses beside the chain, never load-bearing;
+  endless doors only fold forward. The void trails your peak by 50 m; commit pads bank your
+  score every 100–200 m.
 
 ## What's inside
 
 - **Zero dependencies, zero asset files.** `index.html` (markup), `style.css` (theme), and
   focused classic scripts in `js/` (`constants`, `core`, `levels`, `audio`, `fx`, `sim`,
-  `render`, `ui`, `main`). Every visual is a Canvas 2D primitive; every sound is synthesized
-  at runtime with Web Audio. No images, no audio files, no network requests. Works from `file://`.
+  `endless`, `render`, `ui`, `main`). Every visual is a Canvas 2D primitive; every sound is
+  synthesized at runtime with Web Audio. No images, no audio files, no network requests.
+  Works from `file://`.
 - **Readable, named tuning.** `js/constants.js` holds every gameplay/feel number as a named,
   commented constant grouped by system (physics, aim, mechanics, particles, audio bed, solver
   and design invariants); the logic files stay formatted and free of magic numbers.
@@ -117,17 +138,18 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   pink ring = warp door, red ✕ = strike, teal ring = bounce).
 - **Honest failure economy:** falls ≥ 25 m flash red and float a `−Xm` popup; your last
   flight's trail hangs in the air until you launch again.
-- **Shareable runs:** the win screen's copy text carries your stats plus a dynamic link to
-  the page you're playing on (`location.href`, query/hash stripped) — it stays a playable
-  link when the game is embedded elsewhere, e.g. in an itch.io iframe.
+- **Shareable runs:** the win screen's and the void screen's copy text carry your stats plus a
+  dynamic link to the page you're playing on (`location.href`, query/hash stripped) — it stays
+  a playable link when the game is embedded elsewhere, e.g. in an itch.io iframe.
 - **Persistence (`commit.v3`):** per-tower runs + shared lifetime records in `localStorage`,
   including platforms mid-reform, your ice drift direction and the mover world clock. Refresh
   resumes where you stood, mid-phase (grounded positions only). Erase requires confirmation and
-  keeps lifetime records.
+  keeps lifetime records. Endless runs are session-only; the committed-height best persists.
 - **Procedural sound design:** aim hum + fuse ticks, launch whoosh, impact thuds, bonk blips,
   pitch-rising bounce boings, crumble creaks + shatter, glassy ice landing + slick slide scrape,
-  mechanical mover clanks + direction-pitched reversal tick-tocks, fall alarm, summit chime, and
-  an altitude wind bed — then silence at the top. On by default; ♪ / `M` mutes, persisted.
+  mechanical mover clanks + direction-pitched reversal tick-tocks, fall alarm, summit chime,
+  commit-pad bank chime, void rumble, and an altitude wind bed — then silence at the top.
+  On by default; ♪ / `M` mutes, persisted.
 - **Accessible:** full keyboard play, `prefers-reduced-motion` (no shake, halved particles, no
   confetti), focus outlines, aria labels, no audio dependency.
 
@@ -145,13 +167,16 @@ visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPO
 
 ## Verification
 
-`test.html` is an automated harness (**231 assertions**) that drives the game through a
+`test.html` is an automated harness (**265 assertions**) that drives the game through a
 manual-clock hook: commit contract, fuse, pre-aim queue, crumble break + reform, bounce-chain preview ≡ flight,
 ice slide / stand-still / walk-off / launch-discards-slide / persistence, mover carry / reversal /
 launch-discards-carry / moving-target contract / phase persistence / lift collision fairness, tower lock + unlock +
 switching, input FSM, fall economy, overlays, mute, summit flow, reduced-motion, altitude
 palette, zero-network, warp-fold contract / one-way rule / traps / down-jumps / queue-through-fold,
-dead-vertical bounce escape, pause-reset flow —
+dead-vertical bounce escape, pause-reset flow, and NO SUMMIT (menu entry, seeded determinism,
+type mix, commit-pad spacing, rise cap, forward-only doors, void window + despawn + no-regen,
+an independent fine solver over the generated chain, commit banking, void death + score +
+persistence, restart/pause/menu/help flows, tower restore, endless preview ≡ flight) —
 plus a phase-aware solver proving **all 36 Tower-1, 40 Tower-2, 42 Tower-3, 43 Tower-4,
 44 Tower-5 and 35 Tower-6 rest-to-rest jumps** are solvable at ≤ 98 % power with the real
 integrator (mover jumps must also survive a ±0.12 s launch-phase shift; warp hops solve through
@@ -164,7 +189,7 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **231/231 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **265/265 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 

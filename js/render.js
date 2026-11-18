@@ -5,7 +5,9 @@
 const cv = $("cv"), ctx = cv.getContext("2d"), frame = $("frame");
 let scale = 1, dpr = 1, camY = CAM_MIN, blinkT = 0, blinkTimer = 3;
 
-const clampCam = t => Math.max(CAM_MIN, Math.min(t, SUMMIT + CAM_HEADROOM - VIEW_H));
+const clampCam = t => mode === "endless"
+  ? Math.max(CAM_MIN, t)
+  : Math.max(CAM_MIN, Math.min(t, SUMMIT + CAM_HEADROOM - VIEW_H));
 
 function resize() {
   scale = Math.min(innerWidth / VIEW_W, innerHeight / VIEW_H);
@@ -236,6 +238,46 @@ function drawPlatform(plat, now) {
     return;
   }
 
+  /* commit pad (NO SUMMIT): a summit-like flag that banks your height on landing */
+  if (plat.claim) {
+    const x = plat.x, y = sy;
+    ctx.fillStyle = COL.plat;
+    ctx.fillRect(x, y, plat.w, plat.h);
+    ctx.fillStyle = COL.amber;
+    ctx.fillRect(x, y, plat.w, 2);
+    const fx = x + plat.w / 2, fy = y;
+    ctx.strokeStyle = COL.ink;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(fx, fy - 40);
+    ctx.stroke();
+    if (plat.claimed) {
+      ctx.fillStyle = COL.green;
+      ctx.beginPath();
+      ctx.moveTo(fx, fy - 40);
+      ctx.lineTo(fx + 24, fy - 33);
+      ctx.lineTo(fx, fy - 26);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = COL.amber;
+      ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now * 0.005);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(fx, fy - 40);
+      ctx.lineTo(fx + 24, fy - 33);
+      ctx.lineTo(fx, fy - 26);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = plat.claimed ? COL.green : COL.dim;
+    ctx.font = "10px ui-monospace,monospace";
+    ctx.fillText((plat.claimed ? "COMMITTED · " : "COMMIT · ") + ((plat.y + plat.h) / PX_PER_METER).toFixed(0) + "m", x - 4, fy - 48);
+    return;
+  }
+
   /* warp pad: pink slab + counter-rotating portal arcs (a door, not a ledge) */
   if (plat.warp) {
     const x = plat.x, y = sy;
@@ -323,8 +365,8 @@ function drawPlatform(plat, now) {
 }
 
 function render(now) {
-  /* altitude sky */
-  const t = clamp01(camY / SUMMIT);
+  /* altitude sky (endless ping-pongs through it every 1000m) */
+  const t = altFrac(camY);
   const [top, mid, bot] = skyAt(t);
   const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);
   g.addColorStop(0, rgb(top));
@@ -341,9 +383,11 @@ function render(now) {
   ctx.save();
   ctx.translate(ox, oy);
 
-  /* stars (parallax) */
+  /* stars (parallax; endless wraps the band so the shaft never runs out of sky) */
   for (const s of STARS) {
-    const sy = VIEW_H - (s.y - camY * STAR_PARALLAX);
+    const sy = mode === "endless"
+      ? VIEW_H - (((s.y - camY * STAR_PARALLAX) % ENDLESS_STAR_SPAN) + ENDLESS_STAR_SPAN) % ENDLESS_STAR_SPAN
+      : VIEW_H - (s.y - camY * STAR_PARALLAX);
     if (sy < -4 || sy > VIEW_H + 4) continue;
     ctx.globalAlpha = (0.25 + 0.35 * (0.5 + 0.5 * Math.sin(now * 0.001 + s.p))) * (1 - t * 0.5);
     ctx.fillStyle = COL.dim;
@@ -397,11 +441,46 @@ function render(now) {
   ctx.fillRect(3, 0, 1, VIEW_H);
   ctx.fillRect(VIEW_W - 4, 0, 1, VIEW_H);
   const gy = SY(0);
-  if (gy < VIEW_H + 2) {
+  if (mode !== "endless" && gy < VIEW_H + 2) {
     ctx.fillStyle = COL.plat;
     ctx.fillRect(0, gy, VIEW_W, VIEW_H - gy + 2);
     ctx.fillStyle = COL.edge;
     ctx.fillRect(0, gy, VIEW_W, 2);
+  }
+
+  /* the void (NO SUMMIT): a rising death line 50m below your peak, hazard dashes crawling */
+  if (mode === "endless") {
+    const vy = SY(END.floor);
+    if (vy < VIEW_H + 2) {
+      const vg2 = ctx.createLinearGradient(0, vy - 46, 0, vy);
+      vg2.addColorStop(0, "rgba(255,93,93,0)");
+      vg2.addColorStop(1, "rgba(255,93,93,.14)");
+      ctx.fillStyle = vg2;
+      ctx.fillRect(0, vy - 46, VIEW_W, 46);
+      ctx.fillStyle = "#04050a";
+      ctx.fillRect(0, vy, VIEW_W, VIEW_H - vy + 2);
+      ctx.fillStyle = COL.red;
+      ctx.fillRect(0, vy, VIEW_W, 2);
+      ctx.strokeStyle = "rgba(255,93,93,.45)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([10, 8]);
+      ctx.lineDashOffset = RM ? 0 : -now * 0.02;
+      ctx.beginPath();
+      ctx.moveTo(0, vy + 7);
+      ctx.lineTo(VIEW_W, vy + 7);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.lineDashOffset = 0;
+      if (vy < VIEW_H - 16) {
+        ctx.fillStyle = COL.red;
+        ctx.globalAlpha = 0.6;
+        ctx.font = "10px ui-monospace,monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("THE VOID · 50m BELOW YOUR PEAK", VIEW_W / 2, vy + 22);
+        ctx.textAlign = "left";
+        ctx.globalAlpha = 1;
+      }
+    }
   }
 
   /* gust zones: tinted column + drifting streaks */
@@ -447,9 +526,9 @@ function render(now) {
     ctx.globalAlpha = 1;
   }
 
-  /* ceilings + platforms (movers synced to the world clock first) */
+  /* ceilings + platforms (movers synced to the world clock first; null = despawned) */
   for (const plat of SOLIDS) {
-    if (plat.wall || plat.ground || plat.goal) continue;
+    if (!plat || plat.wall || plat.ground || plat.goal) continue;
     if (plat.ceil) {
       const sy = SY(plat.y + plat.h);
       if (sy > VIEW_H + DRAW_CULL_MARGIN || sy + plat.h < -DRAW_CULL_MARGIN) continue;
@@ -470,8 +549,8 @@ function render(now) {
     }
   }
 
-  /* summit flag */
-  {
+  /* summit flag (towers only; the endless shaft has no summit) */
+  if (GOAL) {
     const fx = GOAL.x + GOAL.w / 2, fy = SY(GOAL.y + GOAL.h);
     ctx.strokeStyle = COL.ink;
     ctx.lineWidth = 2;
@@ -703,7 +782,7 @@ function render(now) {
     ctx.globalAlpha = 1;
   }
 
-  /* progress rail: current height, lifetime best, summit cap */
+  /* progress rail: towers map 0..summit; endless maps the live window, with commit ticks */
   {
     const x = VIEW_W - RAIL_X_MARGIN, yTop = RAIL_TOP, yBot = VIEW_H - RAIL_BOTTOM;
     ctx.strokeStyle = COL.line;
@@ -712,15 +791,38 @@ function render(now) {
     ctx.moveTo(x, yBot);
     ctx.lineTo(x, yTop);
     ctx.stroke();
-    ctx.strokeStyle = COL.blue;
-    ctx.beginPath();
-    ctx.moveTo(x, yBot);
-    ctx.lineTo(x, yBot - (yBot - yTop) * clamp01(body.y / SUMMIT));
-    ctx.stroke();
-    ctx.fillStyle = COL.amber;
-    ctx.fillRect(x - 5, yBot - (yBot - yTop) * clamp01((life.best[level] || 0) / SUMMIT) - 1, 10, 2);
-    ctx.fillStyle = COL.green;
-    ctx.fillRect(x - 4, yTop - 6, 8, 3);
+    if (mode === "endless") {
+      const lo = END.floor, hi = END.genTop + 60, span = Math.max(1, hi - lo);
+      const fr = v => clamp01((v - lo) / span);
+      ctx.strokeStyle = COL.blue;
+      ctx.beginPath();
+      ctx.moveTo(x, yBot);
+      ctx.lineTo(x, yBot - (yBot - yTop) * fr(body.y));
+      ctx.stroke();
+      const bf = fr(life.endlessBest || 0);
+      if ((life.endlessBest || 0) >= lo && (life.endlessBest || 0) <= hi) {
+        ctx.fillStyle = COL.amber;
+        ctx.fillRect(x - 5, yBot - (yBot - yTop) * bf - 1, 10, 2);
+      }
+      ctx.fillStyle = COL.green;
+      for (const p of PLATS) {
+        if (p && p.claim && p.y + p.h >= lo && p.y + p.h <= hi) {
+          ctx.fillRect(x - 4, yBot - (yBot - yTop) * fr(p.y + p.h) - 1, 8, 2);
+        }
+      }
+      ctx.fillStyle = COL.red;
+      ctx.fillRect(x - 4, yBot - 1, 8, 2);
+    } else {
+      ctx.strokeStyle = COL.blue;
+      ctx.beginPath();
+      ctx.moveTo(x, yBot);
+      ctx.lineTo(x, yBot - (yBot - yTop) * clamp01(body.y / SUMMIT));
+      ctx.stroke();
+      ctx.fillStyle = COL.amber;
+      ctx.fillRect(x - 5, yBot - (yBot - yTop) * clamp01((life.best[level] || 0) / SUMMIT) - 1, 10, 2);
+      ctx.fillStyle = COL.green;
+      ctx.fillRect(x - 4, yTop - 6, 8, 3);
+    }
   }
   ctx.restore();
 

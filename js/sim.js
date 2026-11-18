@@ -6,6 +6,9 @@
 
 const body = { x: VIEW_W / 2 - CHAR_SIZE / 2, y: 0, vx: 0, vy: 0, grounded: true, on: null, slide: 0, slideT: 0 };
 let state = "ready", aim = null, pendingV = null;
+/* mode is "tower" or "endless" (NO SUMMIT). The endless generator (js/endless.js) plugs in
+   claimHook/cullHook; the editor loads sim without endless, so the hooks stay inert there. */
+let mode = "tower", claimHook = null, cullHook = null;
 const kb = { angle: KB_DEFAULT_ANGLE, power: KB_DEFAULT_POWER };
 let run = { launches: 0, falls: 0, biggest: 0, time: 0, started: false, dead: [], slide: 0 };
 let launchY = 0, bounceChain = 0, crumbleT = 0, crumbleStage = 0;
@@ -54,7 +57,7 @@ function solidAt(plat, t) {
    make a sound, so a tower full of clocks isn't a global metronome */
 function updateClocks() {
   for (const plat of PLATS) {
-    if (!plat.clock || plat.dead) continue;
+    if (!plat || !plat.clock || plat.dead) continue;
     const was = solidAt(plat, worldT - FIXED_DT);
     const now = solidAt(plat, worldT);
     if (was === now) continue;
@@ -66,7 +69,7 @@ function updateClocks() {
 
 function findGround(x, y) {
   for (const plat of SOLIDS) {
-    if (plat.dead || plat.wall || !solidAt(plat, worldT)) continue;
+    if (!plat || plat.dead || plat.wall || !solidAt(plat, worldT)) continue;
     const r = rectOf(plat, worldT);
     if (Math.abs((r.y + r.h) - y) < GROUND_SNAP_TOL && x < r.x + r.w && x + CHAR_SIZE > r.x) return plat;
   }
@@ -94,7 +97,7 @@ function step(b, t) {
   /* horizontal pass: side walls eject */
   b.x += b.vx * FIXED_DT;
   for (const plat of SOLIDS) {
-    if (plat.dead || !solidAt(plat, t)) continue;
+    if (!plat || plat.dead || !solidAt(plat, t)) continue;
     const r = rectOf(plat, t);
     if (hitR(b, r)) {
       /* overlap created by the platform's own motion is a top/bottom approach, not a side wall */
@@ -116,7 +119,7 @@ function step(b, t) {
   b.y += b.vy * FIXED_DT;
   b.grounded = false;
   for (const plat of SOLIDS) {
-    if (plat.dead || !solidAt(plat, t)) continue;
+    if (!plat || plat.dead || !solidAt(plat, t)) continue;
     const r = rectOf(plat, t);
     if (hitR(b, r)) {
       const pr = plat.move ? rectOf(plat, t - FIXED_DT) : r;
@@ -176,11 +179,14 @@ function contactOf(b, ev) {
   };
 }
 
-/* the dotted arc: same integrator, same world clock, from the current body position */
-function preview(v) {
-  const b = { x: body.x, y: body.y, vx: v.x, vy: v.y, grounded: false };
+/* the dotted arc: same integrator, same world clock. Pure in (start, v, t0, cullY) so the
+   endless generator can probe reachability with exactly the arc the player will see. */
+function previewArc(b, v, t0, cullY) {
+  b.vx = v.x;
+  b.vy = v.y;
+  b.grounded = false;
   const pts = [], contacts = [];
-  let mark = null, markT = 0, t = worldT;
+  let mark = null, markT = 0, t = t0;
   for (let i = 0; i < PREVIEW_MAX_STEPS; i++) {
     t += FIXED_DT;
     const ev = step(b, t);
@@ -192,9 +198,12 @@ function preview(v) {
       markT = t;
       if (ev.t !== "bounce") break;
     }
-    if (b.y < PREVIEW_CULL_Y) break;
+    if (b.y < cullY) break;
   }
   return { pts, contacts, mark, markT };
+}
+function preview(v) {
+  return previewArc({ x: body.x, y: body.y }, v, worldT, cullHook ? cullHook() : PREVIEW_CULL_Y);
 }
 
 /* ---------- aiming ---------- */
@@ -352,6 +361,7 @@ function simStep() {
     safePos.y = body.y;
     save();
     if (ev.s.goal) win();
+    if (ev.s.claim && claimHook) claimHook(ev.s);
     if (pendingV && state === "ready") {
       const queued = pendingV;
       pendingV = null;
@@ -414,7 +424,7 @@ function updateCrumble(dt) {
 function updateRespawn(dt) {
   let changed = false;
   for (const plat of PLATS) {
-    if (plat.dead && plat.crumble && plat.respawnT > 0) {
+    if (plat && plat.dead && plat.crumble && plat.respawnT > 0) {
       plat.respawnT -= dt;
       if (plat.respawnT <= 0) {
         plat.respawnT = 0;
@@ -498,7 +508,7 @@ function groundStep() {
     } else body.y = b.y + plat.h;
     if (plat.move === PLAT_MOVE_V || plat.move === PLAT_ORBIT) {
       for (const other of SOLIDS) {
-        if (other === plat || other.dead || other.wall || other.ground) continue;
+        if (!other || other === plat || other.dead || other.wall || other.ground) continue;
         if (hitR(body, rectOf(other, worldT))) {
           dropRider(0, 0, "bonk");
           return;

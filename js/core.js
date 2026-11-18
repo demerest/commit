@@ -56,6 +56,13 @@ function skyAt(t) {
   const mix = (u, v) => [lerp(u[0], v[0], f), lerp(u[1], v[1], f), lerp(u[2], v[2], f)];
   return [mix(a[1], b[1]), mix(a[2], b[2]), mix(a[3], b[3])];
 }
+/* altitude fraction for sky/wind: towers climb once to the summit; the endless shaft
+   ping-pongs through the same sky every ENDLESS_SKY_CYCLE so the air keeps changing */
+function altFrac(y) {
+  if (mode !== "endless") return clamp01(y / SUMMIT);
+  const u = ((y / ENDLESS_SKY_CYCLE) % 2 + 2) % 2;
+  return u < 1 ? u : 2 - u;
+}
 
 /* m:ss.d run clock */
 function fmt(s) {

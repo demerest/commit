@@ -14,7 +14,7 @@
 <canvas id="cv" aria-label="COMMIT — drag to aim, release to jump"></canvas>
 <div id="hud">
  <div id="top">
-  <div id="alt"><button id="towerTag" aria-label="Choose tower">TOWER 1 · 508m</button><span id="altV">0.0m</span><small>BEST <span id="best">0.0m</span></small></div>
+  <div id="alt"><button id="towerTag" aria-label="Choose tower">TOWER 1 · 508m</button><span id="altV">0.0m</span><small><span id="bestLab">BEST</span> <span id="best">0.0m</span></small></div>
   <div id="meters">LAUNCH <b id="mLaunch">0</b><br>FALL <b id="mFall">0</b><br>TIME <b id="mTime">0:00.0</b></div>
  </div>
  <div id="btns"><button id="bPause" aria-label="Pause" title="Pause (Esc / P)">II</button><button id="bHelp" aria-label="Help">?</button><button id="bSound" aria-label="Mute sound" aria-pressed="true" title="Sound on/off (M)">♪</button><button id="bReset" aria-label="Reset run">↺</button></div>
@@ -26,6 +26,7 @@
  <p id="menuSub">A tower. A square. No air control.</p>
  <div class="col">
   <button id="bContinue" class="cta block">START GAME</button>
+  <button id="bEndless" class="cta block endless">NO SUMMIT · ENDLESS</button>
   <button id="bSelect" class="cta block ghost">LEVEL SELECT</button>
   <button id="bHow" class="cta block ghost">HOW TO PLAY</button>
  </div>
@@ -71,7 +72,8 @@
   <li class="dir"><b>Orange pads throw you.</b> A fixed vector, not your momentum — follow the arrow.</li>
   <li class="warp"><b>Pink pads are one-way doors.</b> Landing folds you somewhere — the arc rings the door, never its destination. Some doors open downward; some are unkind.</li>
   <li>Miss, and you fall for real. The floor remembers.</li>
-  <li>Reach the summit at <b id="helpSummit">508m</b>.</li>
+  <li id="ruleSummit">Reach the summit at <b id="helpSummit">508m</b>.</li>
+  <li id="ruleEndless" class="endless" hidden><b>NO SUMMIT is endless.</b> Random platforms, always within reach. The void rises 50m below your peak — fall into it and the run ends. Flagged pads <b>commit your height</b>: only committed height counts on death.</li>
  </ul>
 </div></div>
 <div id="confirm" class="overlay" hidden><div class="panel">
@@ -83,13 +85,25 @@
  <h1>COMMITTED<span>.</span></h1>
  <p id="winSub">508 meters of decisions you couldn't take back.</p>
  <p id="winUnlock" class="unlock" hidden></p>
- <div id="winStats">
+ <div id="winStats" class="stats">
   <div><span>TIME</span><b id="wTime">—</b></div><div><span>LAUNCHES</span><b id="wLaunch">—</b></div>
   <div><span>FALLS</span><b id="wFall">—</b></div><div><span>BIGGEST DROP</span><b id="wDrop">—</b></div>
  </div>
  <textarea id="share" readonly aria-label="Share text"></textarea>
  <div class="row"><button id="bCopy" class="cta ghost">COPY</button><button id="bNext" class="cta">NEXT TOWER →</button><button id="bAgain" class="cta ghost">CLIMB AGAIN</button></div>
  <div class="row"><button id="bWinSelect" class="cta ghost">LEVEL SELECT</button><button id="bWinMenu" class="cta ghost">MAIN MENU</button></div>
+</div></div>
+<div id="dead" class="overlay" hidden><div class="panel">
+ <h1>THE VOID<span>.</span></h1>
+ <p id="deadSub">Uncommitted height is lost. The void keeps what you didn't commit.</p>
+ <div class="stats">
+  <div><span>COMMITTED</span><b id="dScore">—</b></div><div><span>PEAK REACHED</span><b id="dPeak">—</b></div>
+  <div><span>LAUNCHES</span><b id="dLaunch">—</b></div><div><span>TIME</span><b id="dTime">—</b></div>
+ </div>
+ <p id="deadBest" class="unlock"></p>
+ <textarea id="dShare" readonly aria-label="Share text"></textarea>
+ <div class="row"><button id="bDeadCopy" class="cta ghost">COPY</button><button id="bDeadAgain" class="cta">CLIMB AGAIN</button></div>
+ <div class="row"><button id="bDeadMenu" class="cta ghost">MAIN MENU</button></div>
 </div></div>
 </div></div>
 <script src="js/constants.js"></script>
@@ -104,6 +118,7 @@
 <script src="js/audio.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/sim.js"></script>
+<script src="js/endless.js"></script>
 <script src="js/render.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>

@@ -12,7 +12,7 @@ h1{font-size:14px;letter-spacing:.1em;margin:0 0 8px}
 </style>
 </head>
 <body>
-<div><h1>COMMIT · VERIFICATION (v6 · six towers)</h1><div id="out">running…</div></div>
+<div><h1>COMMIT · VERIFICATION (v7 · six towers + NO SUMMIT)</h1><div id="out">running…</div></div>
 <iframe id="f" src="index.html"></iframe>
 <script>
 "use strict";
@@ -978,6 +978,147 @@ async function main() {
   d.getElementById("bPauseReset").click();
   d.getElementById("bYes").click();
   ok("erase from pause zeroes the run", C.run.launches === 0 && C.body.y === 0 && C.overlayOpen === null);
+  C.resetRun();
+
+  /* 40 · NO SUMMIT: endless mode enters from the main menu */
+  ok("menu offers NO SUMMIT", !d.getElementById("bEndless").hidden);
+  d.getElementById("bEndless").click();
+  ok("endless mode enters from menu", C.mode === "endless" && C.overlayOpen === null && C.state === "ready");
+  ok("endless HUD tag + CLAIMED label", d.getElementById("towerTag").textContent === "NO SUMMIT · ENDLESS" && d.getElementById("bestLab").textContent === "CLAIMED");
+  ok("endless world generated ahead of the peak", C.PLATS.length >= 4 && C.END.genTop >= C.END.peak + C.C.ENDLESS_WINDOW - 160);
+  ok("no summit goal in endless", C.GOAL === null);
+  ok("void starts a grace below the spawn", C.END.floor === 120 - C.C.ENDLESS_START_GRACE);
+
+  /* 41 · seeded generation: window, claims, reachability, despawn, death, score */
+  const esig = () => C.PLATS.map(p => p ? [p.x, p.y, p.w, p.crumble, p.bounce, p.ice, p.move, p.dir, p.clock, p.warp, p.warpTo, p.claim, p.amp, p.period, p.phase].join(",") : "x").join("|");
+  C.startEndless(12345);
+  const es1 = esig();
+  C.startEndless(12345);
+  ok("seeded endless runs are identical", esig() === es1);
+  const erests = () => C.PLATS.filter(p => p && !p.bounce && !p.dir && !p.warp);
+  const etop = p => (p.move ? p.by : p.y) + p.h;
+  /* the live window only holds ~100m, so collect claim heights while climbing through them */
+  const eClaimSeen = new Set();
+  const eTypeSeen = new Set();
+  const etype = p => p.claim ? "claim" : p.warp ? "warp" : p.dir ? "dir" : p.bounce ? "bounce" : p.clock ? "clock" : p.move ? "move" + p.move : p.ice ? "ice" : p.crumble ? "crumble" : "solid";
+  for (let i = 0; i < 12; i++) {
+    for (const p of C.PLATS) if (p) { eTypeSeen.add(etype(p)); if (p.claim) eClaimSeen.add(p.y + p.h); }
+    const rs = erests(), topR = rs[rs.length - 1];
+    C.setBody(topR.bx + topR.w / 2 - C.C.CHAR_SIZE / 2, etop(topR));
+    tick(16.7);
+  }
+  for (const p of C.PLATS) if (p) { eTypeSeen.add(etype(p)); if (p.claim) eClaimSeen.add(p.y + p.h); }
+  const eall = C.PLATS.filter(p => p);
+  ok("endless mixes platform types", eTypeSeen.size >= 8 && ["bounce", "dir", "warp"].some(t => eTypeSeen.has(t)), [...eTypeSeen].join("/"));
+  const eclaims = [...eClaimSeen].sort((a, b) => a - b);
+  ok("commit pads every 100-200m", eclaims.length >= 2 && eclaims.every((y, i) => i === 0 || (y - eclaims[i - 1] >= 1000 && y - eclaims[i - 1] <= 2200)), eclaims.map(y => (y / 10).toFixed(0)).join("/") + "m");
+  const echain = erests();
+  ok("rest rise stays under the design cap", echain.every((p, i) => i === 0 || etop(p) - etop(echain[i - 1]) <= C.C.DESIGN_MAX_DY));
+  ok("endless doors only fold forward", eall.every(p => !p.warp || (C.PLATS[p.warpTo] && C.PLATS[p.warpTo].by > p.by)));
+  ok("void trails the peak by 50m", Math.abs(C.END.floor - (C.END.peak - C.C.ENDLESS_WINDOW)) < 1e-6);
+  ok("platforms below the void despawn", C.PLATS[0] === null && C.PLATS[1] === null);
+  const eGenBefore = C.END.genTop;
+  tick(16.7);
+  ok("despawned slots never regenerate", C.END.genTop >= eGenBefore && C.PLATS[0] === null);
+
+  /* independent fine probe (2° / 2% / 8 phases) over the live chain */
+  function endFine(C, a, b) {
+    const cs = C.C.CHAR_SIZE, maxV = C.C.MAX_LAUNCH_SPEED, grav = C.C.GRAVITY;
+    const erec = (p, t) => {
+      if (!p.move) return { x: p.x, y: p.y + p.h, w: p.w };
+      const pos = C.moverXY(p, t);
+      return { x: pos.x, y: pos.y + C.C.PLATFORM_HEIGHT, w: p.w };
+    };
+    const per = (a.move || a.clock) ? a.period : (b.move || b.clock) ? b.period : 0;
+    const phases = per ? [0, per * 0.25, per * 0.5, per * 0.75, per * 0.125, per * 0.375, per * 0.625, per * 0.875] : [0];
+    for (const ph of phases) {
+      C.setWorldT(ph);
+      const fr = erec(a, ph), tr = erec(b, ph);
+      const dyLo = (b.move === C.C.PLAT_MOVE_V || b.move === C.C.PLAT_ORBIT ? b.by - b.amp + b.h : tr.y)
+        - (a.move === C.C.PLAT_MOVE_V || a.move === C.C.PLAT_ORBIT ? a.by + a.amp + a.h : fr.y);
+      const vyNeed = Math.sqrt(2 * grav * Math.max(0, dyLo));
+      const xs = [fr.x + fr.w / 2 - cs / 2, fr.x + 1, fr.x + fr.w - cs - 1];
+      for (const bx of xs) {
+        const tc = tr.x + tr.w / 2, bc = bx + cs / 2;
+        const lo = tc >= bc ? C.C.SOLVER_ANGLE_MIN : C.C.SOLVER_ANGLE_UP;
+        const hi = tc >= bc ? C.C.SOLVER_ANGLE_UP : C.C.SOLVER_ANGLE_MAX;
+        for (let ang = lo; ang <= hi; ang += C.C.SOLVER_ANGLE_STEP) {
+          const rad = ang * Math.PI / 180, sin = Math.sin(rad);
+          if (sin * C.C.SOLVER_MAX_POWER * maxV < vyNeed) continue;
+          const pw0 = Math.max(C.C.SOLVER_MIN_POWER, Math.ceil(vyNeed / (sin * maxV) / C.C.SOLVER_POWER_STEP) * C.C.SOLVER_POWER_STEP);
+          for (let pw = pw0; pw <= C.C.SOLVER_MAX_POWER + 0.001; pw += C.C.SOLVER_POWER_STEP) {
+            const vx = Math.cos(rad) * pw * maxV, vy = sin * pw * maxV;
+            /* search through preview(), exactly like the tower solver: the arc the player
+               sees truncates at bonks, so raw-step paths with bonks are not honest solutions */
+            C.setBody(bx, fr.y);
+            const pr = C.preview({ x: vx, y: vy });
+            if (pr.mark && pr.mark.ok && pr.mark.idx === b.idx) return { bx, vx, vy, ph };
+          }
+        }
+      }
+    }
+    return null;
+  }
+  let eAllSol = true, eHard = 0;
+  for (let i = 1; i < Math.min(10, echain.length); i++) {
+    const s = endFine(C, echain[i - 1], echain[i]);
+    if (!s) { eAllSol = false; break; }
+    eHard = Math.max(eHard, Math.round(Math.hypot(s.vx, s.vy) / C.C.MAX_LAUNCH_SPEED * 100));
+  }
+  ok("endless chain solvable at ≤98% (fine probe)", eAllSol, "hardest " + eHard + "%");
+
+  /* teleport-climbs can accidentally bank a claim; zero the score so the drop test is clean */
+  C.END.bank = 0;
+  const eClaim = C.PLATS.find(p => p && p.claim);
+  C.setBody(eClaim.x + eClaim.w / 2 - C.C.CHAR_SIZE / 2, eClaim.y + eClaim.h + 60);
+  C.launch({ x: 0, y: 0 });
+  settle();
+  ok("landing on a commit pad banks the height", C.END.bank === eClaim.y + eClaim.h && eClaim.claimed);
+  ok("HUD shows committed height", d.getElementById("best").textContent === (C.END.bank / C.C.PX_PER_METER).toFixed(0) + "m");
+  ok("claim updates the lifetime endless best", C.life.endlessBest >= C.END.bank);
+  C.setBody(C.body.x, C.END.floor - 40);
+  tick(16.7);
+  ok("falling into the void ends the run", C.state === "dead" && C.overlayOpen === "dead");
+  ok("death score is the committed height", d.getElementById("dScore").textContent === (C.END.bank / C.C.PX_PER_METER).toFixed(0) + "m");
+  ok("death screen shows peak reached", d.getElementById("dPeak").textContent === (C.END.peak / C.C.PX_PER_METER).toFixed(0) + "m");
+  ok("endless share text carries the live page URL", d.getElementById("dShare").value.indexOf(w.location.href.split("#")[0].split("?")[0]) >= 0);
+  ok("endless best persisted", JSON.parse(w.localStorage.getItem("commit.v3")).life.endlessBest === C.life.endlessBest);
+  d.getElementById("bDeadAgain").click();
+  ok("climb again restarts endless fresh", C.mode === "endless" && C.state === "ready" && C.END.bank === 0 && C.overlayOpen === null);
+  ok("restart rerolls the seed", C.END.seed !== 12345);
+  key(w, "Escape");
+  ok("endless pause reports committed height", d.getElementById("pauseInfo").textContent.indexOf("committed") >= 0);
+  d.getElementById("bPauseReset").click();
+  d.getElementById("bYes").click();
+  ok("reset from pause rerolls the endless run", C.state === "ready" && C.END.bank === 0);
+  key(w, "Escape");
+  d.getElementById("bPauseMenu").click();
+  ok("menu offers the endless run", d.getElementById("bContinue").textContent.indexOf("NO SUMMIT") >= 0);
+  d.getElementById("bContinue").click();
+  ok("continue returns to endless", C.mode === "endless" && C.overlayOpen === null);
+  key(w, "h");
+  ok("help swaps the summit rule for the endless rule", !d.getElementById("ruleEndless").hidden && d.getElementById("ruleSummit").hidden);
+  key(w, "Escape");
+  C.setLevel(1);
+  ok("tower mode restores after endless", C.mode === "tower" && C.GOAL !== null && d.getElementById("bestLab").textContent === "BEST");
+  ok("tower world intact after endless", C.level === 1 && C.PLATS.length === C.RAW_PLATS.length);
+  C.resetRun();
+
+  /* 42 · the Commit Contract holds in endless too */
+  C.startEndless(777);
+  const cr7 = erests();
+  const cj = endFine(C, cr7[0], cr7[1]);
+  ok("endless first jump solvable", !!cj);
+  if (cj) {
+    C.setWorldT(cj.ph);
+    C.setBody(cj.bx, cr7[0].y + cr7[0].h);
+    const pe7 = C.preview({ x: cj.vx, y: cj.vy });
+    C.launch({ x: cj.vx, y: cj.vy });
+    settle();
+    ok("endless flight contacts ≡ preview", JSON.stringify(C.flightContacts) === JSON.stringify(pe7.contacts),
+      JSON.stringify(C.flightContacts) === JSON.stringify(pe7.contacts) ? "" : "flight=" + JSON.stringify(C.flightContacts) + " preview=" + JSON.stringify(pe7.contacts));
+  }
+  C.setLevel(1);
   C.resetRun();
 
   ok("no runtime errors during suite", errs.length === 0, errs.join(" | "));

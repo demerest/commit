@@ -1,4 +1,4 @@
-# COMMIT — Level Design & Geometry (v2.6 · six towers)
+# COMMIT — Level Design & Geometry (v2.7 · six towers + NO SUMMIT)
 **Companion to `COMMIT_GDD.md` · All coordinates in logical px · y-up · 10 px = 1 m**
 **Source of truth: one descriptor file per tower, `levels/tower-N.js`. This doc explains the math and intent.**
 
@@ -421,3 +421,38 @@ inside walls; their jumps survive ±0.12 s. Phase gate 38 `(250,6300,110,6,.6,2.
 1.44 s ≥ 1.2. Summit goal `[150,160]` offset right of pad 45 (60,7660) so the last arc is a
 decision. Solver 35/35 ≤98% (min-power ceiling 90%); editor VALIDATE 35/35; harness §36–37
 assert the fold contract, one-way rule, traps, down-jumps, queue-through-fold and persistence.
+
+## 15. NO SUMMIT — endless generation geometry
+
+Not a descriptor: `js/endless.js` generates the shaft at runtime from a seeded `mulberry32`
+stream, so a seed reproduces a run exactly (the harness asserts this). The same reachability
+math as §2 governs every link, checked by simulation rather than by hand:
+
+- **Chain rests.** Rise `dy ∈ [70,150]` (≤ `DESIGN_MAX_DY`), horizontal drift ≤ 210 px from the
+  previous rest centre, widths 70–140. Types drawn from solid×3 / crumble / ice / moveH /
+  moveV / clock / orbit (movers amp 30–60, period 1.8–2.8; orbit amp 25–40 with rim speed
+  ≤ 140; clock duty .6). Each candidate is accepted only if `previewArc` from the previous
+  rest lands on it at ≤ 98 % power — the *visible* arc, bonk-truncation included — and only if
+  the previous jump still solves with the candidate present (one-rest lookahead: a new ledge
+  directly above an arc's apex would bonk it). Retries step sideways out of the apex zone;
+  the final fallback is a 120 px ledge beside (not above) the previous rest.
+- **Commit pads.** Every 1000–2000 px of scheduled height, clamped into the next 70–150 px
+  rise so spacing stays in [100 m, ~210 m]; 140 px wide, solid, flagged. Landing banks
+  `END.bank`; death scores the bank, not the peak.
+- **Bonuses.** With p = .35 a bounce / dir / warp pad is inserted *beside* the corridor
+  (midpoint ± 120–200 px) between two rests, at prevTop+40…restTop−40. Warp targets the upper
+  rest (forward-only folds); dir vectors aim at it (|vx| 60–180, vy 800); bounce hops are
+  ballistic-checked. Any bonus that breaks either adjacent chain jump is removed — bonuses
+  are never load-bearing.
+- **Window.** Generate while `genTop < peak + 500`; despawn (null the PLATS/SOLIDS slot pair,
+  never regenerate) when a platform's highest reach `< peak − 500`. Feet below that line =
+  void death. Mover placement and despawn read base coords `bx/by` because `render` mutates
+  `x/y` of movers each frame.
+- **Sky/wind.** `altFrac` ping-pongs 0→1→0 every 10000 px so the altitude palette and wind bed
+  keep cycling; stars wrap in a `VIEW_H+40` band; the rail maps the live window with green
+  commit ticks, an amber best tick and a red void tick.
+
+Harness §40–42: entry/HUD, determinism, type mix, pad spacing, rise cap, forward-only doors,
+window/despawn/no-regen, an independent 2°/2%/8-phase fine solver over the live chain, banking,
+void death + score + persistence, restart/pause/menu/help flows, tower restore, and
+endless preview ≡ flight.

@@ -2,7 +2,7 @@
 "use strict";
 
 let level = 1, runs = {};
-let life = { best: {}, bestTime: {}, summits: {}, launches: 0, falls: 0, seen: false, unlocked: 1 };
+let life = { best: {}, bestTime: {}, summits: {}, launches: 0, falls: 0, seen: false, unlocked: 1, endlessBest: 0 };
 let safePos = { x: VIEW_W / 2 - CHAR_SIZE / 2, y: 0 };
 let acc = 0, lastT = performance.now(), manual = false, rafId = 0;
 
@@ -14,7 +14,8 @@ const defaultRun = () => ({
 
 /* ---------- persistence ---------- */
 function save() {
-  runs[level] = { ...run, x: safePos.x, y: safePos.y, slide: body.slide, wt: worldT };
+  /* endless runs are session-only; only the committed-height record persists */
+  if (mode !== "endless") runs[level] = { ...run, x: safePos.x, y: safePos.y, slide: body.slide, wt: worldT };
   LS.set("commit.v3", { level, runs, life });
 }
 function sanitize() {
@@ -35,6 +36,7 @@ function sanitize() {
   }
   life.launches = Math.max(0, +life.launches || 0);
   life.falls = Math.max(0, +life.falls || 0);
+  life.endlessBest = Math.max(0, +life.endlessBest || 0);
   life.unlocked = Math.min(Math.max(1, Math.round(+life.unlocked || 1)), LEVELS.length);
   life.seen = !!life.seen;
 }
@@ -102,8 +104,10 @@ function load() {
 
 /* ---------- level switching ---------- */
 function setLevel(n) {
-  if (n === level || n < 1 || n > LEVELS.length || n > life.unlocked) return;
+  if (n < 1 || n > LEVELS.length || n > life.unlocked) return;
+  if (mode === "tower" && n === level) return;
   save();
+  mode = "tower";
   level = n;
   buildLevel(n);
   run = { ...defaultRun(), ...(runs[n] || {}) };
@@ -189,6 +193,7 @@ function win() {
   openOv("win");
 }
 function resetRun() {
+  if (mode === "endless") { startEndless(); return; }
   body.x = VIEW_W / 2 - CHAR_SIZE / 2;
   body.y = 0;
   body.vx = 0;
@@ -294,13 +299,13 @@ function kbSweep(dt) {
 addEventListener("keydown", e => {
   if (e.key === "Escape") {
     if (overlayOpen === "pause") closeOv();
-    else if (overlayOpen && overlayOpen !== "win" && overlayOpen !== "menu") closeOv();
-    else if (!overlayOpen && state !== "win") openOv("pause");
+    else if (overlayOpen && overlayOpen !== "win" && overlayOpen !== "menu" && overlayOpen !== "dead") closeOv();
+    else if (!overlayOpen && state !== "win" && state !== "dead") openOv("pause");
     return;
   }
   if (e.key === "p" || e.key === "P") {
     if (overlayOpen === "pause") closeOv();
-    else if (!overlayOpen && state !== "win") openOv("pause");
+    else if (!overlayOpen && state !== "win" && state !== "dead") openOv("pause");
     return;
   }
   if (e.key === "m" || e.key === "M") {
@@ -312,7 +317,7 @@ addEventListener("keydown", e => {
   audio();
   if (e.key === "h" || e.key === "H") { openOv("help"); return; }
   if (e.key === "r" || e.key === "R") { openOv("confirm"); return; }
-  if (state === "win") return;
+  if (state === "win" || state === "dead") return;
   let used = true;
   switch (e.key) {
     case "ArrowLeft":
@@ -349,7 +354,8 @@ addEventListener("blur", () => {
 $("bHelp").onclick = () => { sfx("ui"); openOv("help"); };
 $("towerTag").onclick = () => { sfx("ui"); openOv("help"); };
 $("bStart").onclick = () => { sfx("ui"); if (ovPrev === "menu") openOv("menu"); else closeOv(); };
-$("bPause").onclick = () => { sfx("ui"); if (!overlayOpen && state !== "win") openOv("pause"); };
+$("bEndless").onclick = () => { sfx("ui"); closeOv(); startEndless(); toast("NO SUMMIT · " + ENDLESS_META.tag); };
+$("bPause").onclick = () => { sfx("ui"); if (!overlayOpen && state !== "win" && state !== "dead") openOv("pause"); };
 $("bContinue").onclick = () => { sfx("ui"); if (runInProgress()) closeOv(); else { resetRun(); closeOv(); } };
 $("bSelect").onclick = () => { sfx("ui"); openOv("select"); };
 $("bHow").onclick = () => { sfx("ui"); openOv("help"); };
@@ -364,9 +370,10 @@ $("bNo").onclick = () => { sfx("ui"); if (ovPrev === "pause") openOv("pause"); e
 $("bYes").onclick = () => { closeOv(); resetRun(); sfx("erase"); toast("RUN ERASED · 0m"); };
 $("bAgain").onclick = () => { sfx("ui"); closeOv(); resetRun(); };
 $("bNext").onclick = () => { sfx("ui"); closeOv(); setLevel(level + 1); toast(LVL.name + " · " + LVL.tag); };
+$("bDeadAgain").onclick = () => { sfx("ui"); closeOv(); startEndless(); };
+$("bDeadMenu").onclick = () => { sfx("ui"); openOv("menu"); };
 $("bSound").onclick = () => { audio(); setSound(!SND.on); };
-$("bCopy").onclick = async () => {
-  const ta = $("share");
+async function copyShare(ta) {
   try {
     await navigator.clipboard.writeText(ta.value);
     sfx("copy");
@@ -377,7 +384,9 @@ $("bCopy").onclick = async () => {
     sfx("ui");
     toast("PRESS CTRL+C / ⌘C");
   }
-};
+}
+$("bCopy").onclick = () => copyShare($("share"));
+$("bDeadCopy").onclick = () => copyShare($("dShare"));
 addEventListener("resize", resize);
 addEventListener("orientationchange", resize);
 
@@ -389,7 +398,7 @@ function frameLoop(now) {
   if (dt > FRAME_DT_MAX) dt = FRAME_DT_MAX;
   const paused = overlayOpen !== null || document.hidden;
   if (!paused) {
-    if (run.started && state !== "win") run.time += dt;
+    if (run.started && state !== "win" && state !== "dead") run.time += dt;
     /* fuse decides before the clock advances so the flight starts on the exact previewed phase */
     if (aim && !pendingV && (state === "aim" || state === "flight")) {
       aimT -= dt;
@@ -416,11 +425,12 @@ function frameLoop(now) {
     updateCrumble(dt);
     updateRespawn(dt);
     updateIce(dt);
+    endlessUpdate();
     const target = clampCam(body.y - VIEW_H * CAM_ANCHOR);
     camY += (target - camY) * Math.min(1, dt * (state === "flight" ? CAM_LERP_FLIGHT : CAM_LERP_GROUND));
     landT = Math.max(0, landT - dt);
     launchT = Math.max(0, launchT - dt);
-    for (const plat of PLATS) if (plat.bounceT > 0) plat.bounceT = Math.max(0, plat.bounceT - dt);
+    for (const plat of PLATS) if (plat && plat.bounceT > 0) plat.bounceT = Math.max(0, plat.bounceT - dt);
     blinkT = Math.max(0, blinkT - dt);
     blinkTimer -= dt;
     if (blinkTimer < 0) {
@@ -430,10 +440,11 @@ function frameLoop(now) {
     if (state === "ready") idleT += dt;
   }
 
-  /* altitude wind bed: uniform across towers, louder/brighter with height, silent at the top */
+  /* altitude wind bed: uniform across towers, louder/brighter with height, silent at the top;
+     endless rides the same ping-pong cycle as the sky */
   if (SND.ctx && SND.wind) {
-    const tt = clamp01(body.y / SUMMIT);
-    const base = (SND.on && state !== "win") ? WIND_BASE_GAIN + tt * WIND_ALT_GAIN : 0;
+    const tt = altFrac(body.y);
+    const base = (SND.on && state !== "win" && state !== "dead") ? WIND_BASE_GAIN + tt * WIND_ALT_GAIN : 0;
     SND.wind.wg.gain.setTargetAtTime(base, SND.ctx.currentTime, WIND_GLIDE);
     SND.wind.bp.frequency.setTargetAtTime(WIND_BASE_FREQ + tt * WIND_ALT_FREQ, SND.ctx.currentTime, WIND_GLIDE);
   }
@@ -478,7 +489,7 @@ rafId = requestAnimationFrame(frameLoop);
 window.__COMMIT__ = {
   takeControl() { manual = true; cancelAnimationFrame(rafId); },
   tick(now) { frameLoop(now); },
-  launch, preview, step, resetRun, openOv, closeOv, save, load, spawnDust, resize, setSound, beginAim, setLevel,
+  launch, preview, step, resetRun, openOv, closeOv, save, load, spawnDust, resize, setSound, beginAim, setLevel, startEndless,
   setBody(x, y) {
     body.x = x;
     body.y = y;
@@ -498,6 +509,8 @@ window.__COMMIT__ = {
     safePos.y = y;
   },
   get state() { return state; },
+  get mode() { return mode; },
+  get END() { return END; },
   get body() { return body; },
   get run() { return run; },
   get life() { return life; },
@@ -542,6 +555,8 @@ window.__COMMIT__ = {
       WARP_FLASH, WARP_SHAKE, WARP_PARTS, WARP_PARTS_RM,
       SOLVER_MAX_POWER, SOLVER_MIN_POWER, SOLVER_POWER_STEP, SOLVER_ANGLE_MIN, SOLVER_ANGLE_MAX, SOLVER_ANGLE_UP, SOLVER_ANGLE_STEP, SOLVER_PHASE_TOL,
       DESIGN_MAX_DY, DESIGN_MIN_PLAT_W, DESIGN_MAX_PERIOD, DESIGN_MIN_ON_WINDOW, DESIGN_MAX_ORBIT_SPEED, ZONE_MAX_ACCEL,
+      ENDLESS_WINDOW, ENDLESS_START_GRACE, ENDLESS_CLAIM_MIN, ENDLESS_CLAIM_MAX, ENDLESS_DY_MIN, ENDLESS_DY_MAX,
+      ENDLESS_DX_MAX, ENDLESS_W_MIN, ENDLESS_CLAIM_W, ENDLESS_SKY_CYCLE,
       IDLE_HINT_DELAY, CONFETTI_COUNT, PARTS_MAX, KB_ANGLE_RATE, KB_POWER_RATE, KB_FINE_FACTOR
     };
   }

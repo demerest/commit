@@ -202,6 +202,16 @@ function sfx(name, opts) {
       case "fall": // long descending alarm
         tone(540, 0.55, "sawtooth", 0.08, 80);
         break;
+      case "claim": // height committed: two-note bank chime
+        tone(660, 0.12, "triangle", 0.07, 990);
+        tone(990, 0.2, "sine", 0.05, 1320);
+        noiseHit(0.1, 0.03, 3200, "highpass");
+        break;
+      case "die": // the void takes you: low rumble + sinking glide
+        tone(220, 0.5, "sawtooth", 0.09, 40);
+        tone(110, 0.6, "sine", 0.1, 30);
+        noiseHit(0.45, 0.12, 240);
+        break;
       case "win": // C-major arpeggio
         [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, 0.22, "triangle", 0.09), i * 95));
         break;

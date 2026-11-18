@@ -22,15 +22,19 @@ CSS + Web Audio. Zero dependencies, zero network requests, zero image assets, ze
 | `levels/tower-N.js` | **Descriptors** (one per tower): a single `COMMIT_LEVEL({…json…})` call; classic scripts so `file://` works with zero fetch |
 | `js/audio.js` | Lazy `AudioContext`; synthesized SFX (incl. ice chime/scrape/slip, unlock triad, direction-pitched dir-spring, soft local phase woodblock), aim hum, uniform wind bed; master mute |
 | `js/fx.js` | Pooled dust/spray/shards/confetti/floats, shake, flash, squash timers |
-| `js/sim.js` | `step(b,t)` single integrator; preview; aim/launch; land/bounce/dir-spring; crumble + reform; **ice drift** (`updateIce`); **movers** h/v/orbit (`worldT` clock, `moverXY/moverV/rectOf`, `groundStep` 1-D/2-D carry); **phase** `solidAt` + diegetic `updateClocks` ticks; run stats |
-| `js/render.js` | Canvas sizing + one render pass (sky→parallax→grid→solids incl. ice/mover tracks→trail→preview→body+fuse→FX→rail) |
-| `js/ui.js` | DOM overlays (**menu / pause / select** / help / confirm / win) with `ovPrev` return-stack, HUD cache, toast, tower picker, available-only level select, tower tag |
-| `js/main.js` | Persistence v3, **level switching/unlock**, win/reset, input, loop, boot, `__COMMIT__` hook |
+| `js/sim.js` | `step(b,t)` single integrator; `previewArc`/`preview`; aim/launch; land/bounce/dir-spring; crumble + reform; **ice drift** (`updateIce`); **movers** h/v/orbit (`worldT` clock, `moverXY/moverV/rectOf`, `groundStep` 1-D/2-D carry); **phase** `solidAt` + diegetic `updateClocks` ticks; run stats; `mode` + `claimHook`/`cullHook` seams for endless |
+| `js/endless.js` | **NO SUMMIT** mode: seeded generator (`mulberry32`), reachability probes through `previewArc`, one-rest lookahead, bonus insertion, commit pads, void window generate/despawn, claim banking, void death + score overlay fill |
+| `js/render.js` | Canvas sizing + one render pass (sky→parallax→grid→solids incl. ice/mover tracks→trail→preview→body+fuse→FX→rail); endless adds the void line, commit flags, wrapped stars, cycling sky, window rail |
+| `js/ui.js` | DOM overlays (**menu / pause / select** / help / confirm / win / **dead**) with `ovPrev` return-stack, HUD cache, toast, tower picker, available-only level select, tower tag, mode-aware menu/help/HUD |
+| `js/main.js` | Persistence v3, **level switching/unlock**, win/reset, input, loop, boot, `__COMMIT__` hook; endless entry/reset/save routing |
 | `editor.html` + `js/editor.js` | **Public** web level editor, published with the game (the game UI never links to it; the README does). Loads the real `sim.js` so VALIDATE uses the same `step()`/`preview()`; exports/imports descriptors |
 | GitHub Pages | Standard branch deployment (`main`, repo root) — everything committed ships, editor included; no custom workflow |
 
 Adding a tower = drop `levels/tower-N.js` + one `<script>` tag (or author it in the web editor);
-adding a mechanic = a new type flag + a branch in `sim`/`render`. Game modes can wrap the same sim later.
+adding a mechanic = a new type flag + a branch in `sim`/`render`. Game modes wrap the same sim:
+`js/endless.js` (NO SUMMIT) is the first — it swaps the world arrays and plugs `claimHook`/`cullHook`
+into `sim.js`, leaving `step()` untouched. Load order: constants, core, levels, towers, audio, fx,
+sim, **endless**, render, ui, main (the editor loads sim without endless; the hooks stay inert there).
 
 | Concern | Responsibility |
 |---|---|
@@ -98,7 +102,7 @@ ignored) so the drawn arc is exactly what fires.
   "runs": { "1": { "x": 231, "y": 0, "slide": 0, "wt": 0, "launches": 0, "falls": 0, "biggest": 0,
                    "time": 0, "started": false, "dead": [] } },
   "life": { "best": {"1":0}, "bestTime": {"1":null}, "summits": {"1":0},
-            "launches": 0, "falls": 0, "seen": false, "unlocked": 1 } }
+            "launches": 0, "falls": 0, "seen": false, "unlocked": 1, "endlessBest": 0 } }
 ```
 Per-tower `runs` (each with its own grounded `x/y`, `dead` reform list, ice `slide` dir and
 mover world-clock `wt`);
@@ -108,6 +112,8 @@ every landing, win, reset, crumble, reform, walk-off, tab-hide, and unload. `sav
 `safePos` — the last **grounded** position — never an airborne one. `sanitize()` clamps/validates
 every field and the unlocked/level bounds. Migrates `commit.v2` (single run → `runs[1]`, scalar
 life → dicts, `unlocked=2` if a summit existed) and `commit.v1` lifetime.
+In NO SUMMIT, `save()` writes only `life` (endless runs are session-only); `life.endlessBest`
+is the best **committed** height, updated on each commit pad and on void death.
 
 ### Performance budget
 ≤ 2 substeps/frame typical; preview ≤ 900 steps × ~42 solids only while aiming; ~130 draw
@@ -538,8 +544,10 @@ the `window.__COMMIT__` manual-clock hook and asserts the matrix below, includin
 jumps (bounce chains, elevator rides, mover catches, wind gaps, phase gates, orbits,
 redirects and warp folds included) are solvable at ≤ 98 % power** using the real integrator;
 mover/phase/orbit jumps must also land with the launch phase shifted ±0.12 s (not frame-perfect).
-Warp hops solve by launching onto the door whose fold opens on the next rest. Last full run:
-**231/231 pass** in both standard and `prefers-reduced-motion` modes (headless Chrome). The
+Warp hops solve by launching onto the door whose fold opens on the next rest. The endless
+sections add an independent fine solver (2°/2%/8 phases, preview semantics) over the generated
+chain plus window/despawn/claim/death/score/persistence/flow assertions. Last full run:
+**265/265 pass** in both standard and `prefers-reduced-motion` modes (headless Chrome). The
 editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VALID 36/40/42/43/44/35).
 
 | # | Test | Expected |
@@ -577,6 +585,9 @@ editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VA
 | 31 | Tower 6 warp doors (`test.html` §36–37) | 35/35 jumps solvable ≤98% (folds included); fold mark carries destination+source in contract data while the render rings only the door; warp flight≡preview pixel-exact; arrival stands still; side hit/bonk never fold; unkind door folds back down and counts as a fall; down-jump door solves a >205 px rise; queued pre-aim fires from the fold destination; fold position persists; T6 summit/share 780m/last tower hides NEXT |
 | 32 | Dead-vertical bounce escape (`test.html` §38) | Straight drop onto a spring: flight≡preview with the nudge inside step(); escape within ≤3 hops, lands off the pad, square moved sideways |
 | 33 | Pause reset (`test.html` §39) | Pause shows RESET RUN; opens confirm; KEEP CLIMBING returns to pause; ERASE zeroes the run and closes overlays |
+| 34 | NO SUMMIT entry + window (`test.html` §40–41) | Menu button enters endless; HUD tag/CLAIMED label; no goal; void grace below spawn; seeded runs identical; type mix incl. bonuses; commit pads 100–200 m apart; rise ≤ design cap; doors fold forward only; void trails peak 50 m; below-void slots null and never regenerate |
+| 35 | NO SUMMIT score + death (`test.html` §41) | Independent fine solver proves the live chain ≤98%; landing on a commit pad banks height + HUD + lifetime best; void contact → dead overlay with committed score / peak / share URL; best persists; climb-again rerolls seed; pause/reset/menu/help flows; tower world restores intact |
+| 36 | NO SUMMIT contract (`test.html` §42) | First generated jump solvable; endless flight contacts ≡ preview contacts pixel-exact |
 
 ## 6. Tuning Pointers
 
@@ -594,5 +605,13 @@ editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VA
   `js/constants.js`; routing lives in the descriptor's door targets. Door width is a fairness
   dial when a door sits below an overhanging rest — the fall corridor beside the overhang must
   stay wide (see `COMMIT_LEVELS.md` §2 warp-door math).
+- Endless dials: `ENDLESS_WINDOW` (500 = the 50 m half-window), `ENDLESS_START_GRACE` (250),
+  `ENDLESS_CLAIM_MIN/MAX` (1000/2000), `ENDLESS_DY_MIN/MAX` (70/150), `ENDLESS_DX_MAX` (210),
+  `ENDLESS_W_MIN/VAR` (70/70), `ENDLESS_CLAIM_W` (140), `ENDLESS_SPECIAL_CHANCE` (0.35),
+  `ENDLESS_SKY_CYCLE` (10000), probe ladder `ENDLESS_PROBE_ANGLE_STEP`/`ENDLESS_PROBE_POWERS`.
+  The generator probes with `previewArc` (the visible arc), never raw flight, and re-checks the
+  previous jump with each new rest present (one-rest lookahead) — keep both or the shaft will
+  generate jumps the dotted arc contradicts. Placement reads base coords `bx/by`: `render`
+  mutates `x/y` of movers every frame.
 - The preview must never get its own physics. If you touch `step()`, both flight and
   preview change together — that is the Commit Contract, and it is the game.

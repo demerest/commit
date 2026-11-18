@@ -20,13 +20,18 @@ function openOv(id) {
   if (id === "help") {
     $("bStart").textContent = life.seen ? "BACK TO THE WALL" : "BEGIN THE CLIMB";
     $("helpSummit").textContent = (SUMMIT / PX_PER_METER) + "m";
-    $("lifeStats").innerHTML = "LIFETIME · summits <b>" + totalSummits() + "</b> · launches <b>" + life.launches + "</b> · falls <b>" + life.falls + "</b>";
+    $("ruleSummit").hidden = mode === "endless";
+    $("ruleEndless").hidden = mode !== "endless";
+    $("lifeStats").innerHTML = "LIFETIME · summits <b>" + totalSummits() + "</b> · launches <b>" + life.launches + "</b> · falls <b>" + life.falls + "</b>"
+      + ((life.endlessBest || 0) > 0 ? " · endless best <b>" + ((life.endlessBest || 0) / PX_PER_METER).toFixed(0) + "m</b>" : "");
     buildTowers();
   }
   if (id === "menu") refreshMenu();
   if (id === "select") buildSelect();
   if (id === "pause") {
-    $("pauseInfo").textContent = LVL.name + " · " + (Math.max(0, body.y) / PX_PER_METER).toFixed(1) + "m · " + fmt(run.time);
+    $("pauseInfo").textContent = mode === "endless"
+      ? "NO SUMMIT · " + (Math.max(0, body.y) / PX_PER_METER).toFixed(1) + "m · committed " + (END.bank / PX_PER_METER).toFixed(0) + "m · " + fmt(run.time)
+      : LVL.name + " · " + (Math.max(0, body.y) / PX_PER_METER).toFixed(1) + "m · " + fmt(run.time);
   }
 }
 function closeOv() {
@@ -40,14 +45,22 @@ function closeOv() {
   ovPrev = null;
 }
 
-function runInProgress() { return run.started && state !== "win"; }
+function runInProgress() { return run.started && state !== "win" && state !== "dead"; }
 
 function refreshMenu() {
-  $("bContinue").textContent = runInProgress()
-    ? "CONTINUE · " + LVL.name + " · " + (Math.max(0, body.y) / PX_PER_METER).toFixed(0) + "m"
-    : "START GAME";
-  $("menuSub").textContent = runInProgress() ? "Pick up where you left off." : "A tower. A square. No air control.";
-  $("menuStats").innerHTML = "LIFETIME · summits <b>" + totalSummits() + "</b> · launches <b>" + life.launches + "</b> · falls <b>" + life.falls + "</b>";
+  if (mode === "endless") {
+    $("bContinue").textContent = runInProgress()
+      ? "CONTINUE · NO SUMMIT · " + (Math.max(0, body.y) / PX_PER_METER).toFixed(0) + "m"
+      : "RESTART · NO SUMMIT";
+    $("menuSub").textContent = runInProgress() ? "The void is still rising." : "An endless shaft. Commit your height.";
+  } else {
+    $("bContinue").textContent = runInProgress()
+      ? "CONTINUE · " + LVL.name + " · " + (Math.max(0, body.y) / PX_PER_METER).toFixed(0) + "m"
+      : "START GAME";
+    $("menuSub").textContent = runInProgress() ? "Pick up where you left off." : "A tower. A square. No air control.";
+  }
+  $("menuStats").innerHTML = "LIFETIME · summits <b>" + totalSummits() + "</b> · launches <b>" + life.launches + "</b> · falls <b>" + life.falls + "</b>"
+    + ((life.endlessBest || 0) > 0 ? " · endless best <b>" + ((life.endlessBest || 0) / PX_PER_METER).toFixed(0) + "m</b>" : "");
 }
 
 /* level select lists ONLY unlocked towers */
@@ -105,7 +118,15 @@ function buildTowers() {
 }
 
 function updateTowerTag() {
-  $("towerTag").textContent = LVL.name + " · " + (SUMMIT / PX_PER_METER) + "m";
+  if (mode === "endless") {
+    $("towerTag").textContent = "NO SUMMIT · ENDLESS";
+    $("bestLab").textContent = "CLAIMED";
+    $("foot").textContent = "DRAG · RELEASE · COMMIT YOUR HEIGHT";
+  } else {
+    $("towerTag").textContent = LVL.name + " · " + (SUMMIT / PX_PER_METER) + "m";
+    $("bestLab").textContent = "BEST";
+    $("foot").textContent = "DRAG · RELEASE · LIVE WITH IT";
+  }
 }
 
 /* HUD writes only when a value changes */
@@ -117,7 +138,9 @@ function setT(id, v) {
 }
 function hud() {
   setT("altV", (Math.max(0, body.y) / PX_PER_METER).toFixed(1) + "m");
-  setT("best", ((life.best[level] || 0) / PX_PER_METER).toFixed(1) + "m");
+  setT("best", mode === "endless"
+    ? (END.bank / PX_PER_METER).toFixed(0) + "m"
+    : ((life.best[level] || 0) / PX_PER_METER).toFixed(1) + "m");
   setT("mLaunch", String(run.launches));
   setT("mFall", String(run.falls));
   setT("mTime", fmt(run.time));

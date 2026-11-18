@@ -203,7 +203,7 @@ There is no instant-death hazard.
 
 ## 8. Tower Structure
 
-Five towers (more planned). Each has five sections and a summit. Full geometry and
+Six towers (more planned). Each has sections and a summit. Full geometry and
 reachability/bounce/ice/mover math: `COMMIT_LEVELS.md`. Levels are pure data in
 `levels/tower-N.js` descriptors; `js/levels.js` is only the engine.
 
@@ -283,6 +283,17 @@ chains keep one horizontal direction (bounce preserves `vx`); `dy ≤ 160`, requ
 ≤ 98%, ceiling margin ≥ 15 px. Mover additions: sweeps stay inside the walls; period ≤ 3 s
 (the fuse window); elevator chains satisfy `low−A ≤ 160`, `C−high ≤ 160`, `C−A > 205`; every
 mover jump must survive a ±0.12 s launch-phase shift (fair timing, never frame-perfect).
+
+**NO SUMMIT (endless mode)** — a separate mode from the main menu, not a tower. An infinite
+seeded shaft using every platform type; the world is a live 100 m window (generate 50 m above
+the peak, despawn 50 m below, never regenerate). The despawn line is **the void**: touching it
+ends the run. Rest-to-rest rises stay 70–150 px and every chain jump is probe-verified through
+the real integrator at ≤ 98 % power, with a one-rest lookahead so a newly generated ledge can
+never bonk the apex of the previous jump's arc. Bounce/dir/warp pads are inserted *beside* the
+chain as optional bonuses (verified, removed if they would break the chain); endless warp doors
+only fold forward. Every 100–200 m a flagged **commit pad** banks your height: on death the
+score is the last committed height, never the raw peak — uncommitted height is lost. The sky
+and wind ping-pong through the tower palette every 1000 m so altitude keeps meaning something.
 
 ## 9. Difficulty Curve
 
@@ -412,7 +423,10 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 | Warp fold | Pink ring-burst sparks at BOTH ends + pink screen glow + shake + "WARP" popup; layered shimmer glide pitched by fold direction (rising climb vs unkind drop); preview rings only the door — the destination is revealed on arrival |
 | Dead-vertical spring | Deterministic sideways nudge (nearer side) so a 90° landing escapes the pad instead of bouncing forever |
 | Reset from pause | RESET RUN button → confirm overlay; KEEP CLIMBING returns to pause, ERASE zeroes the run |
-| Ambient wind | Constant altitude wind bed, uniform across all towers (gain rises with height fraction) |
+| Commit pad (endless) | Amber outline flag pulses until landed, then fills green; "COMMITTED · Xm" popup + green dust + bank chime; HUD CLAIMED updates |
+| The void (endless) | Rising red line with crawling hazard dashes + red glow above + dark fill below + "THE VOID · 50m BELOW YOUR PEAK"; rail bottom tick marks it |
+| Void death (endless) | Red flash + shake + red dust at the line + sinking rumble; THE VOID overlay shows committed / peak / launches / time + endless best + share text |
+| Ambient wind | Constant altitude wind bed, uniform across all towers (gain rises with height fraction); endless rides the 1000 m sky cycle |
 | Tower unlock | Rising triad + ice-blue "TOWER N UNLOCKED" line on the win screen |
 | Idle > 2.2 s, 0 launches | Pulsing "drag anywhere · release to commit" |
 | Summit | Confetti + overlay + lifetime records updated |
@@ -434,6 +448,10 @@ guarded so a sound failure can never break the simulation.
   No air control. No mercy. Play: <page URL>` — streamable humiliation, one tap to copy.
   The URL is dynamic (`location.href` minus query/hash): the frame's own address, so it stays
   a playable link when the game is embedded elsewhere (e.g. an itch.io iframe).
+- Endless share string: `COMMIT · NO SUMMIT · committed Xm (peak Ym) in M:SS.T · N launches.
+  The void keeps uncommitted height. Play: <page URL>` — same dynamic link rule.
+- Endless lifetime record: best committed height (`life.endlessBest`), shown in the menu,
+  help and death screen. Endless runs themselves are session-only.
 
 ## 14. Accessibility
 
@@ -463,20 +481,25 @@ guarded so a sound failure can never break the simulation.
 | Zone `ax/ay` | per zone | −1600…1600 | Extra accel px/s² in flight; ay>0 updraft, ax gust; bigger = more bend |
 | Clock `duty` | per platform | 0.1–0.9 | Solid fraction of each cycle; duty·period ≥ 1.2 s for fair timing |
 | Clock `period` | per platform | 0.6–3.0 | Blink cycle; ≤ the 3 s fuse so every phase is aimable |
-| Warp `target` | per pad | any stable rest idx | Where the door opens; routing puzzle dial (T6 only) |
-| Platform widths | per level | ≥ 28 | Primary difficulty dial |
+| Warp `target` | per pad | any stable rest idx | Where the door opens; routing puzzle dial (T6 only; endless doors fold forward only) |
+| `ENDLESS_WINDOW` | 500 | 300–800 | Live window half-height: generation headroom above the peak and void trail below |
+| `ENDLESS_CLAIM_MIN/MAX` | 1000/2000 | 800–3000 | Commit-pad spacing; smaller = more banking, less loss tension |
+| `ENDLESS_DY_MIN/MAX` | 70/150 | 60–160 | Generated rest rise; must stay ≤ `DESIGN_MAX_DY` |
+| `ENDLESS_SPECIAL_CHANCE` | 0.35 | 0–0.6 | How often a bonus spring/door is inserted beside the chain |
+| Platform widths | per level | ≥ 28 | Primary difficulty dial (endless rests 70–140, commit pads 140) |
 | Camera lerp | 6 / 10 | 4–12 | Fall visibility vs. motion comfort |
 
 ## 16. Scope Guard
 
 **Shipped:** six towers (T1 36 platforms, T2 40, T3 42, T4 43, T5 43, T6 46), crumble/bounce/ice/
 movers/ceilings, gust zones + phase platforms (T4), orbiters + direction springs (T5),
-one-way warp doors (T6, exclusive to that tower), stats,
+one-way warp doors (T6, exclusive to that tower among towers), stats,
 per-tower persistence (incl. mover phase), main menu / pause / level select, tower unlock, share,
-web level editor with real-integrator validation. Modular `js/` + data-driven
+web level editor with real-integrator validation, and **NO SUMMIT** — the endless randomized
+mode with the void window and commit-pad scoring. Modular `js/` + data-driven
 `levels/tower-N.js` so new towers/mechanics/modes are additive.
 **Candidates (not built):** daily seeded tower, ghost of your best run, launch-count
-leaderboard, moving ceilings, alternate game modes. None required for the core experience.
+leaderboard, moving ceilings, further game modes. None required for the core experience.
 
 ## 17. Design Acceptance Criteria
 
@@ -500,5 +523,6 @@ leaderboard, moving ceilings, alternate game modes. None required for the core e
 18. Gust zones bend the arc identically in preview and flight (pure position-based accel, flight-only); a zone-assisted gap is unsolvable without the zone. Phase platforms keep preview ≡ flight via a pure solidAt(s,t); on-window ≥1.2 s and ±0.12 s launch tolerance; ghosting under a rider drops honestly and always returns.
 19. Boot lands on a main-menu start page (Continue/Start Game, Level Select of unlocked towers only, How to Play). Esc/P/II pause with the clock frozen and a drawn aim preserved; pause and the summit between-levels screen both reach the main menu and level select; Help/Select BACK returns to its caller.
 20. Orbiters carry in 2-D with preview ≡ flight (pure circular rectOf); orbit speed ≤140 px/s, period ≤3 s, ±0.12 s launch tolerance. Direction springs set a fixed launch vector (preview exact), |v|≤950, vy>0, and the downstream rest lies within the vector's reach. Phase-platform clock ticks are diegetic (on-screen + near/underfoot only, soft sine), never a global metronome; the ambient wind bed is uniform across towers.
-21. Warp pads fold only on top landings (side hits/bonks never fold); the fold resolves inside step() so preview ≡ flight through the teleport; the preview rings the door and hides the destination (contract data still exact); arrivals stand still; targets are stable rests; unkind folds count as falls; the warp mechanic appears only in Tower 6.
+21. Warp pads fold only on top landings (side hits/bonks never fold); the fold resolves inside step() so preview ≡ flight through the teleport; the preview rings the door and hides the destination (contract data still exact); arrivals stand still; targets are stable rests; unkind folds count as falls; among towers the warp mechanic appears only in Tower 6 (NO SUMMIT may insert forward-folding doors as bonuses).
 22. A dead-vertical spring landing escapes via a deterministic sideways nudge (preview ≡ flight); no action is keyboard-only — reset is reachable from the pause menu as well as ↺ / R.
+23. NO SUMMIT: every generated chain jump is solvable at ≤98% power by an independent fine solver (preview semantics, incl. the one-rest lookahead); the live window stays ≤100 m (generate above / despawn below, never regenerate); commit pads land 100–200 m apart and bank the score; void contact ends the run and the death score equals the last committed height; endless best persists; endless preview ≡ flight; switching back to a tower restores its world and run intact.

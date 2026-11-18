@@ -1,18 +1,22 @@
-# COMMIT — Next-Level Mechanics Proposals (v0.2 · design history)
+# COMMIT — Next-Level Mechanics Proposals (v0.3 · design history)
 
 Status: §1 gust zones + §2 phase platforms **shipped in Tower 4**; §3 orbiters + direction
 springs **shipped in Tower 5**; the one-way **warp door** (type 9, user-specified, exclusive
-to Tower 6) **shipped in Tower 6** — geometry and routing in `COMMIT_LEVELS.md` §14. What
-remains below is backlog. The two T4 mechanics were prototyped in a local scratch playground
-(`.qwen/tmp/playground.html`, gitignored) that wraps the *real* integrator; all 8 probes pass
-(see §5). Read `COMMIT_GDD.md` (pillars/Contract) and `COMMIT_LEVELS.md` (invariants) first —
-every proposal below is constrained by them.
+to Tower 6 among towers) **shipped in Tower 6** — geometry and routing in
+`COMMIT_LEVELS.md` §14; **NO SUMMIT** endless mode (user-specified: randomized shaft, void
+window, commit-pad scoring) **shipped** — generation geometry in `COMMIT_LEVELS.md` §15.
+What remains below is backlog. The two T4 mechanics were prototyped in a local scratch
+playground (`.qwen/tmp/playground.html`, gitignored) that wraps the *real* integrator; all 8
+probes pass (see §5). Read `COMMIT_GDD.md` (pillars/Contract) and `COMMIT_LEVELS.md`
+(invariants) first — every proposal below is constrained by them.
 
 Non-negotiables every mechanic must respect:
 - **Commit Contract:** `preview()` and flight share one `step(b,t)`; any new force/solid rule
   must be a *pure function of (body, t)* read inside `step`, never mutated shared state.
 - **No air control:** the environment may act on the body; the player never steers mid-flight.
-- **Determinism / no RNG / no instant death;** falls are honest.
+- **Determinism / no RNG / no instant death in towers;** falls are honest. (NO SUMMIT is the
+  user-specified exception: seeded RNG at generation time only — never inside `step` — and a
+  rising void that ends the run, with committed-height scoring.)
 - **Solvability:** every rest-to-rest jump ≤98% power; timed mechanics must survive a
   ±0.12 s launch-phase shift (fair, never frame-perfect); periods ≤3 s (one fuse).
 - **Readability:** the preview must show the truth; a new force needs a visible, themed cue.
@@ -117,7 +121,8 @@ instead of preserving `vx` → deterministic redirect / routing chains. Preview 
 branch sets `v`). Visual: arrow stencil; audio pitched by direction. Cost: bounce-chain
 invariant becomes "follow the arrows", not "monotonic x".
 
-**ONE-WAY WARP DOORS (type 9) — shipped in T6, exclusive to that tower:** `[x,top,w,9,targetIdx]`.
+**ONE-WAY WARP DOORS (type 9) — shipped in T6 (exclusive among towers; NO SUMMIT inserts
+forward-folding doors as bonuses):** `[x,top,w,9,targetIdx]`.
 A top landing folds the body to the target's top centre and resolves as an ordinary landing
 there; the fold lives inside `step()` so preview ≡ flight through the teleport. The preview
 rings only the DOOR — the destination is a secret until you commit (user decision); contract
@@ -126,6 +131,14 @@ never fold; arrivals stand still; targets must be stable rests. The routing verb
 downward (jump down to go up) and some are unkind (fold you back down; the drop counts as a
 fall). Solver/VALIDATE treat pads as non-rests and accept a hop whose fold opens on the next
 rest; the dy invariant applies to the launch onto the pad, not the fold's rise.
+
+**NO SUMMIT (endless randomized mode) — shipped:** a main-menu mode, not a tower. Seeded
+generator over every platform type; live 100 m window (generate 50 m above the peak, despawn
+50 m below, never regenerate) whose lower edge is a rising void = death. Commit pads every
+100–200 m bank the height; death scores the last commit, so uncommitted height is lost —
+the COMMIT verb becomes the score mechanic. Reachability is probe-verified through the real
+`previewArc` at ≤98 % with a one-rest lookahead; bonuses sit beside the chain, never
+load-bearing. Geometry rules: `COMMIT_LEVELS.md` §15; harness §40–42 (265 assertions total).
 
 ## 4. Considered and rejected (for now)
 
