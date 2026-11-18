@@ -168,7 +168,9 @@ function win() {
   $("winUnlock").textContent = newUnlock ? "TOWER " + (level + 1) + " UNLOCKED — " + LEVELS[level].tag.toLowerCase() + " awaits." : "";
   $("winUnlock").hidden = !newUnlock;
   $("bNext").hidden = level >= LEVELS.length;
-  $("share").value = "COMMIT · " + LVL.name + " · " + (SUMMIT / PX_PER_METER) + "m in " + fmt(run.time) + " · " + run.launches + " launches · " + run.falls + " falls · biggest drop " + (run.biggest / PX_PER_METER).toFixed(1) + "m. No air control. No mercy.";
+  /* dynamic page link: the frame's own URL, so it stays correct when embedded (itch.io etc.) */
+  const pageUrl = location.href.split("#")[0].split("?")[0];
+  $("share").value = "COMMIT · " + LVL.name + " · " + (SUMMIT / PX_PER_METER) + "m in " + fmt(run.time) + " · " + run.launches + " launches · " + run.falls + " falls · biggest drop " + (run.biggest / PX_PER_METER).toFixed(1) + "m. No air control. No mercy. Play: " + pageUrl;
   if (!RM) {
     for (let i = 0; i < CONFETTI_COUNT; i++) {
       confetti.push({

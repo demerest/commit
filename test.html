@@ -380,6 +380,7 @@ async function main() {
   settle();
   ok("landing on summit wins", C.state === "win" && C.overlayOpen === "win" && !d.getElementById("win").hidden);
   ok("win stats + share text populated", d.getElementById("wTime").textContent !== "—" && d.getElementById("share").value.indexOf("508m") >= 0 && d.getElementById("share").value.indexOf("TOWER 1") >= 0);
+  ok("share text carries the live page URL", d.getElementById("share").value.indexOf(w.location.href.split("#")[0].split("?")[0]) >= 0);
   ok("lifetime summits increment", C.life.summits[1] === summitsBefore + 1);
   ok("summit unlocks tower 2 + NEXT shown", C.life.unlocked === 2 && !d.getElementById("bNext").hidden && !d.getElementById("winUnlock").hidden);
   ok(RM ? "reduced motion: confetti skipped" : "confetti fires (90)", RM ? C.confetti.length === 0 : C.confetti.length === C.C.CONFETTI_COUNT);

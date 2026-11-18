@@ -117,6 +117,9 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   pink ring = warp door, red ✕ = strike, teal ring = bounce).
 - **Honest failure economy:** falls ≥ 25 m flash red and float a `−Xm` popup; your last
   flight's trail hangs in the air until you launch again.
+- **Shareable runs:** the win screen's copy text carries your stats plus a dynamic link to
+  the page you're playing on (`location.href`, query/hash stripped) — it stays a playable
+  link when the game is embedded elsewhere, e.g. in an itch.io iframe.
 - **Persistence (`commit.v3`):** per-tower runs + shared lifetime records in `localStorage`,
   including platforms mid-reform, your ice drift direction and the mover world clock. Refresh
   resumes where you stood, mid-phase (grounded positions only). Erase requires confirmation and
@@ -142,7 +145,7 @@ visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPO
 
 ## Verification
 
-`test.html` is an automated harness (**230 assertions**) that drives the game through a
+`test.html` is an automated harness (**231 assertions**) that drives the game through a
 manual-clock hook: commit contract, fuse, pre-aim queue, crumble break + reform, bounce-chain preview ≡ flight,
 ice slide / stand-still / walk-off / launch-discards-slide / persistence, mover carry / reversal /
 launch-discards-carry / moving-target contract / phase persistence / lift collision fairness, tower lock + unlock +
@@ -161,7 +164,7 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **230/230 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **231/231 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 

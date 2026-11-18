@@ -430,8 +430,10 @@ guarded so a sound failure can never break the simulation.
 - **Run stats:** time, launches, falls, biggest drop. **Lifetime:** best height, best time,
   summits, total launches, total falls.
 - Natural speedrun categories emerge for free: **Any%**, **Fewest Launches**, **No Falls**.
-- Share string: `COMMIT · 508m in M:SS.T · N launches · N falls · biggest drop X.Xm.
-  No air control. No mercy.` — streamable humiliation, one tap to copy.
+- Share string: `COMMIT · TOWER N · 508m in M:SS.T · N launches · N falls · biggest drop X.Xm.
+  No air control. No mercy. Play: <page URL>` — streamable humiliation, one tap to copy.
+  The URL is dynamic (`location.href` minus query/hash): the frame's own address, so it stays
+  a playable link when the game is embedded elsewhere (e.g. an itch.io iframe).
 
 ## 14. Accessibility
 

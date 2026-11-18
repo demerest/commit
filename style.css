@@ -54,7 +54,7 @@ border-radius:.7em;padding:1.5em 1.6em;box-shadow:0 24px 60px #000a;scrollbar-wi
 .keys{font-size:.68em;color:var(--dim);line-height:1.9;border-top:1px solid var(--line);padding-top:.8em;margin-bottom:1.1em}
 .keys b{color:var(--ink)}
 kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:.3em;padding:.05em .4em;font:inherit;color:var(--ink);background:#0a0f1c}
-.row{display:flex;gap:.6em}
+.row{display:flex;gap:.6em;margin-bottom:.6em}
 .cta{flex:1;width:auto;height:auto;padding:.7em 1em;font-weight:700;letter-spacing:.1em;font-size:.8em;
 background:var(--blue);color:#06101f;border-color:var(--blue)}
 .cta:hover{filter:brightness(1.1)}

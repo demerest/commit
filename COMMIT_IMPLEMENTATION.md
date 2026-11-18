@@ -539,7 +539,7 @@ jumps (bounce chains, elevator rides, mover catches, wind gaps, phase gates, orb
 redirects and warp folds included) are solvable at ≤ 98 % power** using the real integrator;
 mover/phase/orbit jumps must also land with the launch phase shifted ±0.12 s (not frame-perfect).
 Warp hops solve by launching onto the door whose fold opens on the next rest. Last full run:
-**230/230 pass** in both standard and `prefers-reduced-motion` modes (headless Chrome). The
+**231/231 pass** in both standard and `prefers-reduced-motion` modes (headless Chrome). The
 editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VALID 36/40/42/43/44/35).
 
 | # | Test | Expected |
@@ -554,7 +554,7 @@ editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VA
 | 8 | `H`, `?`, `R`, ↺, Esc | Overlays open/close; sim and timer pause while open |
 | 9 | Refresh mid-run | Resumes at last grounded position with run + lifetime stats |
 | 10 | Erase run | Confirm required; run zeroes; lifetime best/summits survive |
-| 11 | Reach summit (test build: temporarily set `body.y=4940` on platform 35) | Win overlay, correct stats, confetti, Copy works or falls back to select |
+| 11 | Reach summit (test build: temporarily set `body.y=4940` on platform 35) | Win overlay, correct stats, confetti, Copy works or falls back to select; share text ends with the dynamic page URL (frame's own href, iframe-safe) |
 | 12 | Climb Again | Full reset to 0 m, state `ready`, no duplicated loops/listeners |
 | 13 | Resize / rotate / DPR 1–3 | Letterbox correct, HUD aligned, pointer mapping accurate |
 | 14 | Tab hide 10 s, return | No time jump, no physics catch-up burst, save written |
