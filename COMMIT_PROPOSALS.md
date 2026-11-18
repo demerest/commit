@@ -41,7 +41,7 @@ spring or lift (a second vertical verb); gust lanes force you to aim upstream to
 or ride the push to a ledge you could not reach directly. "Throw through the wind."
 
 **Design invariants to add:**
-- |ax|,|ay| ≤ ~1600 so `MAXV`/`VFALL` clamps still bound speed; solver stays numeric (preview).
+- |ax|,|ay| ≤ ~1600 so `MAX_LAUNCH_SPEED`/`TERMINAL_FALL_SPEED` clamps still bound speed; solver stays numeric (preview).
 - A zone must be the *enabling* verb for its gap (playground asserts the same jump is
   unsolvable with the zone removed) — otherwise it is decoration, not a mechanic.
 - Zones act only in flight; never overlap a rest pad in a way that matters at rest (they don't).

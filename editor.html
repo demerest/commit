@@ -56,6 +56,7 @@ button:hover{filter:brightness(1.1)}
 <div class="hint">drag = move · drag right edge = width · double-click empty = add platform · wheel = pan · click ceiling to select · Del = delete · 0-8 = type.<br>Movers (4/5): x/top = oscillation centre; amp px · period s (≤3, the fuse window) · phase 0..1. Dashed line = travel track.<br>Clock (6): duty 0-1 · period s (≤3) · phase 0..1; solid duty fraction of each cycle, ghost otherwise (on-window ≥1.2s).<br>Orbit (7): amp px · period s (≤3) · phase; circular carry, speed ≤140 px/s, sweep inside walls.<br>Dir (8): launch vx · vy (fixed vector, |v|≤950, vy&gt;0); throws you on the arrow, not your momentum.<br>Zones: [x,y,w,h,ax,ay] constant accel px/s² in flight only (|a|≤1600); ay&gt;0 updraft, ax gust.<br>Export downloads a <b>tower-N.js</b> descriptor; drop it in <b>levels/</b> and add a &lt;script&gt; tag in index.html.</div>
 </div>
 </div>
+<script src="js/constants.js"></script>
 <script src="js/core.js"></script>
 <script src="js/levels.js"></script>
 <script src="levels/tower-1.js"></script>

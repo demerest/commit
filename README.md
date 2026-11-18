@@ -85,12 +85,16 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
 ## What's inside
 
 - **Zero dependencies, zero asset files.** `index.html` (markup), `style.css` (theme), and
-  focused classic scripts in `js/` (`core`, `levels`, `audio`, `fx`, `sim`, `render`, `ui`,
-  `main`). Every visual is a Canvas 2D primitive; every sound is synthesized at runtime with
-  Web Audio. No images, no audio files, no network requests. Works from `file://`.
+  focused classic scripts in `js/` (`constants`, `core`, `levels`, `audio`, `fx`, `sim`,
+  `render`, `ui`, `main`). Every visual is a Canvas 2D primitive; every sound is synthesized
+  at runtime with Web Audio. No images, no audio files, no network requests. Works from `file://`.
+- **Readable, named tuning.** `js/constants.js` holds every gameplay/feel number as a named,
+  commented constant grouped by system (physics, aim, mechanics, particles, audio bed, solver
+  and design invariants); the logic files stay formatted and free of magic numbers.
 - **Data-driven levels.** Each tower is a separate descriptor `levels/tower-N.js` — a single
   `COMMIT_LEVEL({…json…})` call (`[x, top, width, type]`, type `0` solid `1` crumble `2` bounce
-  `3` ice `4` move·h `5` move·v; movers append `amp, period, phase`). `js/levels.js` is just the
+  `3` ice `4` move·h `5` move·v `6` clock `7` orbit `8` dir; movers append `amp, period, phase`,
+  clocks `duty, period, phase`, dir springs `vx, vy`). `js/levels.js` is just the
   loader/engine. Adding a tower = drop a descriptor + one `<script>` tag. Format spec:
   `COMMIT_LEVELS.md` §0.
 - **Web level editor.** `editor.html` is a visual editor (drag/resize/type platforms, ceilings,

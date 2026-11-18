@@ -12,688 +12,843 @@ h1{font-size:14px;letter-spacing:.1em;margin:0 0 8px}
 </style>
 </head>
 <body>
-<div><h1>COMMIT · VERIFICATION (v4 · three towers)</h1><div id="out">running…</div></div>
+<div><h1>COMMIT · VERIFICATION (v5 · five towers)</h1><div id="out">running…</div></div>
 <iframe id="f" src="index.html"></iframe>
 <script>
 "use strict";
-const out=document.getElementById("out");
-let passN=0,failN=0;const lines=[];
-function ok(name,cond,extra){
-const line=(cond?"PASS":"FAIL")+" · "+name+(extra?" · "+extra:"");
-lines.push(line);cond?passN++:failN++;
-out.innerHTML=lines.map(l=>l.startsWith("FAIL")?'<span class="fail">'+l+"</span>":l).join("\n")
-+"\n\nSUMMARY: "+passN+" passed, "+failN+" failed";
-document.title=failN?"FAIL "+failN:"ALL PASS "+passN;
+const out = document.getElementById("out");
+let passN = 0, failN = 0;
+const lines = [];
+function ok(name, cond, extra) {
+  const line = (cond ? "PASS" : "FAIL") + " · " + name + (extra ? " · " + extra : "");
+  lines.push(line);
+  cond ? passN++ : failN++;
+  out.innerHTML = lines.map(l => l.startsWith("FAIL") ? '<span class="fail">' + l + "</span>" : l).join("\n")
+    + "\n\nSUMMARY: " + passN + " passed, " + failN + " failed";
+  document.title = failN ? "FAIL " + failN : "ALL PASS " + passN;
 }
-function ptr(w,d,type,x,y,id){
-const cv=d.getElementById("cv"),r=cv.getBoundingClientRect();
-cv.dispatchEvent(new w.PointerEvent(type,{pointerId:id==null?1:id,clientX:r.left+x,clientY:r.top+y,bubbles:true,cancelable:true}));
+function ptr(w, d, type, x, y, id) {
+  const cv = d.getElementById("cv"), r = cv.getBoundingClientRect();
+  cv.dispatchEvent(new w.PointerEvent(type, {
+    pointerId: id == null ? 1 : id,
+    clientX: r.left + x, clientY: r.top + y,
+    bubbles: true, cancelable: true
+  }));
 }
-function key(w,k,shift){w.dispatchEvent(new w.KeyboardEvent("keydown",{key:k,shiftKey:!!shift,bubbles:true,cancelable:true}));}
-function keyup(w,k,shift){w.dispatchEvent(new w.KeyboardEvent("keyup",{key:k,shiftKey:!!shift,bubbles:true,cancelable:true}));}
-function rectAt(C,p,t){if(p[3]===4||p[3]===5||p[3]===7){const s=C.PLATS[C.P.indexOf(p)];const o=C.moverXY(s,t);return[o.x,o.y+16,p[2]];}return p;}
+function key(w, k, shift) { w.dispatchEvent(new w.KeyboardEvent("keydown", { key: k, shiftKey: !!shift, bubbles: true, cancelable: true })); }
+function keyup(w, k, shift) { w.dispatchEvent(new w.KeyboardEvent("keyup", { key: k, shiftKey: !!shift, bubbles: true, cancelable: true })); }
+
+/* raw descriptor rect at world time t (movers resolved through the real moverXY) */
+function rectAt(C, p, t) {
+  if (p[3] === C.C.PLAT_MOVE_H || p[3] === C.C.PLAT_MOVE_V || p[3] === C.C.PLAT_ORBIT) {
+    const plat = C.PLATS[C.RAW_PLATS.indexOf(p)];
+    const pos = C.moverXY(plat, t);
+    return [pos.x, pos.y + C.C.PLATFORM_HEIGHT, p[2]];
+  }
+  return p;
+}
+
 /* Phase-aware jump search. fi/ti are platform indices (-1 = floor / goal). When a mover is involved,
-   sample launch phases over its period and demand a ±0.12s phase window still lands (not frame-perfect). */
-function findLaunch(C,fi,ti){
-const CHH=C.C.CH,MV=C.C.MAXV,G=C.C.G;
-const fp=fi<0?[0,0,480,0]:C.P[fi];
-const tp=ti<0?[C.GOAL.x,C.C.SUMMIT,C.GOAL.w,0,true]:C.P[ti];
-const fm=fp[3]===4||fp[3]===5||fp[3]===6||fp[3]===7,tm=tp[3]===4||tp[3]===5||tp[3]===6||tp[3]===7;
-const per=fm?(fp[5]||2.4):tm?(tp[5]||2.4):0;
-const phases=per?[0,per*.25,per*.5,per*.75,per*.125,per*.375,per*.625,per*.875]:[0];
-const spring=C.P.some(p=>(p[3]===2||(p[3]===8&&p[5]>0))&&p[1]>fp[1]&&p[1]<tp[1]);
-const zone=C.ZONES.some(z=>z.y<tp[1]+40&&z.y+z.h>fp[1]-40&&z.x+z.w>Math.min(fp[0],tp[0])&&z.x<Math.max(fp[0]+fp[2],tp[0]+tp[2]));
-for(const ph of phases){
-C.setWorldT(ph);
-const fr=rectAt(C,fp,ph),tr=rectAt(C,tp,ph);
-/* prune only direct jumps: a spring or a descending lift can do the lifting */
-const dyLo=((tp[3]===5||tp[3]===7)?tp[1]-(tp[4]||60):tr[1])-((fp[3]===5||fp[3]===7)?fp[1]+(fp[4]||60):fr[1]);
-const vyNeed=(spring||zone)?0:Math.sqrt(2*G*Math.max(0,dyLo));
-const xs=[fr[0]+fr[2]/2-CHH/2,fr[0]+1,fr[0]+fr[2]-CHH-1];
-for(const bx of xs){
-C.setBody(bx,fr[1]);
-const tc=tr[0]+tr[2]/2,bc=bx+CHH/2;
-const lo=Math.min(tc>=bc?8:92,90),hi=Math.max(tc>=bc?88:172,90);
-for(let ang=lo;ang<=hi;ang+=2){
-const rad=ang*Math.PI/180,sin=Math.sin(rad);
-if(sin*.98*MV<vyNeed)continue;
-const pw0=Math.max(.30,Math.ceil(vyNeed/(sin*MV)/.02)*.02);
-for(let pw=pw0;pw<=.981;pw+=.02){
-const vx=Math.cos(rad)*pw*MV,vy=sin*pw*MV;
-const pr=C.preview({x:vx,y:vy});
-if(pr.mark&&pr.mark.ok&&(ti<0?pr.mark.goal:pr.mark.idx===ti)&&pr.mark.x>tr[0]-CHH/2&&pr.mark.x<tr[0]+tr[2]+CHH/2){
-if(per){let tol=true;
-for(const d of[-.12,.12]){C.setWorldT(ph+d);
-const tr2=rectAt(C,tp,ph+d);
-const p2=C.preview({x:vx,y:vy});
-if(!(p2.mark&&p2.mark.ok&&(ti<0?p2.mark.goal:p2.mark.idx===ti)&&p2.mark.x>tr2[0]-CHH/2&&p2.mark.x<tr2[0]+tr2[2]+CHH/2))tol=false;}
-C.setWorldT(ph);
-if(!tol)continue;}
-return{bx,vx,vy,contacts:pr.contacts,ph};
-}}}
-}}
-return null;}
-function solveTower(C,label){
-const restIdx=[];C.P.forEach((p,i)=>{if(p[3]!==2&&p[3]!==8)restIdx.push(i);});
-const n=restIdx.length+1;
-let solved=0,maxPw=0;const fails=[];
-for(let i=0;i<n;i++){
-const fi=i===0?-1:restIdx[i-1];
-const ti=i<restIdx.length?restIdx[i]:-1;
-const sol=findLaunch(C,fi,ti);
-if(sol){solved++;maxPw=Math.max(maxPw,Math.round(Math.hypot(sol.vx,sol.vy)/C.C.MAXV*100));}
-else fails.push("jump"+(i+1));
-}
-ok(label+": all "+n+" jumps solvable at ≤98% power",fails.length===0,
-"solved "+solved+"/"+n+" · hardest "+maxPw+"%"+(fails.length?" · UNSOLVED: "+fails.join(","):""));
-return fails.length===0;}
-async function main(){
-const f=document.getElementById("f");
-await new Promise(r=>{if(f.contentWindow&&f.contentDocument&&f.contentDocument.readyState==="complete"&&f.contentWindow.__COMMIT__)r();else f.addEventListener("load",r,{once:true});});
-const w=f.contentWindow,d=f.contentDocument;
-if(!w.__COMMIT__){ok("game hook present",false,"iframe blocked? serve over HTTP");return;}
-const C=w.__COMMIT__;
-const errs=[];w.addEventListener("error",e=>errs.push(String(e.message)));
-C.takeControl();
-let now=w.performance.now();
-const tick=ms=>{now+=ms;C.tick(now);};
-const settle=()=>{let n=0;while(C.state==="flight"&&n<2000){tick(1000/60);n++;}return n;};
-const RM=C.RM;
-
-/* 1 · boot: main menu is the start page */
-ok("boot: main menu is the start page",C.overlayOpen==="menu"&&!d.getElementById("menu").hidden);
-ok("boot: menu offers START GAME on a fresh run",d.getElementById("bContinue").textContent==="START GAME");
-ok("boot: ready at 0m on tower 1",C.state==="ready"&&C.body.y===0&&C.level===1);
-ok("tower 2 locked at start",C.life.unlocked===1);
-C.setLevel(2);
-ok("locked tower cannot be entered",C.level===1);
-d.getElementById("bContinue").click();
-ok("boot: START GAME closes menu",C.overlayOpen===null);
-for(let i=0;i<150;i++)tick(16.7);
-ok("idle hint arms after 2.2s",C.idleT>2.2);
-
-/* 2 · weak drag cancels */
-ptr(w,d,"pointerdown",240,600);
-ok("pointerdown starts aim + fuse",C.state==="aim"&&C.aim&&C.aim.mode==="p"&&C.aimT===C.C.AIM_TIME);
-ptr(w,d,"pointermove",245,595);ptr(w,d,"pointerup",245,595);
-ok("weak drag (<90px/s) cancels, no launch",C.state==="ready"&&C.run.launches===0);
-
-/* 3 · commit contract */
-ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",340,500);
-const kv=C.C.KDRAG;
-const pr=C.preview({x:100*kv,y:100*kv});
-ok("preview yields arc + landing mark",pr.pts.length>10&&pr.mark&&pr.mark.ok);
-ptr(w,d,"pointerup",340,500);
-ok("release above threshold commits",C.state==="flight"&&C.run.launches===1);
-settle();
-ok("preview contacts ≡ flight contacts (pixel-exact)",
-JSON.stringify(C.flightContacts)===JSON.stringify(pr.contacts));
-ok("trail lingers after landing",C.trail.length>0);
-
-/* 4 · off-canvas release */
-ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",700,300);ptr(w,d,"pointerup",700,300);
-ok("off-canvas release still commits",C.state==="flight"&&C.run.launches===2);
-settle();
-
-/* 5 · aim fuse */
-C.resetRun();
-ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",340,500);
-for(let i=0;i<230;i++)tick(16.7);
-ok("aim fuse auto-launches on expiry",C.run.launches===1&&C.state!=="aim");
-settle();
-C.resetRun();
-ptr(w,d,"pointerdown",240,600);
-for(let i=0;i<230;i++)tick(16.7);
-ok("weak fuse cancels without launch",C.state==="ready"&&C.run.launches===0);
-ptr(w,d,"pointerup",240,600);
-
-/* 6 · ceiling bonk */
-C.setBody(176,2280);
-const prb=C.preview({x:60,y:830});
-ok("steep arc under ceiling previews red ✕",prb.mark&&!prb.mark.ok);
-C.launch({x:60,y:830});settle();
-ok("bonk contact pixel-exact, then honest fall",
-C.flightContact&&C.flightContact.t==="bonk"&&C.flightContact.x===prb.mark.x&&C.flightContact.y===prb.mark.y&&C.state==="ready");
-
-/* 7 · crumble + reform */
-C.resetRun();
-const cr=C.P[8];
-C.setBody(cr[0]+cr[2]/2-9,cr[1]);
-ok("standing on a crumble platform",!!C.body.on&&C.body.on.crumble===true);
-for(let i=0;i<110;i++)tick(16.7);
-ok("crumble breaks after dwell + recorded",C.PLATS[8].dead===true&&C.run.dead.indexOf(8)>=0);
-ok("break spawns shards + drops you",C.shards.length>0&&C.body.y<cr[1]);
-settle();
-ok("crumble fall lands you below",C.state==="ready"&&C.body.y<cr[1]);
-for(let i=0;i<230;i++)tick(16.7);
-ok("crumble reforms after cooldown (no softlock)",C.PLATS[8].dead===false&&C.run.dead.indexOf(8)<0);
-C.resetRun();
-ok("reset rebuilds crumbled platforms",C.PLATS[8].dead===false&&C.run.dead.length===0);
-C.setBody(cr[0]+cr[2]/2-9,cr[1]);
-C.launch({x:0,y:400});settle();
-ok("launching before dwell keeps platform intact",C.PLATS[8].dead===false);
-
-/* 8 · bounce chain */
-C.resetRun();
-const restA=[140,2490,80,0],restC=[400,2720,72,0];
-const bs=findLaunch(C,17,19);
-ok("bounce chain is solvable",!!bs);
-if(bs){
-ok("bounce chain arc previews a bounce hop",bs.contacts.some(c=>c.t==="bounce"));
-C.setBody(bs.bx,restA[1]);
-const prc=C.preview({x:bs.vx,y:bs.vy});
-C.launch({x:bs.vx,y:bs.vy});settle();
-ok("bounce flight contacts ≡ preview (pixel-exact)",JSON.stringify(C.flightContacts)===JSON.stringify(prc.contacts));
-ok("bounce chain ends grounded on target",C.state==="ready"&&Math.abs(C.body.y-restC[1])<1);
-ok("direct A→C impossible (spring required)",restC[1]-restA[1]>C.C.MAXV*C.C.MAXV/(2*C.C.G));
+   sample launch phases over its period and demand a ±SOLVER_PHASE_TOL window still lands (not frame-perfect). */
+function findLaunch(C, fi, ti) {
+  const charSize = C.C.CHAR_SIZE, maxV = C.C.MAX_LAUNCH_SPEED, grav = C.C.GRAVITY;
+  const fp = fi < 0 ? [0, 0, C.C.VIEW_W, 0] : C.RAW_PLATS[fi];
+  const tp = ti < 0 ? [C.GOAL.x, C.C.SUMMIT, C.GOAL.w, 0, true] : C.RAW_PLATS[ti];
+  const fm = fp[3] === C.C.PLAT_MOVE_H || fp[3] === C.C.PLAT_MOVE_V || fp[3] === C.C.PLAT_CLOCK || fp[3] === C.C.PLAT_ORBIT;
+  const tm = tp[3] === C.C.PLAT_MOVE_H || tp[3] === C.C.PLAT_MOVE_V || tp[3] === C.C.PLAT_CLOCK || tp[3] === C.C.PLAT_ORBIT;
+  const per = fm ? (fp[5] || C.C.MOVER_DEFAULT_PERIOD) : tm ? (tp[5] || C.C.MOVER_DEFAULT_PERIOD) : 0;
+  const phases = per ? [0, per * 0.25, per * 0.5, per * 0.75, per * 0.125, per * 0.375, per * 0.625, per * 0.875] : [0];
+  const spring = C.RAW_PLATS.some(p => (p[3] === C.C.PLAT_BOUNCE || (p[3] === C.C.PLAT_DIR && p[5] > 0)) && p[1] > fp[1] && p[1] < tp[1]);
+  const zone = C.ZONES.some(z => z.y < tp[1] + 40 && z.y + z.h > fp[1] - 40 && z.x + z.w > Math.min(fp[0], tp[0]) && z.x < Math.max(fp[0] + fp[2], tp[0] + tp[2]));
+  for (const ph of phases) {
+    C.setWorldT(ph);
+    const fr = rectAt(C, fp, ph), tr = rectAt(C, tp, ph);
+    /* prune only direct jumps: a spring or a descending lift can do the lifting */
+    const dyLo = ((tp[3] === C.C.PLAT_MOVE_V || tp[3] === C.C.PLAT_ORBIT) ? tp[1] - (tp[4] || C.C.MOVER_DEFAULT_AMP) : tr[1])
+      - ((fp[3] === C.C.PLAT_MOVE_V || fp[3] === C.C.PLAT_ORBIT) ? fp[1] + (fp[4] || C.C.MOVER_DEFAULT_AMP) : fr[1]);
+    const vyNeed = (spring || zone) ? 0 : Math.sqrt(2 * grav * Math.max(0, dyLo));
+    const xs = [fr[0] + fr[2] / 2 - charSize / 2, fr[0] + 1, fr[0] + fr[2] - charSize - 1];
+    for (const bx of xs) {
+      C.setBody(bx, fr[1]);
+      const tc = tr[0] + tr[2] / 2, bc = bx + charSize / 2;
+      const lo = tc >= bc ? C.C.SOLVER_ANGLE_MIN : C.C.SOLVER_ANGLE_UP;
+      const hi = tc >= bc ? C.C.SOLVER_ANGLE_UP : C.C.SOLVER_ANGLE_MAX;
+      for (let ang = lo; ang <= hi; ang += C.C.SOLVER_ANGLE_STEP) {
+        const rad = ang * Math.PI / 180, sin = Math.sin(rad);
+        if (sin * C.C.SOLVER_MAX_POWER * maxV < vyNeed) continue;
+        const pw0 = Math.max(C.C.SOLVER_MIN_POWER, Math.ceil(vyNeed / (sin * maxV) / C.C.SOLVER_POWER_STEP) * C.C.SOLVER_POWER_STEP);
+        for (let pw = pw0; pw <= C.C.SOLVER_MAX_POWER + 0.001; pw += C.C.SOLVER_POWER_STEP) {
+          const vx = Math.cos(rad) * pw * maxV, vy = sin * pw * maxV;
+          const pr = C.preview({ x: vx, y: vy });
+          if (pr.mark && pr.mark.ok && (ti < 0 ? pr.mark.goal : pr.mark.idx === ti) && pr.mark.x > tr[0] - charSize / 2 && pr.mark.x < tr[0] + tr[2] + charSize / 2) {
+            if (per) {
+              let tol = true;
+              for (const d of [-C.C.SOLVER_PHASE_TOL, C.C.SOLVER_PHASE_TOL]) {
+                C.setWorldT(ph + d);
+                const tr2 = rectAt(C, tp, ph + d);
+                const p2 = C.preview({ x: vx, y: vy });
+                if (!(p2.mark && p2.mark.ok && (ti < 0 ? p2.mark.goal : p2.mark.idx === ti) && p2.mark.x > tr2[0] - charSize / 2 && p2.mark.x < tr2[0] + tr2[2] + charSize / 2)) tol = false;
+              }
+              C.setWorldT(ph);
+              if (!tol) continue;
+            }
+            return { bx, vx, vy, contacts: pr.contacts, ph };
+          }
+        }
+      }
+    }
+  }
+  return null;
 }
 
-/* 9 · fall economy */
-C.resetRun();
-const fallsBefore=C.run.falls;
-C.setBody(430,1680);
-C.launch({x:200,y:300});settle();
-const shake9=C.shake;
-ok("wall hit converts to straight drop, lands on floor",C.flightContact.t==="wall"&&C.body.y===0);
-ok("fall ≥25m counted once + biggest drop",C.run.falls===fallsBefore+1&&C.run.biggest>=1680);
-ok("fall flash + −Xm popup fired",C.flash>0&&C.floats.length>=1);
-ok(RM?"reduced motion: shake suppressed":"hard landing shakes screen",RM?shake9===0:shake9>0);
-
-/* 10 · keyboard FSM (hold-to-sweep) */
-C.resetRun();
-key(w,"ArrowUp");
-ok("arrow raises keyboard aim",C.state==="aim"&&C.aim&&C.aim.mode==="k");
-const p0=C.kb.p,a0=C.kb.a;
-for(let i=0;i<6;i++)tick(16.7);
-keyup(w,"ArrowUp");
-ok("holding an arrow sweeps power continuously",Math.abs(C.kb.p-p0-.45*.1002)<.005&&C.kb.p>p0);
-key(w,"ArrowLeft",true);
-for(let i=0;i<6;i++)tick(16.7);
-keyup(w,"ArrowLeft",false);
-ok("shift = quarter-rate fine sweep",Math.abs(C.kb.a-a0-15*.1002)<.2);
-const at0=C.aimT;
-key(w,"ArrowRight");
-for(let i=0;i<6;i++)tick(16.7);
-keyup(w,"ArrowRight");
-ok("arrows while aiming do not reset the fuse",C.aimT<at0-.05);
-key(w,"Escape");
-ok("esc pauses without cancelling the drawn aim",C.overlayOpen==="pause"&&C.state==="aim"&&C.aim&&C.aim.mode==="k");
-key(w,"Escape");
-ok("esc resumes the preserved aim",C.overlayOpen===null&&C.state==="aim");
-key(w," ");
-ok("space commits the standing aim",C.state==="flight"&&C.run.launches===1);
-settle();
-ok("full power reachable within a 210px drag",C.C.MAXV/C.C.KDRAG<=210,"full-power drag "+Math.round(C.C.MAXV/C.C.KDRAG)+"px");
-
-/* 11 · overlays pause */
-const t0=C.run.time;
-key(w,"h");
-ok("H opens help",C.overlayOpen==="help");
-for(let i=0;i<60;i++)tick(16.7);
-ok("timer frozen while overlay open",C.run.time===t0);
-key(w,"Escape");
-ok("esc closes help",C.overlayOpen===null);
-key(w,"r");
-ok("R opens erase confirm",C.overlayOpen==="confirm");
-d.getElementById("bNo").click();
-ok("keep climbing dismisses confirm",C.overlayOpen===null&&C.run.launches===1);
-
-/* 12 · persistence v3 */
-const sp={x:C.safePos.x,y:C.safePos.y};
-const stored=JSON.parse(w.localStorage.getItem("commit.v3"));
-ok("landing persists grounded pos + stats (v3)",stored.runs[1].x===sp.x&&stored.runs[1].y===sp.y&&stored.runs[1].launches===C.run.launches);
-C.body.x=100;C.body.y=3000;C.save();
-const stored2=JSON.parse(w.localStorage.getItem("commit.v3"));
-ok("airborne position never persisted",stored2.runs[1].x===sp.x&&stored2.runs[1].y===sp.y);
-C.load();
-ok("resume returns to last grounded spot",C.body.x===sp.x&&C.body.y===sp.y);
-w.localStorage.setItem("commit.v3",JSON.stringify({level:1,runs:{1:{x:9999,y:-5,launches:-3,time:"x",dead:[999,-1,"a"]}},life:{best:{1:-1},summits:{1:-2},bestTime:{1:-5}}}));
-C.load();
-ok("corrupt v3 save sanitized",C.body.y>=0&&C.run.launches>=0&&C.life.best[1]>=0&&C.life.summits[1]>=0&&C.life.bestTime[1]===null&&C.run.dead.length===0);
-w.localStorage.setItem("commit.v3",JSON.stringify(stored));C.load();
-
-/* 13 · erase keeps lifetime */
-const bestBefore=C.life.best[1];
-ok("lifetime best recorded",bestBefore>0);
-d.getElementById("bReset").click();
-ok("↺ asks confirmation",C.overlayOpen==="confirm");
-d.getElementById("bYes").click();
-ok("erase zeroes run, lifetime survives",C.run.launches===0&&C.run.falls===0&&C.run.time===0&&C.body.y===0&&C.life.best[1]===bestBefore&&C.overlayOpen===null);
-
-/* 14 · multi-pointer + caps */
-ptr(w,d,"pointerdown",100,500,1);ptr(w,d,"pointerdown",300,400,2);
-ok("only first pointer aims",C.aim&&C.aim.id===1&&C.aim.ox===100);
-ptr(w,d,"pointermove",320,420,2);
-ok("second pointer move ignored",C.aim.cx===100&&C.aim.cy===500);
-ptr(w,d,"pointerup",320,420,2);
-ok("second pointer release ignored",C.state==="aim");
-ptr(w,d,"pointercancel",100,500,1);
-ok("pointercancel cancels aim",C.state==="ready"&&C.aim===null);
-for(let i=0;i<80;i++)C.spawnDust(240,100,16,"#ffffff");
-ok("dust particle cap holds (≤300)",C.parts.length<=300);
-
-/* 15 · storage disabled */
-const oSet=w.localStorage.setItem.bind(w.localStorage),oGet=w.localStorage.getItem.bind(w.localStorage);
-w.localStorage.setItem=()=>{throw new Error("quota")};
-w.localStorage.getItem=()=>{throw new Error("denied")};
-let threw=false;try{C.save();C.load();}catch(e){threw=true;}
-ok("storage failure is silent (private mode)",!threw);
-w.localStorage.setItem=oSet;w.localStorage.getItem=oGet;
-
-/* 16 · hidden tab */
-let hiddenFlag=false;
-Object.defineProperty(d,"hidden",{configurable:true,get:()=>hiddenFlag});
-C.launch({x:0,y:300});settle();
-const tt=C.run.time;
-hiddenFlag=true;d.dispatchEvent(new w.Event("visibilitychange"));
-for(let i=0;i<60;i++)tick(16.7);
-ok("hidden tab freezes timer",C.run.time===tt);
-hiddenFlag=false;d.dispatchEvent(new w.Event("visibilitychange"));
-now=w.performance.now();tick(16.7);
-ok("return resumes without time jump",C.run.time>=tt&&C.run.time<tt+1);
-
-/* 17 · sound */
-ok("audio context exists after gestures",!!C.snd.ctx);
-ok("sound on by default",C.snd.on===true);
-const bS=d.getElementById("bSound");
-bS.click();
-ok("♪ button mutes + persists + shows state",C.snd.on===false&&bS.getAttribute("aria-pressed")==="false"&&w.localStorage.getItem("commit.snd")==="false"&&bS.classList.contains("off"));
-key(w,"m");
-ok("M unmutes + persists",C.snd.on===true&&w.localStorage.getItem("commit.snd")==="true"&&bS.getAttribute("aria-pressed")==="true");
-
-/* 18 · altitude palette */
-const s0=C.skyAt(0)[0],s1=C.skyAt(1)[0];
-const skyDist=Math.abs(s0[0]-s1[0])+Math.abs(s0[1]-s1[1])+Math.abs(s0[2]-s1[2]);
-ok("sky palette differs floor vs summit",skyDist>60,"Δrgb="+Math.round(skyDist));
-
-/* 19 · summit + unlock */
-C.resetRun();
-C.setBody(339,4980);
-const prw=C.preview({x:-200,y:760});
-ok("final jump previews goal landing",prw.mark&&prw.mark.ok&&prw.mark.goal);
-const summitsBefore=C.life.summits[1]||0;
-C.launch({x:-200,y:760});settle();
-ok("landing on summit wins",C.state==="win"&&C.overlayOpen==="win"&&!d.getElementById("win").hidden);
-ok("win stats + share text populated",d.getElementById("wTime").textContent!=="—"&&d.getElementById("share").value.indexOf("508m")>=0&&d.getElementById("share").value.indexOf("TOWER 1")>=0);
-ok("lifetime summits increment",C.life.summits[1]===summitsBefore+1);
-ok("summit unlocks tower 2 + NEXT shown",C.life.unlocked===2&&!d.getElementById("bNext").hidden&&!d.getElementById("winUnlock").hidden);
-ok(RM?"reduced motion: confetti skipped":"confetti fires (90)",RM?C.confetti.length===0:C.confetti.length===90);
-ok("best time recorded",C.life.bestTime[1]!=null&&C.life.bestTime[1]>=0);
-
-/* 20 · climb again */
-d.getElementById("bAgain").click();
-ok("climb again fully resets",C.state==="ready"&&C.body.y===0&&C.run.launches===0&&C.run.time===0&&C.overlayOpen===null);
-for(let i=0;i<120;i++)tick(16.7);
-ok("loop stable after restart",C.state==="ready"&&C.body.y===0);
-
-/* 21 · zero network */
-const res=w.performance.getEntriesByType("resource").filter(r=>/^https?:/.test(r.name)&&!/\/js\/|\/levels\/|style\.css/.test(r.name));
-ok("no external network requests",res.length===0,res.map(r=>r.name).join(","));
-
-/* 22 · tower 1 solver */
-solveTower(C,"T1");
-C.resetRun();
-
-/* 23 · level switching */
-key(w,"h");
-ok("tower picker lists all five towers",d.getElementById("towers").children.length===5);
-ok("tower 2 button enabled after unlock",!d.getElementById("towers").children[1].disabled);
-ok("tower 3 button locked before T2 summit",d.getElementById("towers").children[2].disabled);
-ok("tower 4 button locked before T3 summit",d.getElementById("towers").children[3].disabled);
-ok("tower 5 button locked before T4 summit",d.getElementById("towers").children[4].disabled);
-key(w,"Escape");
-C.setLevel(2);
-ok("switch to tower 2 (560m)",C.level===2&&C.C.SUMMIT===5600&&C.body.y===0);
-ok("tower tag updated",d.getElementById("towerTag").textContent.indexOf("TOWER 2")===0);
-ok("tower 2 has ice platforms",C.P.some(p=>p[3]===3));
-C.setLevel(3);
-ok("locked tower 3 cannot be entered",C.level===2);
-C.setLevel(1);
-ok("switch back to tower 1 restores its run",C.level===1&&C.C.SUMMIT===5080);
-C.setLevel(2);
-
-/* 24 · ice mechanics (tower 2) */
-C.resetRun();
-const ice=C.P[4],srcI=C.P[3];
-const is=findLaunch(C,3,4);
-ok("ice landing is solvable",!!is);
-if(is){
-C.setBody(is.bx,srcI[1]);
-C.launch({x:is.vx,y:is.vy});settle();
-ok("landing on ice sets slide = entry direction",C.body.on&&C.body.on.ice===true&&C.body.slide===(is.vx>0?1:-1));
-const x0=C.body.x;
-for(let i=0;i<30;i++)tick(16.7);
-ok("ice drifts you slowly (slide moves x)",C.body.x!==x0&&C.state==="ready");
-const x1=C.body.x;
-C.launch({x:0,y:400});
-ok("launch from ice discards slide (contract)",C.body.slide===0&&C.state==="flight");
-settle();
+/* every rest-to-rest jump (bounce pads and dir springs are not rests) must solve at ≤98% power */
+function solveTower(C, label) {
+  const restIdx = [];
+  C.RAW_PLATS.forEach((p, i) => { if (p[3] !== C.C.PLAT_BOUNCE && p[3] !== C.C.PLAT_DIR) restIdx.push(i); });
+  const n = restIdx.length + 1;
+  let solved = 0, maxPw = 0;
+  const fails = [];
+  for (let i = 0; i < n; i++) {
+    const fi = i === 0 ? -1 : restIdx[i - 1];
+    const ti = i < restIdx.length ? restIdx[i] : -1;
+    const sol = findLaunch(C, fi, ti);
+    if (sol) {
+      solved++;
+      maxPw = Math.max(maxPw, Math.round(Math.hypot(sol.vx, sol.vy) / C.C.MAX_LAUNCH_SPEED * 100));
+    } else fails.push("jump" + (i + 1));
+  }
+  ok(label + ": all " + n + " jumps solvable at ≤98% power", fails.length === 0,
+    "solved " + solved + "/" + n + " · hardest " + maxPw + "%" + (fails.length ? " · UNSOLVED: " + fails.join(",") : ""));
+  return fails.length === 0;
 }
-C.resetRun();
-C.setBody(ice[0]+ice[2]/2-9,ice[1]);
-const xv=C.body.x;
-for(let i=0;i<60;i++)tick(16.7);
-ok("straight-down landing stands still on ice",C.body.slide===0&&C.body.x===xv&&C.state==="ready");
-const iw=findLaunch(C,3,4);
-if(iw){
-C.setBody(iw.bx,srcI[1]);C.launch({x:iw.vx,y:iw.vy});settle();
-for(let i=0;i<240;i++)tick(16.7);
-ok("sliding off the edge drops you honestly",C.body.y<ice[1]);
-settle();
-ok("walk-off lands below (no teleport)",C.state==="ready"&&C.body.y<ice[1]);
+
+async function main() {
+  const f = document.getElementById("f");
+  await new Promise(r => {
+    if (f.contentWindow && f.contentDocument && f.contentDocument.readyState === "complete" && f.contentWindow.__COMMIT__) r();
+    else f.addEventListener("load", r, { once: true });
+  });
+  const w = f.contentWindow, d = f.contentDocument;
+  if (!w.__COMMIT__) { ok("game hook present", false, "iframe blocked? serve over HTTP"); return; }
+  const C = w.__COMMIT__;
+  const errs = [];
+  w.addEventListener("error", e => errs.push(String(e.message)));
+  C.takeControl();
+  let now = w.performance.now();
+  const tick = ms => { now += ms; C.tick(now); };
+  const settle = () => { let n = 0; while (C.state === "flight" && n < 2000) { tick(1000 / 60); n++; } return n; };
+  const RM = C.RM;
+
+  /* 1 · boot: main menu is the start page */
+  ok("boot: main menu is the start page", C.overlayOpen === "menu" && !d.getElementById("menu").hidden);
+  ok("boot: menu offers START GAME on a fresh run", d.getElementById("bContinue").textContent === "START GAME");
+  ok("boot: ready at 0m on tower 1", C.state === "ready" && C.body.y === 0 && C.level === 1);
+  ok("tower 2 locked at start", C.life.unlocked === 1);
+  C.setLevel(2);
+  ok("locked tower cannot be entered", C.level === 1);
+  d.getElementById("bContinue").click();
+  ok("boot: START GAME closes menu", C.overlayOpen === null);
+  for (let i = 0; i < 150; i++) tick(16.7);
+  ok("idle hint arms after 2.2s", C.idleT > C.C.IDLE_HINT_DELAY);
+
+  /* 2 · weak drag cancels */
+  ptr(w, d, "pointerdown", 240, 600);
+  ok("pointerdown starts aim + fuse", C.state === "aim" && C.aim && C.aim.mode === "p" && C.aimT === C.C.AIM_FUSE_TIME);
+  ptr(w, d, "pointermove", 245, 595);
+  ptr(w, d, "pointerup", 245, 595);
+  ok("weak drag (<90px/s) cancels, no launch", C.state === "ready" && C.run.launches === 0);
+
+  /* 3 · commit contract */
+  ptr(w, d, "pointerdown", 240, 600);
+  ptr(w, d, "pointermove", 340, 500);
+  const kv = C.C.DRAG_SPEED_PER_PX;
+  const pr = C.preview({ x: 100 * kv, y: 100 * kv });
+  ok("preview yields arc + landing mark", pr.pts.length > 10 && pr.mark && pr.mark.ok);
+  ptr(w, d, "pointerup", 340, 500);
+  ok("release above threshold commits", C.state === "flight" && C.run.launches === 1);
+  settle();
+  ok("preview contacts ≡ flight contacts (pixel-exact)", JSON.stringify(C.flightContacts) === JSON.stringify(pr.contacts));
+  ok("trail lingers after landing", C.trail.length > 0);
+
+  /* 4 · off-canvas release */
+  ptr(w, d, "pointerdown", 240, 600);
+  ptr(w, d, "pointermove", 700, 300);
+  ptr(w, d, "pointerup", 700, 300);
+  ok("off-canvas release still commits", C.state === "flight" && C.run.launches === 2);
+  settle();
+
+  /* 5 · aim fuse */
+  C.resetRun();
+  ptr(w, d, "pointerdown", 240, 600);
+  ptr(w, d, "pointermove", 340, 500);
+  for (let i = 0; i < 230; i++) tick(16.7);
+  ok("aim fuse auto-launches on expiry", C.run.launches === 1 && C.state !== "aim");
+  settle();
+  C.resetRun();
+  ptr(w, d, "pointerdown", 240, 600);
+  for (let i = 0; i < 230; i++) tick(16.7);
+  ok("weak fuse cancels without launch", C.state === "ready" && C.run.launches === 0);
+  ptr(w, d, "pointerup", 240, 600);
+
+  /* 6 · ceiling bonk */
+  C.setBody(176, 2280);
+  const prb = C.preview({ x: 60, y: 830 });
+  ok("steep arc under ceiling previews red ✕", prb.mark && !prb.mark.ok);
+  C.launch({ x: 60, y: 830 });
+  settle();
+  ok("bonk contact pixel-exact, then honest fall",
+    C.flightContact && C.flightContact.t === "bonk" && C.flightContact.x === prb.mark.x && C.flightContact.y === prb.mark.y && C.state === "ready");
+
+  /* 7 · crumble + reform */
+  C.resetRun();
+  const cr = C.RAW_PLATS[8];
+  C.setBody(cr[0] + cr[2] / 2 - C.C.CHAR_SIZE / 2, cr[1]);
+  ok("standing on a crumble platform", !!C.body.on && C.body.on.crumble === true);
+  for (let i = 0; i < 110; i++) tick(16.7);
+  ok("crumble breaks after dwell + recorded", C.PLATS[8].dead === true && C.run.dead.indexOf(8) >= 0);
+  ok("break spawns shards + drops you", C.shards.length > 0 && C.body.y < cr[1]);
+  settle();
+  ok("crumble fall lands you below", C.state === "ready" && C.body.y < cr[1]);
+  for (let i = 0; i < 230; i++) tick(16.7);
+  ok("crumble reforms after cooldown (no softlock)", C.PLATS[8].dead === false && C.run.dead.indexOf(8) < 0);
+  C.resetRun();
+  ok("reset rebuilds crumbled platforms", C.PLATS[8].dead === false && C.run.dead.length === 0);
+  C.setBody(cr[0] + cr[2] / 2 - C.C.CHAR_SIZE / 2, cr[1]);
+  C.launch({ x: 0, y: 400 });
+  settle();
+  ok("launching before dwell keeps platform intact", C.PLATS[8].dead === false);
+
+  /* 8 · bounce chain */
+  C.resetRun();
+  const restA = [140, 2490, 80, 0], restC = [400, 2720, 72, 0];
+  const bs = findLaunch(C, 17, 19);
+  ok("bounce chain is solvable", !!bs);
+  if (bs) {
+    ok("bounce chain arc previews a bounce hop", bs.contacts.some(c => c.t === "bounce"));
+    C.setBody(bs.bx, restA[1]);
+    const prc = C.preview({ x: bs.vx, y: bs.vy });
+    C.launch({ x: bs.vx, y: bs.vy });
+    settle();
+    ok("bounce flight contacts ≡ preview (pixel-exact)", JSON.stringify(C.flightContacts) === JSON.stringify(prc.contacts));
+    ok("bounce chain ends grounded on target", C.state === "ready" && Math.abs(C.body.y - restC[1]) < 1);
+    ok("direct A→C impossible (spring required)", restC[1] - restA[1] > C.C.MAX_LAUNCH_SPEED * C.C.MAX_LAUNCH_SPEED / (2 * C.C.GRAVITY));
+  }
+
+  /* 9 · fall economy */
+  C.resetRun();
+  const fallsBefore = C.run.falls;
+  C.setBody(430, 1680);
+  C.launch({ x: 200, y: 300 });
+  settle();
+  const shake9 = C.shake;
+  ok("wall hit converts to straight drop, lands on floor", C.flightContact.t === "wall" && C.body.y === 0);
+  ok("fall ≥25m counted once + biggest drop", C.run.falls === fallsBefore + 1 && C.run.biggest >= 1680);
+  ok("fall flash + −Xm popup fired", C.flash > 0 && C.floats.length >= 1);
+  ok(RM ? "reduced motion: shake suppressed" : "hard landing shakes screen", RM ? shake9 === 0 : shake9 > 0);
+
+  /* 10 · keyboard FSM (hold-to-sweep) */
+  C.resetRun();
+  key(w, "ArrowUp");
+  ok("arrow raises keyboard aim", C.state === "aim" && C.aim && C.aim.mode === "k");
+  const p0 = C.kb.power, a0 = C.kb.angle;
+  for (let i = 0; i < 6; i++) tick(16.7);
+  keyup(w, "ArrowUp");
+  ok("holding an arrow sweeps power continuously", Math.abs(C.kb.power - p0 - C.C.KB_POWER_RATE * 0.1002) < 0.005 && C.kb.power > p0);
+  key(w, "ArrowLeft", true);
+  for (let i = 0; i < 6; i++) tick(16.7);
+  keyup(w, "ArrowLeft", false);
+  ok("shift = quarter-rate fine sweep", Math.abs(C.kb.angle - a0 - C.C.KB_ANGLE_RATE * C.C.KB_FINE_FACTOR * 0.1002) < 0.2);
+  const at0 = C.aimT;
+  key(w, "ArrowRight");
+  for (let i = 0; i < 6; i++) tick(16.7);
+  keyup(w, "ArrowRight");
+  ok("arrows while aiming do not reset the fuse", C.aimT < at0 - 0.05);
+  key(w, "Escape");
+  ok("esc pauses without cancelling the drawn aim", C.overlayOpen === "pause" && C.state === "aim" && C.aim && C.aim.mode === "k");
+  key(w, "Escape");
+  ok("esc resumes the preserved aim", C.overlayOpen === null && C.state === "aim");
+  key(w, " ");
+  ok("space commits the standing aim", C.state === "flight" && C.run.launches === 1);
+  settle();
+  ok("full power reachable within a 210px drag", C.C.MAX_LAUNCH_SPEED / C.C.DRAG_SPEED_PER_PX <= 210,
+    "full-power drag " + Math.round(C.C.MAX_LAUNCH_SPEED / C.C.DRAG_SPEED_PER_PX) + "px");
+
+  /* 11 · overlays pause */
+  const t0 = C.run.time;
+  key(w, "h");
+  ok("H opens help", C.overlayOpen === "help");
+  for (let i = 0; i < 60; i++) tick(16.7);
+  ok("timer frozen while overlay open", C.run.time === t0);
+  key(w, "Escape");
+  ok("esc closes help", C.overlayOpen === null);
+  key(w, "r");
+  ok("R opens erase confirm", C.overlayOpen === "confirm");
+  d.getElementById("bNo").click();
+  ok("keep climbing dismisses confirm", C.overlayOpen === null && C.run.launches === 1);
+
+  /* 12 · persistence v3 */
+  const sp = { x: C.safePos.x, y: C.safePos.y };
+  const stored = JSON.parse(w.localStorage.getItem("commit.v3"));
+  ok("landing persists grounded pos + stats (v3)", stored.runs[1].x === sp.x && stored.runs[1].y === sp.y && stored.runs[1].launches === C.run.launches);
+  C.body.x = 100;
+  C.body.y = 3000;
+  C.save();
+  const stored2 = JSON.parse(w.localStorage.getItem("commit.v3"));
+  ok("airborne position never persisted", stored2.runs[1].x === sp.x && stored2.runs[1].y === sp.y);
+  C.load();
+  ok("resume returns to last grounded spot", C.body.x === sp.x && C.body.y === sp.y);
+  w.localStorage.setItem("commit.v3", JSON.stringify({ level: 1, runs: { 1: { x: 9999, y: -5, launches: -3, time: "x", dead: [999, -1, "a"] } }, life: { best: { 1: -1 }, summits: { 1: -2 }, bestTime: { 1: -5 } } }));
+  C.load();
+  ok("corrupt v3 save sanitized", C.body.y >= 0 && C.run.launches >= 0 && C.life.best[1] >= 0 && C.life.summits[1] >= 0 && C.life.bestTime[1] === null && C.run.dead.length === 0);
+  w.localStorage.setItem("commit.v3", JSON.stringify(stored));
+  C.load();
+
+  /* 13 · erase keeps lifetime */
+  const bestBefore = C.life.best[1];
+  ok("lifetime best recorded", bestBefore > 0);
+  d.getElementById("bReset").click();
+  ok("↺ asks confirmation", C.overlayOpen === "confirm");
+  d.getElementById("bYes").click();
+  ok("erase zeroes run, lifetime survives", C.run.launches === 0 && C.run.falls === 0 && C.run.time === 0 && C.body.y === 0 && C.life.best[1] === bestBefore && C.overlayOpen === null);
+
+  /* 14 · multi-pointer + caps */
+  ptr(w, d, "pointerdown", 100, 500, 1);
+  ptr(w, d, "pointerdown", 300, 400, 2);
+  ok("only first pointer aims", C.aim && C.aim.id === 1 && C.aim.ox === 100);
+  ptr(w, d, "pointermove", 320, 420, 2);
+  ok("second pointer move ignored", C.aim.cx === 100 && C.aim.cy === 500);
+  ptr(w, d, "pointerup", 320, 420, 2);
+  ok("second pointer release ignored", C.state === "aim");
+  ptr(w, d, "pointercancel", 100, 500, 1);
+  ok("pointercancel cancels aim", C.state === "ready" && C.aim === null);
+  for (let i = 0; i < 80; i++) C.spawnDust(240, 100, 16, "#ffffff");
+  ok("dust particle cap holds (≤300)", C.parts.length <= C.C.PARTS_MAX);
+
+  /* 15 · storage disabled */
+  const oSet = w.localStorage.setItem.bind(w.localStorage), oGet = w.localStorage.getItem.bind(w.localStorage);
+  w.localStorage.setItem = () => { throw new Error("quota"); };
+  w.localStorage.getItem = () => { throw new Error("denied"); };
+  let threw = false;
+  try { C.save(); C.load(); } catch (e) { threw = true; }
+  ok("storage failure is silent (private mode)", !threw);
+  w.localStorage.setItem = oSet;
+  w.localStorage.getItem = oGet;
+
+  /* 16 · hidden tab */
+  let hiddenFlag = false;
+  Object.defineProperty(d, "hidden", { configurable: true, get: () => hiddenFlag });
+  C.launch({ x: 0, y: 300 });
+  settle();
+  const tt = C.run.time;
+  hiddenFlag = true;
+  d.dispatchEvent(new w.Event("visibilitychange"));
+  for (let i = 0; i < 60; i++) tick(16.7);
+  ok("hidden tab freezes timer", C.run.time === tt);
+  hiddenFlag = false;
+  d.dispatchEvent(new w.Event("visibilitychange"));
+  now = w.performance.now();
+  tick(16.7);
+  ok("return resumes without time jump", C.run.time >= tt && C.run.time < tt + 1);
+
+  /* 17 · sound */
+  ok("audio context exists after gestures", !!C.snd.ctx);
+  ok("sound on by default", C.snd.on === true);
+  const bS = d.getElementById("bSound");
+  bS.click();
+  ok("♪ button mutes + persists + shows state", C.snd.on === false && bS.getAttribute("aria-pressed") === "false" && w.localStorage.getItem("commit.snd") === "false" && bS.classList.contains("off"));
+  key(w, "m");
+  ok("M unmutes + persists", C.snd.on === true && w.localStorage.getItem("commit.snd") === "true" && bS.getAttribute("aria-pressed") === "true");
+
+  /* 18 · altitude palette */
+  const s0 = C.skyAt(0)[0], s1 = C.skyAt(1)[0];
+  const skyDist = Math.abs(s0[0] - s1[0]) + Math.abs(s0[1] - s1[1]) + Math.abs(s0[2] - s1[2]);
+  ok("sky palette differs floor vs summit", skyDist > 60, "Δrgb=" + Math.round(skyDist));
+
+  /* 19 · summit + unlock */
+  C.resetRun();
+  C.setBody(339, 4980);
+  const prw = C.preview({ x: -200, y: 760 });
+  ok("final jump previews goal landing", prw.mark && prw.mark.ok && prw.mark.goal);
+  const summitsBefore = C.life.summits[1] || 0;
+  C.launch({ x: -200, y: 760 });
+  settle();
+  ok("landing on summit wins", C.state === "win" && C.overlayOpen === "win" && !d.getElementById("win").hidden);
+  ok("win stats + share text populated", d.getElementById("wTime").textContent !== "—" && d.getElementById("share").value.indexOf("508m") >= 0 && d.getElementById("share").value.indexOf("TOWER 1") >= 0);
+  ok("lifetime summits increment", C.life.summits[1] === summitsBefore + 1);
+  ok("summit unlocks tower 2 + NEXT shown", C.life.unlocked === 2 && !d.getElementById("bNext").hidden && !d.getElementById("winUnlock").hidden);
+  ok(RM ? "reduced motion: confetti skipped" : "confetti fires (90)", RM ? C.confetti.length === 0 : C.confetti.length === C.C.CONFETTI_COUNT);
+  ok("best time recorded", C.life.bestTime[1] != null && C.life.bestTime[1] >= 0);
+
+  /* 20 · climb again */
+  d.getElementById("bAgain").click();
+  ok("climb again fully resets", C.state === "ready" && C.body.y === 0 && C.run.launches === 0 && C.run.time === 0 && C.overlayOpen === null);
+  for (let i = 0; i < 120; i++) tick(16.7);
+  ok("loop stable after restart", C.state === "ready" && C.body.y === 0);
+
+  /* 21 · zero network */
+  const res = w.performance.getEntriesByType("resource").filter(r => /^https?:/.test(r.name) && !/\/js\/|\/levels\/|style\.css/.test(r.name));
+  ok("no external network requests", res.length === 0, res.map(r => r.name).join(","));
+
+  /* 22 · tower 1 solver */
+  solveTower(C, "T1");
+  C.resetRun();
+
+  /* 23 · level switching */
+  key(w, "h");
+  ok("tower picker lists all five towers", d.getElementById("towers").children.length === 5);
+  ok("tower 2 button enabled after unlock", !d.getElementById("towers").children[1].disabled);
+  ok("tower 3 button locked before T2 summit", d.getElementById("towers").children[2].disabled);
+  ok("tower 4 button locked before T3 summit", d.getElementById("towers").children[3].disabled);
+  ok("tower 5 button locked before T4 summit", d.getElementById("towers").children[4].disabled);
+  key(w, "Escape");
+  C.setLevel(2);
+  ok("switch to tower 2 (560m)", C.level === 2 && C.C.SUMMIT === 5600 && C.body.y === 0);
+  ok("tower tag updated", d.getElementById("towerTag").textContent.indexOf("TOWER 2") === 0);
+  ok("tower 2 has ice platforms", C.RAW_PLATS.some(p => p[3] === C.C.PLAT_ICE));
+  C.setLevel(3);
+  ok("locked tower 3 cannot be entered", C.level === 2);
+  C.setLevel(1);
+  ok("switch back to tower 1 restores its run", C.level === 1 && C.C.SUMMIT === 5080);
+  C.setLevel(2);
+
+  /* 24 · ice mechanics (tower 2) */
+  C.resetRun();
+  const ice = C.RAW_PLATS[4], srcI = C.RAW_PLATS[3];
+  const is = findLaunch(C, 3, 4);
+  ok("ice landing is solvable", !!is);
+  if (is) {
+    C.setBody(is.bx, srcI[1]);
+    C.launch({ x: is.vx, y: is.vy });
+    settle();
+    ok("landing on ice sets slide = entry direction", C.body.on && C.body.on.ice === true && C.body.slide === (is.vx > 0 ? 1 : -1));
+    const x0 = C.body.x;
+    for (let i = 0; i < 30; i++) tick(16.7);
+    ok("ice drifts you slowly (slide moves x)", C.body.x !== x0 && C.state === "ready");
+    const x1 = C.body.x;
+    C.launch({ x: 0, y: 400 });
+    ok("launch from ice discards slide (contract)", C.body.slide === 0 && C.state === "flight");
+    settle();
+  }
+  C.resetRun();
+  C.setBody(ice[0] + ice[2] / 2 - C.C.CHAR_SIZE / 2, ice[1]);
+  const xv = C.body.x;
+  for (let i = 0; i < 60; i++) tick(16.7);
+  ok("straight-down landing stands still on ice", C.body.slide === 0 && C.body.x === xv && C.state === "ready");
+  const iw = findLaunch(C, 3, 4);
+  if (iw) {
+    C.setBody(iw.bx, srcI[1]);
+    C.launch({ x: iw.vx, y: iw.vy });
+    settle();
+    for (let i = 0; i < 240; i++) tick(16.7);
+    ok("sliding off the edge drops you honestly", C.body.y < ice[1]);
+    settle();
+    ok("walk-off lands below (no teleport)", C.state === "ready" && C.body.y < ice[1]);
+  }
+  C.resetRun();
+  const ip = findLaunch(C, 3, 4);
+  if (ip) {
+    C.setBody(ip.bx, srcI[1]);
+    C.launch({ x: ip.vx, y: ip.vy });
+    settle();
+    C.save();
+    const stI = JSON.parse(w.localStorage.getItem("commit.v3"));
+    ok("slide direction persisted", stI.runs[2].slide === C.body.slide && C.body.slide !== 0);
+    C.load();
+    ok("resume on ice restores slide", C.body.slide === stI.runs[2].slide && C.body.on && C.body.on.ice === true);
+  }
+  C.resetRun();
+
+  /* 25 · tower 2 solver */
+  solveTower(C, "T2");
+  C.resetRun();
+
+  /* 26 · tower 2 summit */
+  const fin = findLaunch(C, 39, -1);
+  ok("T2 final jump previews goal", !!fin && fin.contacts[fin.contacts.length - 1].goal);
+  const sb2 = C.life.summits[2] || 0;
+  if (fin) {
+    C.setBody(fin.bx, C.RAW_PLATS[39][1]);
+    C.launch({ x: fin.vx, y: fin.vy });
+  }
+  settle();
+  ok("T2 summit wins", C.state === "win" && C.life.summits[2] === sb2 + 1);
+  ok("T2 share text uses 560m", d.getElementById("share").value.indexOf("560m") >= 0);
+  ok("T2 summit unlocks tower 3 + NEXT shown", C.life.unlocked === 3 && !d.getElementById("bNext").hidden && !d.getElementById("winUnlock").hidden);
+  C.closeOv();
+
+  /* 27 · tower 3 movers */
+  C.setLevel(3);
+  ok("switch to tower 3 (600m)", C.level === 3 && C.C.SUMMIT === 6000);
+  ok("tower tag updated to T3", d.getElementById("towerTag").textContent.indexOf("TOWER 3") === 0);
+  ok("T3 has horizontal + vertical movers", C.RAW_PLATS.some(p => p[3] === C.C.PLAT_MOVE_H) && C.RAW_PLATS.some(p => p[3] === C.C.PLAT_MOVE_V));
+  C.resetRun();
+  const ms = C.PLATS[3];
+  C.setWorldT(0);
+  const r0 = C.moverXY(ms, 0);
+  C.setBody(r0.x + ms.w / 2 - C.C.CHAR_SIZE / 2, r0.y + C.C.PLATFORM_HEIGHT);
+  ok("standing on a horizontal mover", C.body.on === ms);
+  const off0 = C.body.x - r0.x;
+  for (let i = 0; i < 30; i++) tick(16.7);
+  ok("mover carries you (x tracks platform)", C.state === "ready" && Math.abs(C.body.x - C.moverXY(ms, C.worldT).x - off0) < 0.01);
+  for (let i = 0; i < 90; i++) tick(16.7);
+  ok("carry holds through the reversal", C.state === "ready" && Math.abs(C.body.x - C.moverXY(ms, C.worldT).x - off0) < 0.01);
+  C.launch({ x: 0, y: 400 });
+  ok("launch from mover discards carry (contract)", C.body.vx === 0 && C.body.vy === 400);
+  settle();
+  const vs = C.PLATS[15];
+  C.setWorldT(0);
+  const v0 = C.moverXY(vs, 0);
+  C.setBody(v0.x + vs.w / 2 - C.C.CHAR_SIZE / 2, v0.y + C.C.PLATFORM_HEIGHT);
+  for (let i = 0; i < 40; i++) tick(16.7);
+  ok("vertical mover carries y", C.state === "ready" && Math.abs(C.body.y - (C.moverXY(vs, C.worldT).y + C.C.PLATFORM_HEIGHT)) < 0.01);
+  C.resetRun();
+  const mj = findLaunch(C, 2, 3);
+  ok("jump onto a mover is solvable (phase-aware)", !!mj);
+  if (mj) {
+    C.setWorldT(mj.ph);
+    C.setBody(mj.bx, C.RAW_PLATS[2][1]);
+    const prm = C.preview({ x: mj.vx, y: mj.vy });
+    C.launch({ x: mj.vx, y: mj.vy });
+    settle();
+    ok("mover flight contacts ≡ preview (pixel-exact)", JSON.stringify(C.flightContacts) === JSON.stringify(prm.contacts));
+    ok("flight lands on the mover", C.body.on && C.body.on.idx === 3);
+  }
+  C.resetRun();
+  C.setWorldT(0);
+  const rr = C.moverXY(ms, 0);
+  C.setBody(rr.x + ms.w - 6, rr.y + C.C.PLATFORM_HEIGHT);
+  const offE = C.body.x - rr.x;
+  for (let i = 0; i < 120; i++) tick(16.7);
+  ok("carry preserves edge overhang (no relative slide)", C.state === "ready" && C.body.on && C.body.on.idx === 3 && Math.abs(C.body.x - C.moverXY(ms, C.worldT).x - offE) < 0.01);
+  C.resetRun();
+  C.setWorldT(0);
+  const r1 = C.moverXY(ms, 0);
+  C.setBody(r1.x + 10, r1.y + C.C.PLATFORM_HEIGHT);
+  C.save();
+  const stM = JSON.parse(w.localStorage.getItem("commit.v3"));
+  ok("world clock persisted with the run", stM.runs[3].wt === C.worldT);
+  C.setWorldT(7);
+  C.load();
+  ok("resume restores mover phase + footing", C.worldT === stM.runs[3].wt && C.body.on && C.body.on.idx === 3);
+  C.resetRun();
+
+  /* 28 · tower 3 solver */
+  solveTower(C, "T3");
+  C.resetRun();
+
+  /* 29 · tower 3 summit */
+  const fin3 = findLaunch(C, 41, -1);
+  ok("T3 final jump previews goal", !!fin3 && fin3.contacts[fin3.contacts.length - 1].goal);
+  const sb3 = C.life.summits[3] || 0;
+  if (fin3) {
+    C.setWorldT(fin3.ph);
+    C.setBody(fin3.bx, C.RAW_PLATS[41][1]);
+    C.launch({ x: fin3.vx, y: fin3.vy });
+  }
+  settle();
+  ok("T3 summit wins", C.state === "win" && C.life.summits[3] === sb3 + 1);
+  ok("T3 share text uses 600m", d.getElementById("share").value.indexOf("600m") >= 0);
+  ok("T3 summit unlocks tower 4 + NEXT shown", C.life.unlocked === 4 && !d.getElementById("bNext").hidden);
+  C.closeOv();
+
+  /* 30 · vertical lift collision fairness — a lift rising into the body must land, not side-eject */
+  C.resetRun();
+  const lift = C.PLATS[15];
+  C.setWorldT(lift.period * 0.25);
+  const liftV = C.moverV(lift, C.worldT).y;
+  ok("test phase: lift is rising", liftV > 50);
+  const gap = liftV * C.C.FIXED_DT * 0.5;
+  const lr = C.moverXY(lift, C.worldT);
+  C.setBody(lr.x + 20, lr.y + C.C.PLATFORM_HEIGHT + gap);
+  const pv0 = C.preview({ x: 1e-9, y: 0 });
+  ok("straight-down preview onto rising lift lands", !!pv0.mark && pv0.mark.ok && pv0.mark.idx === 15);
+  C.launch({ x: 1e-9, y: 0 });
+  settle();
+  ok("straight-down jump lands on rising lift (no eject)", C.state === "ready" && C.body.on && C.body.on.idx === 15 && Math.abs(C.body.x - (lr.x + 20)) < 0.01);
+  ok("lift landing flight ≡ preview", JSON.stringify(C.flightContacts) === JSON.stringify(pv0.contacts));
+  ok("no wall contact during lift landing", !C.flightContacts.some(c => c.t === "wall"));
+  C.resetRun();
+  C.setWorldT(lift.period * 0.25);
+  const lr2 = C.moverXY(lift, C.worldT);
+  C.setBody(lr2.x + 20, lr2.y + C.C.PLATFORM_HEIGHT + gap);
+  C.launch({ x: 140, y: 0 });
+  settle();
+  ok("drifting jump onto rising lift lands in place (no edge teleport)", C.state === "ready" && C.body.on && C.body.on.idx === 15 && C.body.x > lr2.x && C.body.x + C.C.CHAR_SIZE < lr2.x + lift.w, "x=" + C.body.x.toFixed(1));
+  C.resetRun();
+  C.setWorldT(lift.period * 0.25);
+  const lr3 = C.moverXY(lift, C.worldT);
+  C.setBody(lr3.x + 20, lr3.y + C.C.PLATFORM_HEIGHT + 2);
+  C.launch({ x: 0, y: 40 });
+  settle();
+  ok("lift catching a slow riser lands on top", C.state === "ready" && C.body.on && C.body.on.idx === 15 && C.body.y >= C.moverXY(lift, C.worldT).y + C.C.PLATFORM_HEIGHT - 0.01);
+  C.resetRun();
+
+  /* 31 · pre-aim: aim mid-flight, launch attempts queue until true landing */
+  C.setLevel(1);
+  C.resetRun();
+  C.setBody(120, 120);
+  C.launch({ x: 200, y: 500 });
+  tick(100);
+  ptr(w, d, "pointerdown", 240, 600);
+  ptr(w, d, "pointermove", 300, 450);
+  ok("pointerdown mid-flight starts aim without freezing physics", C.state === "flight" && C.aim && C.aim.mode === "p");
+  const yA = C.body.y;
+  tick(50);
+  ok("flight keeps simulating while aiming", C.body.y !== yA && C.aimT < C.C.AIM_FUSE_TIME);
+  const lA = C.run.launches;
+  ptr(w, d, "pointerup", 300, 450);
+  ok("early release queues instead of launching", !!C.pendingV && C.state === "flight" && C.run.launches === lA);
+  ok("queued arc equals the drawn drag", !!C.pendingV && Math.abs(C.pendingV.x - 60 * C.C.DRAG_SPEED_PER_PX) < 1e-6 && Math.abs(C.pendingV.y - 150 * C.C.DRAG_SPEED_PER_PX) < 1e-6);
+  tick(50);
+  ok("queue holds mid-air", !!C.pendingV && C.state === "flight");
+  settle();
+  ok("queued commit fires on landing", C.run.launches === lA + 1 && C.pendingV === null);
+  settle();
+  C.resetRun();
+  C.setBody(120, 120);
+  C.launch({ x: 200, y: 500 });
+  tick(100);
+  ptr(w, d, "pointerdown", 240, 600);
+  ptr(w, d, "pointermove", 300, 450);
+  ptr(w, d, "pointerup", 300, 450);
+  key(w, "Escape");
+  ok("Esc mid-air pauses and keeps the queue armed", C.overlayOpen === "pause" && !!C.pendingV && C.state === "flight");
+  key(w, "Escape");
+  const lE = C.run.launches;
+  settle();
+  ok("queued commit still fires after resume", C.run.launches === lE + 1 && C.pendingV === null);
+  settle();
+  C.setLevel(3);
+  C.resetRun();
+  C.setBody(310, 3720);
+  C.launch({ x: 0, y: 900 });
+  tick(50);
+  key(w, "ArrowUp");
+  keyup(w, "ArrowUp");
+  C.kb.angle = 90;
+  C.kb.power = 0.5;
+  ok("arrows start keyboard aim mid-flight", C.state === "flight" && C.aim && C.aim.mode === "k");
+  key(w, " ");
+  ok("Space mid-flight queues the kb arc", !!C.pendingV && C.state === "flight");
+  tick(200);
+  ok("queue survives a ceiling bonk", !!C.pendingV && C.state === "flight");
+  const lB = C.run.launches;
+  settle();
+  ok("queued kb commit fires on landing", C.run.launches === lB + 1 && C.pendingV === null);
+  settle();
+  C.resetRun();
+  C.setWorldT(1.32);
+  C.setBody(440, 9000);
+  C.launch({ x: 0, y: 0 });
+  tick(200);
+  key(w, "ArrowUp");
+  keyup(w, "ArrowUp");
+  C.kb.angle = 90;
+  C.kb.power = 0.5;
+  for (let i = 0; i < 186; i++) tick(16.7);
+  ok("fuse expiry mid-air queues instead of launching", !!C.pendingV && C.state === "flight");
+  const lC = C.run.launches;
+  settle();
+  ok("fuse-queued commit fires on landing", C.run.launches === lC + 1 && C.pendingV === null);
+  settle();
+  C.setLevel(1);
+  C.resetRun();
+  const bq = findLaunch(C, 17, 19);
+  ok("bounce chain solvable for queue test", !!bq);
+  if (bq) {
+    C.setWorldT(bq.ph);
+    C.setBody(bq.bx, C.RAW_PLATS[17][1]);
+    C.launch({ x: bq.vx, y: bq.vy });
+    tick(50);
+    ptr(w, d, "pointerdown", 240, 600);
+    ptr(w, d, "pointermove", 300, 450);
+    ptr(w, d, "pointerup", 300, 450);
+    let n = 0;
+    while (C.bounceChain < 1 && n < 400) { tick(16.7); n++; }
+    ok("queue waits through bounce hop", C.bounceChain >= 1 && !!C.pendingV && C.state === "flight");
+    const lF = C.run.launches;
+    settle();
+    ok("queue fires after the chain lands", C.run.launches === lF + 1 && C.pendingV === null);
+    settle();
+  }
+  C.resetRun();
+
+  /* 32 · tower 4 (gust zones + phase platforms) */
+  C.setLevel(4);
+  ok("switch to tower 4 (640m)", C.level === 4 && C.C.SUMMIT === 6400);
+  ok("T4 has zones + phase platforms", C.ZONES.length > 0 && C.RAW_PLATS.some(p => p[3] === C.C.PLAT_CLOCK));
+  C.resetRun();
+  solveTower(C, "T4");
+  C.resetRun();
+  const fin4 = findLaunch(C, 42, -1);
+  ok("T4 final jump previews goal", !!fin4 && fin4.contacts[fin4.contacts.length - 1].goal);
+  const sb4 = C.life.summits[4] || 0;
+  if (fin4) {
+    C.setWorldT(fin4.ph);
+    C.setBody(fin4.bx, C.RAW_PLATS[42][1]);
+    C.launch({ x: fin4.vx, y: fin4.vy });
+  }
+  settle();
+  ok("T4 summit wins", C.state === "win" && C.life.summits[4] === sb4 + 1);
+  ok("T4 share text uses 640m", d.getElementById("share").value.indexOf("640m") >= 0);
+  ok("T4 summit unlocks tower 5 + NEXT shown", C.life.unlocked === 5 && !d.getElementById("bNext").hidden);
+  C.closeOv();
+  C.resetRun();
+  const zj = findLaunch(C, 3, 4);
+  ok("updraft gap solvable (zone-assisted)", !!zj);
+  if (zj) {
+    C.setWorldT(zj.ph);
+    C.setBody(zj.bx, C.RAW_PLATS[3][1]);
+    const pz = C.preview({ x: zj.vx, y: zj.vy });
+    C.launch({ x: zj.vx, y: zj.vy });
+    settle();
+    ok("zone flight contacts === preview contacts", JSON.stringify(C.flightContacts) === JSON.stringify(pz.contacts));
+    ok("zone jump landed on the high ledge", C.body.on && C.body.on.idx === 4);
+  }
+  C.resetRun();
+  const pj = findLaunch(C, 10, 11);
+  ok("phase gate solvable + tolerant", !!pj);
+  if (pj) {
+    C.setWorldT(pj.ph);
+    C.setBody(pj.bx, C.RAW_PLATS[10][1]);
+    const pp = C.preview({ x: pj.vx, y: pj.vy });
+    C.launch({ x: pj.vx, y: pj.vy });
+    settle();
+    ok("phase flight contacts === preview contacts", JSON.stringify(C.flightContacts) === JSON.stringify(pp.contacts));
+    ok("landed on phase platform", C.body.on && C.body.on.idx === 11);
+    const y0 = C.body.y;
+    let dropped = false;
+    for (let i = 0; i < 200; i++) {
+      tick(16.7);
+      if (C.state === "flight") { dropped = true; break; }
+    }
+    if (dropped) tick(16.7);
+    ok("phase platform drops you honestly when it ghosts", dropped && C.body.y < y0,
+      "dropped=" + dropped + " wt=" + C.worldT.toFixed(2) + " on=" + (C.body.on && C.body.on.idx) + " state=" + C.state + " y=" + C.body.y.toFixed(0) + " y0=" + y0);
+    settle();
+  }
+  C.resetRun();
+
+  /* 33 · main menu / pause / level select / between-levels */
+  C.launch({ x: 0, y: 300 });
+  settle();
+  key(w, "Escape");
+  ok("Esc in game opens pause", C.overlayOpen === "pause");
+  const tP = C.run.time;
+  for (let i = 0; i < 60; i++) tick(16.7);
+  ok("pause freezes the clock", C.run.time === tP);
+  key(w, "p");
+  ok("P resumes from pause", C.overlayOpen === null);
+  key(w, "p");
+  ok("P pauses again", C.overlayOpen === "pause");
+  d.getElementById("bPauseMenu").click();
+  ok("pause -> main menu", C.overlayOpen === "menu");
+  ok("menu shows CONTINUE mid-run", d.getElementById("bContinue").textContent.indexOf("CONTINUE") === 0);
+  d.getElementById("bSelect").click();
+  ok("menu -> level select", C.overlayOpen === "select");
+  ok("level select lists only unlocked towers", d.getElementById("selectList").children.length === C.life.unlocked);
+  d.getElementById("selectBack").click();
+  ok("select BACK returns to menu", C.overlayOpen === "menu");
+  d.getElementById("bContinue").click();
+  ok("CONTINUE resumes the run", C.overlayOpen === null);
+  d.getElementById("bPause").click();
+  ok("HUD pause button opens pause", C.overlayOpen === "pause");
+  d.getElementById("bResume").click();
+  ok("RESUME closes pause", C.overlayOpen === null);
+  d.getElementById("bPause").click();
+  d.getElementById("bPauseMenu").click();
+  d.getElementById("bHow").click();
+  ok("menu -> HOW TO PLAY opens help", C.overlayOpen === "help");
+  d.getElementById("bStart").click();
+  ok("help BACK returns to menu", C.overlayOpen === "menu");
+  d.getElementById("bContinue").click();
+  C.setLevel(1);
+  C.resetRun();
+  C.setBody(339, 4980);
+  C.launch({ x: -200, y: 760 });
+  settle();
+  ok("T1 summit reaches the between-levels screen", C.state === "win" && C.overlayOpen === "win");
+  d.getElementById("bWinMenu").click();
+  ok("win -> MAIN MENU resets to a fresh start page", C.overlayOpen === "menu" && C.state === "ready" && C.run.launches === 0);
+  d.getElementById("bContinue").click();
+  C.setBody(339, 4980);
+  C.launch({ x: -200, y: 760 });
+  settle();
+  ok("between-levels screen re-reachable after a menu round-trip", C.state === "win" && C.overlayOpen === "win");
+  d.getElementById("bWinSelect").click();
+  ok("win -> LEVEL SELECT", C.overlayOpen === "select");
+  d.getElementById("selectBack").click();
+  ok("select BACK returns to the win screen", C.overlayOpen === "win");
+  C.closeOv();
+  C.resetRun();
+
+  /* 34 · tower 5 (orbiters + direction springs) */
+  C.setLevel(5);
+  ok("switch to tower 5 (676m)", C.level === 5 && C.C.SUMMIT === 6760);
+  ok("T5 has orbiters + dir springs", C.RAW_PLATS.some(p => p[3] === C.C.PLAT_ORBIT) && C.RAW_PLATS.some(p => p[3] === C.C.PLAT_DIR));
+  C.resetRun();
+  solveTower(C, "T5");
+  C.resetRun();
+  const ob = C.PLATS[7];
+  C.setWorldT(0);
+  const o0 = C.moverXY(ob, 0);
+  C.setBody(o0.x + ob.w / 2 - C.C.CHAR_SIZE / 2, o0.y + C.C.PLATFORM_HEIGHT);
+  ok("standing on an orbiter", C.body.on && C.body.on.idx === 7);
+  const ox = C.body.x - o0.x, oy = C.body.y - (o0.y + C.C.PLATFORM_HEIGHT);
+  for (let i = 0; i < 60; i++) tick(16.7);
+  const o1 = C.moverXY(ob, C.worldT);
+  ok("orbiter carries in 2-D", C.state === "ready" && Math.abs(C.body.x - (o1.x + ox)) < 0.05 && Math.abs(C.body.y - (o1.y + C.C.PLATFORM_HEIGHT + oy)) < 0.05);
+  C.resetRun();
+  const dj = findLaunch(C, 8, 10);
+  ok("dir-spring redirect solvable", !!dj);
+  if (dj) {
+    C.setWorldT(dj.ph);
+    C.setBody(dj.bx, C.RAW_PLATS[8][1]);
+    const pd = C.preview({ x: dj.vx, y: dj.vy });
+    C.launch({ x: dj.vx, y: dj.vy });
+    settle();
+    ok("dir-spring flight contacts === preview", JSON.stringify(C.flightContacts) === JSON.stringify(pd.contacts));
+    ok("dir spring threw us to the target rest", C.body.on && C.body.on.idx === 10);
+  }
+  C.resetRun();
+  const fin5 = findLaunch(C, 47, -1);
+  ok("T5 final jump previews goal", !!fin5 && fin5.contacts[fin5.contacts.length - 1].goal);
+  const sb5 = C.life.summits[5] || 0;
+  if (fin5) {
+    C.setWorldT(fin5.ph);
+    C.setBody(fin5.bx, C.RAW_PLATS[47][1]);
+    C.launch({ x: fin5.vx, y: fin5.vy });
+  }
+  settle();
+  ok("T5 summit wins", C.state === "win" && C.life.summits[5] === sb5 + 1);
+  ok("T5 share text uses 676m", d.getElementById("share").value.indexOf("676m") >= 0);
+  ok("last tower hides NEXT", d.getElementById("bNext").hidden);
+  C.closeOv();
+  C.resetRun();
+
+  /* 35 · phase ticks are diegetic (local), not a global metronome */
+  C.setLevel(4);
+  C.resetRun();
+  const origSfx = w.sfx;
+  let phaseCalls = 0;
+  w.sfx = function (n, o) { if (n === "phase") phaseCalls++; return origSfx(n, o); };
+  C.setWorldT(0);
+  C.setBody(240, 0);
+  for (let i = 0; i < 240; i++) tick(16.7);
+  ok("off-screen phase toggles are silent", phaseCalls === 0, "calls=" + phaseCalls);
+  phaseCalls = 0;
+  const phP = C.RAW_PLATS[11];
+  C.setWorldT(0);
+  C.setBody(phP[0] + phP[2] / 2 - C.C.CHAR_SIZE / 2, phP[1]);
+  for (let i = 0; i < 240; i++) tick(16.7);
+  ok("underfoot/near phase toggles tick", phaseCalls > 0, "calls=" + phaseCalls);
+  w.sfx = origSfx;
+  C.resetRun();
+
+  ok("no runtime errors during suite", errs.length === 0, errs.join(" | "));
+  out.innerHTML += "\n\n" + (RM ? "MODE: prefers-reduced-motion" : "MODE: standard") + " · DONE";
 }
-C.resetRun();
-const ip=findLaunch(C,3,4);
-if(ip){
-C.setBody(ip.bx,srcI[1]);C.launch({x:ip.vx,y:ip.vy});settle();
-C.save();
-const stI=JSON.parse(w.localStorage.getItem("commit.v3"));
-ok("slide direction persisted",stI.runs[2].slide===C.body.slide&&C.body.slide!==0);
-C.load();
-ok("resume on ice restores slide",C.body.slide===stI.runs[2].slide&&C.body.on&&C.body.on.ice===true);
-}
-C.resetRun();
-
-/* 25 · tower 2 solver */
-solveTower(C,"T2");
-C.resetRun();
-
-/* 26 · tower 2 summit */
-const fin=findLaunch(C,39,-1);
-ok("T2 final jump previews goal",!!fin&&fin.contacts[fin.contacts.length-1].goal);
-const sb2=C.life.summits[2]||0;
-if(fin){C.setBody(fin.bx,C.P[39][1]);C.launch({x:fin.vx,y:fin.vy});}
-settle();
-ok("T2 summit wins",C.state==="win"&&C.life.summits[2]===sb2+1);
-ok("T2 share text uses 560m",d.getElementById("share").value.indexOf("560m")>=0);
-ok("T2 summit unlocks tower 3 + NEXT shown",C.life.unlocked===3&&!d.getElementById("bNext").hidden&&!d.getElementById("winUnlock").hidden);
-C.closeOv();
-
-/* 27 · tower 3 movers */
-C.setLevel(3);
-ok("switch to tower 3 (600m)",C.level===3&&C.C.SUMMIT===6000);
-ok("tower tag updated to T3",d.getElementById("towerTag").textContent.indexOf("TOWER 3")===0);
-ok("T3 has horizontal + vertical movers",C.P.some(p=>p[3]===4)&&C.P.some(p=>p[3]===5));
-C.resetRun();
-const ms=C.PLATS[3];
-C.setWorldT(0);
-const r0=C.moverXY(ms,0);
-C.setBody(r0.x+ms.w/2-9,r0.y+16);
-ok("standing on a horizontal mover",C.body.on===ms);
-const off0=C.body.x-r0.x;
-for(let i=0;i<30;i++)tick(16.7);
-ok("mover carries you (x tracks platform)",C.state==="ready"&&Math.abs(C.body.x-C.moverXY(ms,C.worldT).x-off0)<.01);
-for(let i=0;i<90;i++)tick(16.7);
-ok("carry holds through the reversal",C.state==="ready"&&Math.abs(C.body.x-C.moverXY(ms,C.worldT).x-off0)<.01);
-C.launch({x:0,y:400});
-ok("launch from mover discards carry (contract)",C.body.vx===0&&C.body.vy===400);
-settle();
-const vs=C.PLATS[15];
-C.setWorldT(0);const v0=C.moverXY(vs,0);
-C.setBody(v0.x+vs.w/2-9,v0.y+16);
-for(let i=0;i<40;i++)tick(16.7);
-ok("vertical mover carries y",C.state==="ready"&&Math.abs(C.body.y-(C.moverXY(vs,C.worldT).y+16))<.01);
-C.resetRun();
-const mj=findLaunch(C,2,3);
-ok("jump onto a mover is solvable (phase-aware)",!!mj);
-if(mj){
-C.setWorldT(mj.ph);C.setBody(mj.bx,C.P[2][1]);
-const prm=C.preview({x:mj.vx,y:mj.vy});
-C.launch({x:mj.vx,y:mj.vy});settle();
-ok("mover flight contacts ≡ preview (pixel-exact)",JSON.stringify(C.flightContacts)===JSON.stringify(prm.contacts));
-ok("flight lands on the mover",C.body.on&&C.body.on.idx===3);
-}
-C.resetRun();
-C.setWorldT(0);const rr=C.moverXY(ms,0);
-C.setBody(rr.x+ms.w-6,rr.y+16);
-const offE=C.body.x-rr.x;
-for(let i=0;i<120;i++)tick(16.7);
-ok("carry preserves edge overhang (no relative slide)",C.state==="ready"&&C.body.on&&C.body.on.idx===3&&Math.abs(C.body.x-C.moverXY(ms,C.worldT).x-offE)<.01);
-C.resetRun();
-C.setWorldT(0);const r1=C.moverXY(ms,0);
-C.setBody(r1.x+10,r1.y+16);C.save();
-const stM=JSON.parse(w.localStorage.getItem("commit.v3"));
-ok("world clock persisted with the run",stM.runs[3].wt===C.worldT);
-C.setWorldT(7);C.load();
-ok("resume restores mover phase + footing",C.worldT===stM.runs[3].wt&&C.body.on&&C.body.on.idx===3);
-C.resetRun();
-
-/* 28 · tower 3 solver */
-solveTower(C,"T3");
-C.resetRun();
-
-/* 29 · tower 3 summit */
-const fin3=findLaunch(C,41,-1);
-ok("T3 final jump previews goal",!!fin3&&fin3.contacts[fin3.contacts.length-1].goal);
-const sb3=C.life.summits[3]||0;
-if(fin3){C.setWorldT(fin3.ph);C.setBody(fin3.bx,C.P[41][1]);C.launch({x:fin3.vx,y:fin3.vy});}
-settle();
-ok("T3 summit wins",C.state==="win"&&C.life.summits[3]===sb3+1);
-ok("T3 share text uses 600m",d.getElementById("share").value.indexOf("600m")>=0);
-ok("T3 summit unlocks tower 4 + NEXT shown",C.life.unlocked===4&&!d.getElementById("bNext").hidden);
-C.closeOv();
-
-/* 30 · vertical lift collision fairness — a lift rising into the body must land, not side-eject */
-C.resetRun();
-const lift=C.PLATS[15];
-C.setWorldT(lift.period*.25);
-const liftV=C.moverV(lift,C.worldT).y;
-ok("test phase: lift is rising",liftV>50);
-const gap=liftV*C.C.DT*.5;
-const lr=C.moverXY(lift,C.worldT);
-C.setBody(lr.x+20,lr.y+16+gap);
-const pv0=C.preview({x:1e-9,y:0});
-ok("straight-down preview onto rising lift lands",!!pv0.mark&&pv0.mark.ok&&pv0.mark.idx===15);
-C.launch({x:1e-9,y:0});settle();
-ok("straight-down jump lands on rising lift (no eject)",C.state==="ready"&&C.body.on&&C.body.on.idx===15&&Math.abs(C.body.x-(lr.x+20))<.01);
-ok("lift landing flight ≡ preview",JSON.stringify(C.flightContacts)===JSON.stringify(pv0.contacts));
-ok("no wall contact during lift landing",!C.flightContacts.some(c=>c.t==="wall"));
-C.resetRun();C.setWorldT(lift.period*.25);
-const lr2=C.moverXY(lift,C.worldT);
-C.setBody(lr2.x+20,lr2.y+16+gap);
-C.launch({x:140,y:0});settle();
-ok("drifting jump onto rising lift lands in place (no edge teleport)",C.state==="ready"&&C.body.on&&C.body.on.idx===15&&C.body.x>lr2.x&&C.body.x+C.C.CH<lr2.x+lift.w,"x="+C.body.x.toFixed(1));
-C.resetRun();C.setWorldT(lift.period*.25);
-const lr3=C.moverXY(lift,C.worldT);
-C.setBody(lr3.x+20,lr3.y+16+2);
-C.launch({x:0,y:40});settle();
-ok("lift catching a slow riser lands on top",C.state==="ready"&&C.body.on&&C.body.on.idx===15&&C.body.y>=C.moverXY(lift,C.worldT).y+16-.01);
-C.resetRun();
-
-/* 31 · pre-aim: aim mid-flight, launch attempts queue until true landing */
-C.setLevel(1);C.resetRun();
-C.setBody(120,120);C.launch({x:200,y:500});
-tick(100);
-ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",300,450);
-ok("pointerdown mid-flight starts aim without freezing physics",C.state==="flight"&&C.aim&&C.aim.mode==="p");
-const yA=C.body.y;tick(50);
-ok("flight keeps simulating while aiming",C.body.y!==yA&&C.aimT<C.C.AIM_TIME);
-const lA=C.run.launches;
-ptr(w,d,"pointerup",300,450);
-ok("early release queues instead of launching",!!C.pendingV&&C.state==="flight"&&C.run.launches===lA);
-ok("queued arc equals the drawn drag",!!C.pendingV&&Math.abs(C.pendingV.x-288)<1e-6&&Math.abs(C.pendingV.y-720)<1e-6);
-tick(50);
-ok("queue holds mid-air",!!C.pendingV&&C.state==="flight");
-settle();
-ok("queued commit fires on landing",C.run.launches===lA+1&&C.pendingV===null);
-settle();
-C.resetRun();C.setBody(120,120);C.launch({x:200,y:500});tick(100);
-ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",300,450);ptr(w,d,"pointerup",300,450);
-key(w,"Escape");
-ok("Esc mid-air pauses and keeps the queue armed",C.overlayOpen==="pause"&&!!C.pendingV&&C.state==="flight");
-key(w,"Escape");
-const lE=C.run.launches;settle();
-ok("queued commit still fires after resume",C.run.launches===lE+1&&C.pendingV===null);
-settle();
-C.setLevel(3);C.resetRun();C.setBody(310,3720);C.launch({x:0,y:900});
-tick(50);
-key(w,"ArrowUp");keyup(w,"ArrowUp");C.kb.a=90;C.kb.p=.5;
-ok("arrows start keyboard aim mid-flight",C.state==="flight"&&C.aim&&C.aim.mode==="k");
-key(w," ");
-ok("Space mid-flight queues the kb arc",!!C.pendingV&&C.state==="flight");
-tick(200);
-ok("queue survives a ceiling bonk",!!C.pendingV&&C.state==="flight");
-const lB=C.run.launches;settle();
-ok("queued kb commit fires on landing",C.run.launches===lB+1&&C.pendingV===null);
-settle();
-C.resetRun();C.setWorldT(1.32);C.setBody(440,9000);C.launch({x:0,y:0});
-tick(200);
-key(w,"ArrowUp");keyup(w,"ArrowUp");C.kb.a=90;C.kb.p=.5;
-for(let i=0;i<186;i++)tick(16.7);
-ok("fuse expiry mid-air queues instead of launching",!!C.pendingV&&C.state==="flight");
-const lC=C.run.launches;settle();
-ok("fuse-queued commit fires on landing",C.run.launches===lC+1&&C.pendingV===null);
-settle();
-C.setLevel(1);C.resetRun();
-const bq=findLaunch(C,17,19);
-ok("bounce chain solvable for queue test",!!bq);
-if(bq){C.setWorldT(bq.ph);C.setBody(bq.bx,C.P[17][1]);C.launch({x:bq.vx,y:bq.vy});
-tick(50);
-ptr(w,d,"pointerdown",240,600);ptr(w,d,"pointermove",300,450);ptr(w,d,"pointerup",300,450);
-let n=0;while(C.bounceChain<1&&n<400){tick(16.7);n++;}
-ok("queue waits through bounce hop",C.bounceChain>=1&&!!C.pendingV&&C.state==="flight");
-const lF=C.run.launches;settle();
-ok("queue fires after the chain lands",C.run.launches===lF+1&&C.pendingV===null);
-settle();}
-C.resetRun();
-
-/* 32 · tower 4 (gust zones + phase platforms) */
-C.setLevel(4);
-ok("switch to tower 4 (640m)",C.level===4&&C.C.SUMMIT===6400);
-ok("T4 has zones + phase platforms",C.ZONES.length>0&&C.P.some(p=>p[3]===6));
-C.resetRun();
-solveTower(C,"T4");
-C.resetRun();
-const fin4=findLaunch(C,42,-1);
-ok("T4 final jump previews goal",!!fin4&&fin4.contacts[fin4.contacts.length-1].goal);
-const sb4=C.life.summits[4]||0;
-if(fin4){C.setWorldT(fin4.ph);C.setBody(fin4.bx,C.P[42][1]);C.launch({x:fin4.vx,y:fin4.vy});}
-settle();
-ok("T4 summit wins",C.state==="win"&&C.life.summits[4]===sb4+1);
-ok("T4 share text uses 640m",d.getElementById("share").value.indexOf("640m")>=0);
-ok("T4 summit unlocks tower 5 + NEXT shown",C.life.unlocked===5&&!d.getElementById("bNext").hidden);
-C.closeOv();
-C.resetRun();
-const zj=findLaunch(C,3,4);
-ok("updraft gap solvable (zone-assisted)",!!zj);
-if(zj){C.setWorldT(zj.ph);C.setBody(zj.bx,C.P[3][1]);
-const pz=C.preview({x:zj.vx,y:zj.vy});C.launch({x:zj.vx,y:zj.vy});settle();
-ok("zone flight contacts === preview contacts",JSON.stringify(C.flightContacts)===JSON.stringify(pz.contacts));
-ok("zone jump landed on the high ledge",C.body.on&&C.body.on.idx===4);}
-C.resetRun();
-const pj=findLaunch(C,10,11);
-ok("phase gate solvable + tolerant",!!pj);
-if(pj){C.setWorldT(pj.ph);C.setBody(pj.bx,C.P[10][1]);
-const pp=C.preview({x:pj.vx,y:pj.vy});C.launch({x:pj.vx,y:pj.vy});settle();
-ok("phase flight contacts === preview contacts",JSON.stringify(C.flightContacts)===JSON.stringify(pp.contacts));
-ok("landed on phase platform",C.body.on&&C.body.on.idx===11);
-const y0=C.body.y;let dropped=false;
-for(let i=0;i<200;i++){tick(16.7);if(C.state==="flight"){dropped=true;break;}}
-if(dropped)tick(16.7);
-ok("phase platform drops you honestly when it ghosts",dropped&&C.body.y<y0,
-"dropped="+dropped+" wt="+C.worldT.toFixed(2)+" on="+(C.body.on&&C.body.on.idx)+" state="+C.state+" y="+C.body.y.toFixed(0)+" y0="+y0);
-settle();}
-C.resetRun();
-
-/* 33 · main menu / pause / level select / between-levels */
-C.launch({x:0,y:300});settle();
-key(w,"Escape");
-ok("Esc in game opens pause",C.overlayOpen==="pause");
-const tP=C.run.time;for(let i=0;i<60;i++)tick(16.7);
-ok("pause freezes the clock",C.run.time===tP);
-key(w,"p");
-ok("P resumes from pause",C.overlayOpen===null);
-key(w,"p");
-ok("P pauses again",C.overlayOpen==="pause");
-d.getElementById("bPauseMenu").click();
-ok("pause -> main menu",C.overlayOpen==="menu");
-ok("menu shows CONTINUE mid-run",d.getElementById("bContinue").textContent.indexOf("CONTINUE")===0);
-d.getElementById("bSelect").click();
-ok("menu -> level select",C.overlayOpen==="select");
-ok("level select lists only unlocked towers",d.getElementById("selectList").children.length===C.life.unlocked);
-d.getElementById("selectBack").click();
-ok("select BACK returns to menu",C.overlayOpen==="menu");
-d.getElementById("bContinue").click();
-ok("CONTINUE resumes the run",C.overlayOpen===null);
-d.getElementById("bPause").click();
-ok("HUD pause button opens pause",C.overlayOpen==="pause");
-d.getElementById("bResume").click();
-ok("RESUME closes pause",C.overlayOpen===null);
-d.getElementById("bPause").click();
-d.getElementById("bPauseMenu").click();
-d.getElementById("bHow").click();
-ok("menu -> HOW TO PLAY opens help",C.overlayOpen==="help");
-d.getElementById("bStart").click();
-ok("help BACK returns to menu",C.overlayOpen==="menu");
-d.getElementById("bContinue").click();
-C.setLevel(1);C.resetRun();
-C.setBody(339,4980);C.launch({x:-200,y:760});settle();
-ok("T1 summit reaches the between-levels screen",C.state==="win"&&C.overlayOpen==="win");
-d.getElementById("bWinMenu").click();
-ok("win -> MAIN MENU resets to a fresh start page",C.overlayOpen==="menu"&&C.state==="ready"&&C.run.launches===0);
-d.getElementById("bContinue").click();
-C.setBody(339,4980);C.launch({x:-200,y:760});settle();
-ok("between-levels screen re-reachable after a menu round-trip",C.state==="win"&&C.overlayOpen==="win");
-d.getElementById("bWinSelect").click();
-ok("win -> LEVEL SELECT",C.overlayOpen==="select");
-d.getElementById("selectBack").click();
-ok("select BACK returns to the win screen",C.overlayOpen==="win");
-C.closeOv();
-C.resetRun();
-
-/* 34 · tower 5 (orbiters + direction springs) */
-C.setLevel(5);
-ok("switch to tower 5 (676m)",C.level===5&&C.C.SUMMIT===6760);
-ok("T5 has orbiters + dir springs",C.P.some(p=>p[3]===7)&&C.P.some(p=>p[3]===8));
-C.resetRun();
-solveTower(C,"T5");
-C.resetRun();
-const ob=C.PLATS[7];
-C.setWorldT(0);const o0=C.moverXY(ob,0);
-C.setBody(o0.x+ob.w/2-9,o0.y+16);
-ok("standing on an orbiter",C.body.on&&C.body.on.idx===7);
-const ox=C.body.x-o0.x,oy=C.body.y-(o0.y+16);
-for(let i=0;i<60;i++)tick(16.7);
-const o1=C.moverXY(ob,C.worldT);
-ok("orbiter carries in 2-D",C.state==="ready"&&Math.abs(C.body.x-(o1.x+ox))<.05&&Math.abs(C.body.y-(o1.y+16+oy))<.05);
-C.resetRun();
-const dj=findLaunch(C,8,10);
-ok("dir-spring redirect solvable",!!dj);
-if(dj){C.setWorldT(dj.ph);C.setBody(dj.bx,C.P[8][1]);
-const pd=C.preview({x:dj.vx,y:dj.vy});C.launch({x:dj.vx,y:dj.vy});settle();
-ok("dir-spring flight contacts === preview",JSON.stringify(C.flightContacts)===JSON.stringify(pd.contacts));
-ok("dir spring threw us to the target rest",C.body.on&&C.body.on.idx===10);}
-C.resetRun();
-const fin5=findLaunch(C,47,-1);
-ok("T5 final jump previews goal",!!fin5&&fin5.contacts[fin5.contacts.length-1].goal);
-const sb5=C.life.summits[5]||0;
-if(fin5){C.setWorldT(fin5.ph);C.setBody(fin5.bx,C.P[47][1]);C.launch({x:fin5.vx,y:fin5.vy});}
-settle();
-ok("T5 summit wins",C.state==="win"&&C.life.summits[5]===sb5+1);
-ok("T5 share text uses 676m",d.getElementById("share").value.indexOf("676m")>=0);
-ok("last tower hides NEXT",d.getElementById("bNext").hidden);
-C.closeOv();
-C.resetRun();
-
-/* 35 · phase ticks are diegetic (local), not a global metronome */
-C.setLevel(4);C.resetRun();
-const origSfx=w.sfx;let phaseCalls=0;
-w.sfx=function(n,o){if(n==="phase")phaseCalls++;return origSfx(n,o);};
-C.setWorldT(0);C.setBody(240,0);
-for(let i=0;i<240;i++)tick(16.7);
-ok("off-screen phase toggles are silent",phaseCalls===0,"calls="+phaseCalls);
-phaseCalls=0;
-const phP=C.P[11];
-C.setWorldT(0);C.setBody(phP[0]+phP[2]/2-9,phP[1]);
-for(let i=0;i<240;i++)tick(16.7);
-ok("underfoot/near phase toggles tick",phaseCalls>0,"calls="+phaseCalls);
-w.sfx=origSfx;
-C.resetRun();
-
-ok("no runtime errors during suite",errs.length===0,errs.join(" | "));
-out.innerHTML+="\n\n"+(RM?"MODE: prefers-reduced-motion":"MODE: standard")+" · DONE";
-}
-main().catch(e=>ok("harness crashed",false,String(e&&e.stack||e)));
+main().catch(e => ok("harness crashed", false, String(e && e.stack || e)));
 </script>
 </body>
 </html>

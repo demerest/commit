@@ -38,14 +38,14 @@ a `tower-N.js` descriptor.
 ## 1. Conventions
 
 - Platforms are authored as `[x, topY, width, type]`; the solid rect is `{x, y: topY−16, w, h: 16}`.
-- **Type:** `0/N` solid · `1/C` crumble (breaks after `CRUMBLE_TIME = 1.6 s`) · `2/B` bounce
-  (auto-launch at `BOUNCE_V = 800 px/s`, keeping `vx`) · `3/I` **ice** (drift, see §2) ·
+- **Type:** `0/N` solid · `1/C` crumble (breaks after `CRUMBLE_DWELL_TIME = 1.6 s`) · `2/B` bounce
+  (auto-launch at `BOUNCE_SPEED = 800 px/s`, keeping `vx`) · `3/I` **ice** (drift, see §2) ·
   `4/H` **mover·horizontal** · `5/V` **mover·vertical** (ping-pong, see §2).
 - Character is an 18×18 AABB; `body.y` is its feet.
 - Bounds: floor top at `y=0` (full width), solid walls at `x<0` and `x>480`.
 - Ceilings are 16 px-thick solids; their **underside** is the bonk surface.
 - Goal per tower: T1 `[180, 5080, 120]`, T2 `[240, 5600, 120]`, T3 `[240, 6000, 120]`, flagged `goal: true`.
-- Crumbled platforms reform after `RESPAWN_TIME = 3.0 s`; reset/erase rebuilds instantly.
+- Crumbled platforms reform after `CRUMBLE_REFORM_TIME = 3.0 s`; reset/erase rebuilds instantly.
 - Each tower = one descriptor (§0) registered into `LEVELS` as `{id,name,tag,summit,goal,plats,ceil,sections,notes}`.
 
 ## 2. Reachability Math (used to verify every gap)
@@ -79,7 +79,7 @@ same-x stacks; this is why T2 is a strict zig-zag.
 monotonic in x (all leftward or all rightward). A chain that reverses direction is impossible.
 
 **Ice drift math.** On landing with horizontal speed `vx`, drift dir = sign(`vx`); speed ramps
-0→`ICE_V` (42) over `ICE_RAMP` (0.5 s) then holds. Time-to-edge from a landing ≈
+0→`ICE_SLIDE_SPEED` (42) over `ICE_SLIDE_RAMP_TIME` (0.5 s) then holds. Time-to-edge from a landing ≈
 `(edgeDistance − ~10px ramp) / 42 + 0.5`. A centre landing on an 80 px ice gives ~1.2 s to
 commit — enough to aim, not enough to dawdle. Straight-down (`vx=0`) landings never drift, the
 fair counter. Ice widths in T2 are ≥ 40 (gates) to 110 (teachers) to keep that window honest.
@@ -91,12 +91,12 @@ The rider is carried **exactly** (relative offset frozen — you can overhang an
 on); launching discards the carry, so the Commit Contract holds from a moving origin.
 The preview clones the world clock, therefore the arc meets the platform *where it will be*.
 **Contact classification:** a lift can move into the body between substeps, so `step()` checks
-the platform's rect at `t−DT` first — a body that was above the old top lands on the new top
+the platform's rect at `t−FIXED_DT` first — a body that was above the old top lands on the new top
 (even if the lift rose into it, even mid-rise), a body below the old bottom bonks; only bodies
 already inside the slab's vertical span side-hit. Without this, arrivals within one substep of
 the top were ejected to the platform edge ("teleport") instead of landing.
 
-- **Period ≤ 3.0 s** (= `AIM_TIME`): any phase is reachable within one fuse, so waiting for
+- **Period ≤ 3.0 s** (= `AIM_FUSE_TIME`): any phase is reachable within one fuse, so waiting for
   the machine is always a legal strategy.
 - **Lift speed ≤ ~100 px/s** (`4·amp/period`): faster lifts close the ±0.12 s fairness window
   the solver demands on every mover jump. T3 lifts run 80–93 px/s.
@@ -131,7 +131,7 @@ Ghost = fully pass-through (no bonk from below, no land from above) → timed on
 inside the walls (`x±amp`, `y±amp`). Solver samples launch phases exactly as for movers.
 
 **Direction-spring math (T5+).** Type 8: on contact it sets `(vx,vy)` to the authored fixed
-vector (not `BOUNCE_V`, not preserved `vx`) and stays airborne → a deterministic redirect.
+vector (not `BOUNCE_SPEED`, not preserved `vx`) and stays airborne → a deterministic redirect.
 Preview exact (the bounce branch sets `v`). The downstream rest must lie within the fixed
 vector's reach from the spring's contact span: `dy ≤ vy²/(2G)` and `dx ≈ vx·t(dy)`. Chains
 "follow the arrows", so the monotonic-x bounce invariant applies to type 2 only.
@@ -204,7 +204,7 @@ purpose — the last emotion should be relief, not a coin flip.
 
 ## 8. Authoring Rules for New Platforms
 
-1. `dy ≤ 160` and required speed ≤ 931 (98%) for the intended solution (bounce hops use `BOUNCE_V`).
+1. `dy ≤ 160` and required speed ≤ 931 (98%) for the intended solution (bounce hops use `BOUNCE_SPEED`).
 2. Landing tolerance `(w+18)/2 ≥ 23 px` (width floor 28).
 3. Ceiling clearance ≥ 15 px at the reference solution; verify with the §2 formulas.
 4. A mandatory spring's downstream rest must sit > 205 px above its upstream rest (forces the bounce).

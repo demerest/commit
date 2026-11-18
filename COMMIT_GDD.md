@@ -94,7 +94,7 @@ Rules:
   direction, magnitude × 4.8 = launch speed, clamped to 950 px/s.
 - Releases below 90 px/s cancel silently with a small puff — twitchy micro-drags are
   forgiven; anything above the threshold is a launch and counts.
-- Full power needs only ~198 px of drag (`KDRAG 4.8`), so a thumb on a phone screen can
+- Full power needs only ~198 px of drag (`DRAG_SPEED_PER_PX 4.8`), so a thumb on a phone screen can
   reach any arc without running out of glass.
 - Keyboard aim sweeps continuously while an arrow is held (60°/s angle, 0.45/s power,
   ¼ with `Shift`), driven by the game clock — never by OS key-repeat. A live
@@ -104,23 +104,25 @@ Rules:
 
 World units are pixels at logical resolution; **y is up**; 10 px = 1 m.
 
+All named constants live in `js/constants.js` (grouped by system, one comment each).
+
 | Constant | Value | Meaning |
 |---|---|---|
-| `DT` | 1/120 s | Fixed simulation timestep |
-| `G` | 2200 px/s² | Gravity |
-| `MAXV` | 950 px/s | Launch speed clamp (apex 205 px, 45° range 410 px) |
-| `MINV` | 90 px/s | Cancel threshold |
-| `KDRAG` | 4.8 | Drag px → launch px/s (full power ≈ 198 px of pull) |
-| `CH` | 18 px | Character size (AABB) |
-| `VMAX_FALL` | −1600 px/s | Terminal velocity (also guarantees no tunneling) |
-| `FALL_MIN` | 250 px | A landing this far below launch counts as a **fall** |
-| `SUMMIT` | per tower | Goal altitude (T1 5080, T2 5600, T3 6000 px) |
-| `AIM_TIME` | 3.0 s | Aim fuse — auto-commits the drawn arc on expiry |
-| `CRUMBLE_TIME` | 1.6 s | Standing this long on a cracked platform breaks it |
-| `BOUNCE_V` | 800 px/s | Upward relaunch speed on a teal spring (keeps `vx`) |
-| `RESPAWN_TIME` | 3.0 s | A crumbled platform reforms after this cooldown (no softlock) |
-| `ICE_V` | 42 px/s | Terminal drift speed on ice (slow, deliberate) |
-| `ICE_RAMP` | 0.5 s | Ease-in before full drift, so a landing has a moment of grace |
+| `FIXED_DT` | 1/120 s | Fixed simulation timestep |
+| `GRAVITY` | 2200 px/s² | Gravity |
+| `MAX_LAUNCH_SPEED` | 950 px/s | Launch speed clamp (apex 205 px, 45° range 410 px) |
+| `MIN_LAUNCH_SPEED` | 90 px/s | Cancel threshold |
+| `DRAG_SPEED_PER_PX` | 4.8 | Drag px → launch px/s (full power ≈ 198 px of pull) |
+| `CHAR_SIZE` | 18 px | Character size (AABB) |
+| `TERMINAL_FALL_SPEED` | 1600 px/s | Downward speed cap, `vy ≥ −1600` (also guarantees no tunneling) |
+| `FALL_COUNT_MIN_PX` | 250 px | A landing this far below launch counts as a **fall** |
+| `SUMMIT` | per tower | Goal altitude (T1 5080, T2 5600, T3 6000, T4 6400, T5 6760 px) |
+| `AIM_FUSE_TIME` | 3.0 s | Aim fuse — auto-commits the drawn arc on expiry |
+| `CRUMBLE_DWELL_TIME` | 1.6 s | Standing this long on a cracked platform breaks it |
+| `BOUNCE_SPEED` | 800 px/s | Upward relaunch speed on a teal spring (keeps `vx`) |
+| `CRUMBLE_REFORM_TIME` | 3.0 s | A crumbled platform reforms after this cooldown (no softlock) |
+| `ICE_SLIDE_SPEED` | 42 px/s | Terminal drift speed on ice (slow, deliberate) |
+| `ICE_SLIDE_RAMP_TIME` | 0.5 s | Ease-in before full drift, so a landing has a moment of grace |
 
 Collision outcomes (axis-separated, X then Y, per substep):
 
@@ -135,7 +137,7 @@ Collision outcomes (axis-separated, X then Y, per substep):
 
 **Ice rule (Tower 2+):** you slowly slide toward the side *opposite* the one you came from —
 i.e. in the direction you were travelling at landing. A straight-down landing (`vx = 0`) stands
-still. Drift ramps in over `ICE_RAMP` then holds `ICE_V`; reaching the far edge walks you off
+still. Drift ramps in over `ICE_SLIDE_RAMP_TIME` then holds `ICE_SLIDE_SPEED`; reaching the far edge walks you off
 into an honest fall (keeping the small drift `vx`). Launching discards the drift, so the Commit
 Contract holds: the arc is exactly what you drew from your current (sliding) position.
 
@@ -408,16 +410,16 @@ guarded so a sound failure can never break the simulation.
 
 | Knob | Default | Safe range | Effect |
 |---|---|---|---|
-| `MAXV` | 950 | 850–1050 | Global reach; re-verify levels if changed |
-| `KDRAG` | 4.8 | 3.5–5.5 | Drag length for full power (higher = shorter pull) |
-| `MINV` | 90 | 60–140 | Accidental-launch forgiveness |
-| `FALL_MIN` | 250 | 150–400 | How often the game calls it a "fall" |
-| `AIM_TIME` | 3.0 | 2.0–5.0 | Hesitation pressure; lower = harder |
-| `CRUMBLE_TIME` | 1.6 | 1.0–2.5 | How long a cracked ledge holds you |
-| `RESPAWN_TIME` | 3.0 | 2.0–6.0 | How fast a crumbled ledge reforms |
-| `BOUNCE_V` | 800 | 700–900 | Spring lift; re-verify chains if changed |
-| `ICE_V` | 42 | 25–70 | Drift speed; higher = less time to commit on ice |
-| `ICE_RAMP` | 0.5 | 0.2–1.0 | Grace period after an ice landing before full drift |
+| `MAX_LAUNCH_SPEED` | 950 | 850–1050 | Global reach; re-verify levels if changed |
+| `DRAG_SPEED_PER_PX` | 4.8 | 3.5–5.5 | Drag length for full power (higher = shorter pull) |
+| `MIN_LAUNCH_SPEED` | 90 | 60–140 | Accidental-launch forgiveness |
+| `FALL_COUNT_MIN_PX` | 250 | 150–400 | How often the game calls it a "fall" |
+| `AIM_FUSE_TIME` | 3.0 | 2.0–5.0 | Hesitation pressure; lower = harder |
+| `CRUMBLE_DWELL_TIME` | 1.6 | 1.0–2.5 | How long a cracked ledge holds you |
+| `CRUMBLE_REFORM_TIME` | 3.0 | 2.0–6.0 | How fast a crumbled ledge reforms |
+| `BOUNCE_SPEED` | 800 | 700–900 | Spring lift; re-verify chains if changed |
+| `ICE_SLIDE_SPEED` | 42 | 25–70 | Drift speed; higher = less time to commit on ice |
+| `ICE_SLIDE_RAMP_TIME` | 0.5 | 0.2–1.0 | Grace period after an ice landing before full drift |
 | Mover `amp` | per platform | 10–90 | Sweep half-width; bigger = more travel, more timing pressure |
 | Mover `period` | per platform | 0.6–3.0 | Full cycle; must stay ≤ the 3 s fuse so every phase is aimable |
 | Zone `ax/ay` | per zone | −1600…1600 | Extra accel px/s² in flight; ay>0 updraft, ax gust; bigger = more bend |
