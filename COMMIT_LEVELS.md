@@ -146,6 +146,10 @@ inside `step()`, so preview ≡ flight through the fold by construction. Side hi
 never fold. The arrival stands still (momentum discarded, ice drift included); crumble dwell /
 carry / phase rules apply at the destination. Falls are still honest: an unkind fold that drops
 you ≥250 px counts as a fall with the red flash and `−Xm` popup.
+**The destination is hidden by design** (user decision, 2026-11-18): the preview rings the door
+itself in pink and draws no fold-link; the contract *data* still carries the true destination
+(`mark.idx`/`mark.warp`), only the rendering keeps the secret. The editor still draws fold-links
+because authors need them.
 Authoring constraints: target is a stable rest (non-warp, non-bounce, non-dir); pads are
 **not rests** for the solver/VALIDATE chain — a rest whose incoming edge is a fold is reached
 by launching onto the pad, so the `dy ≤ 160` invariant applies to the *launch onto the pad*
@@ -377,13 +381,14 @@ Spring-assisted vertical stacks (27→29, 42→44) are legal because the spring 
 Bounce chain 31 (290,4380) → 32 (200,4520) → 33 (140,4660), leftward monotonic.
 Summit offset to x 240 (right of pad 47 at 170,6620). Solver 44/44 ≤98%; editor VALIDATE 44/44.
 
-## 14. Tower 6 · The Switchboard (480 m) — one-way doors, a routing puzzle
+## 14. Tower 6 · The Switchboard (780 m) — one-way doors, a long routing puzzle
 
-29 platforms: 22 rests + 6 warp doors + 1 bounce spring. Widths 110–150 px throughout and
+46 platforms: 34 rests + 11 warp doors + 1 bounce spring. Widths 110–150 px throughout and
 direct rises ≤150 px — deliberately gentler platforming than T1–T5 (minimum solve power caps
 at **90%**, typical 84–88%, vs 94% caps / 90–92% typical in T2 and T5). The difficulty is
-*routing*: which door, and when to jump down. No zones, no ceilings, no orbiters; one ice
-shelf, two crumbles, one conveyor, one bounce chain as recall.
+*routing*: which door, and when to jump down. Nine sections so the puzzle keeps going past
+halfway. No zones, no ceilings, no orbiters; two ice shelves, three crumbles, two conveyors,
+one phase gate and one bounce chain as recall.
 
 Warp doors `[x,top,w,9,target]`:
 - D1 `4 (60,680,110) → 5` — the teacher: a normal jump onto the pad folds 680 px up.
@@ -395,16 +400,24 @@ Warp doors `[x,top,w,9,target]`:
 - D4 `12 (60,1780,130) → 13` — second down-jump door, in the slot between rest 10 (1900) and
   door 7 (1680); makes the conveyor 11 optional (drop from 10 straight onto it).
 - D5 `20 (330,3380,120) → 1` — **unkind** twin: same height as D6, opposite side.
-- D6 `21 (60,3380,110) → 22` — the kind twin: folds 440 px to the last ladder.
+- D6 `21 (60,3380,110) → 22` — the kind twin: folds 440 px to the long ladder.
+- D7 `32 (60,5220,110) → 34` — the Return Door: folds 520 px into the Machine Room.
+- D8 `33 (330,5220,120) → 10` — **unkind** twin of D7: folds 332 m back down to the switchback.
+- D9 `40 (250,6580,110) → 42` — gallery fold, 420 px up.
+- D10 `41 (60,6720,110) → 43` — third **down-jump** door: from rest 42 (7000) drop 280 px onto
+  it; the direct rise 42→43 is 280 px > 205 apex, so the door is the only way.
+- D11 `44 (250,7420,110) → 45` — the last fold, 240 px to the summit ledge.
 
-Route (rest chain, folds in brackets): floor → 0 → 1 → 2 → 3 → [D1] 5 → 6 → [D3 down-jump] 9 →
-10 → 11 → [D4 down-jump] 13 → 14 → 15 → [bounce 16] 17 → 18 → 19 → [D6] 22 → 23 → 24 → 25 →
-26 → 27 → 28 → goal. Alternate lines exist on purpose (5→D3, 9→D4, 10→D4 skip the ice or the
-conveyor); the traps are always optional and always recoverable — you land back on the early
+Route (rest chain, folds in brackets): floor → 0 → 1 → 2 → 3 → [D1] 5 → 6 → [D3 down] 9 →
+10 → 11 → [D4 down] 13 → 14 → 15 → [bounce 16] 17 → 18 → 19 → [D6] 22 → 23 → 24 → 25 → 26 →
+27 → 28 → 29 → 30 → 31 → [D7] 34 → 35 → 36 → 37 → 38 → 39 → [D9] 42 → [D10 down] 43 →
+[D11] 45 → goal. Alternate lines exist on purpose (5→D3, 9→D4, 10→D4 skip the ice or the
+conveyor); the traps are always optional and always recoverable — you land back on an earlier
 ladder, never in a pit.
 
 Bounce chain 15 (60,2680) → 16 (180,2820) → 17 (300,2950), rightward monotonic (hop 130 < 145).
-Conveyor 11 `(250,2040,120,4,40,2.4,0)` sweep x∈[210,410] inside walls; its two jumps survive
-±0.12 s. Summit goal `[150,160]` offset right of pad 28 (60,4660) so the last arc is a decision.
-Solver 23/23 ≤98% (min-power ceiling 90%); editor VALIDATE 23/23; harness §36–37 assert the
-fold contract, one-way rule, traps, down-jumps, queue-through-fold and persistence.
+Conveyors 11 `(250,2040,120,4,40,2.4,0)` and 36 `(250,6020,120,4,40,2.4,0)` sweep x∈[210,410]
+inside walls; their jumps survive ±0.12 s. Phase gate 38 `(250,6300,110,6,.6,2.4,0)` on-window
+1.44 s ≥ 1.2. Summit goal `[150,160]` offset right of pad 45 (60,7660) so the last arc is a
+decision. Solver 35/35 ≤98% (min-power ceiling 90%); editor VALIDATE 35/35; harness §36–37
+assert the fold contract, one-way rule, traps, down-jumps, queue-through-fold and persistence.

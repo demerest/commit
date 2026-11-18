@@ -78,6 +78,7 @@ const CRUMBLE_STAGE_AT = [0.28, 0.55, 0.82]; // dwell fractions of crack sfx sta
 const CRUMBLE_AMBER_AT = 0.33;     // progress where the crack edge turns amber
 const CRUMBLE_RED_AT = 0.66;       // progress where the crack edge turns red
 const BOUNCE_SPEED = 800;          // px/s, spring relaunch (vertical)
+const BOUNCE_SIDE_NUDGE = 120;     // px/s, sideways escape on a dead-vertical spring landing (no infinite bounce)
 const SPRING_COMP_TIME = 0.18;     // s, spring compression visual after a bounce
 const ICE_SLIDE_SPEED = 42;        // px/s, full ice drift
 const ICE_SLIDE_RAMP_TIME = 0.5;   // s, ice drift ramp-up after landing

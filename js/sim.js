@@ -140,6 +140,9 @@ function step(b, t) {
           ev = { t: "bounce", s: land, x: b.x + CHAR_SIZE / 2, y: b.y, warp: warpFrom };
         } else if (land.bounce) {
           b.vy = BOUNCE_SPEED;
+          /* a perfectly vertical landing would bounce on the same pad forever: nudge to the
+             nearer side. Pure function of contact position, so preview ≡ flight still holds. */
+          if (b.vx === 0) b.vx = b.x + CHAR_SIZE / 2 <= land.x + land.w / 2 ? -BOUNCE_SIDE_NUDGE : BOUNCE_SIDE_NUDGE;
           ev = { t: "bounce", s: land, x: b.x + CHAR_SIZE / 2, y: b.y, warp: warpFrom };
         } else {
           b.vy = 0;

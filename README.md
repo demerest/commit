@@ -25,7 +25,7 @@ The only punishment is gravity, and it is always enough.
 | 3 | The Clockwork Spire | 600 m | **movers** — travelling platforms + lifts, combined with everything above |
 | 4 | The Tempest Engine | 640 m | **gust zones** (updrafts/gusts bend the arc) + **phase platforms** (solid/ghost on a clock), combined with everything above |
 | 5 | The Orrery | 676 m | **orbiters** (platforms ride a circle, 2-D carry) + **direction springs** (fixed-vector redirect), combined with everything above |
-| 6 | The Switchboard | 480 m | **warp doors** (one-way teleport pads) — a routing puzzle: jump down to go up, choose between twin doors, beware the unkind ones; gentler platforming, wider ledges |
+| 6 | The Switchboard | 780 m | **warp doors** (one-way teleport pads) — a long routing puzzle: jump down to go up, choose between twin doors, beware the unkind ones; gentler platforming, wider ledges |
 
 Clearing a tower's summit unlocks the next. Switch towers from the help overlay (`?` / `H`) or
 the **NEXT TOWER** button on the win screen. Each tower keeps its own run; lifetime records are
@@ -56,7 +56,8 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
 - **Crumbling platforms.** Cracked ledges give you 1.6 s of standing before they shatter and
   drop you — then reform after ~3 s (a dashed ghost counts down). Never a softlock.
 - **Bounce springs.** Teal pads relaunch you automatically (keeping horizontal speed). Some
-  climbs are only possible by chaining a bounce — the preview draws the whole path.
+  climbs are only possible by chaining a bounce — the preview draws the whole path. A perfectly
+  vertical landing gets a small deterministic sideways nudge, so you can never bounce forever.
 - **Ice (Tower 2+).** Pale glossy ledges slide you slowly in the direction you were travelling
   when you landed. Land straight down to stand still; otherwise commit fast or slide off the
   far edge. The preview shows an ice-blue landing ring, and chevrons show your drift.
@@ -76,17 +77,18 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
 - **Direction springs (Tower 5+).** Orange pads throw you on a fixed authored vector (the
   arrow), not your momentum — deterministic redirects and routing chains.
 - **Warp doors (Tower 6 only).** Pink pads are one-way teleporters: land on one and you fold
-  to its target ledge, standing still. The preview rings the destination in pink and draws a
-  dashed fold-link, so a door's secret is visible before you commit. Some doors open downward
-  (the way up is a jump down); two are unkind and fold you back down the tower — the drop
-  counts as a fall like any other. Side hits and bonks never fold.
+  to its target ledge, standing still. The preview rings the **door**, never its destination —
+  where a door opens is a secret you discover by committing. Some doors open downward (the way
+  up is a jump down); three are unkind and fold you back down the tower — the drop counts as a
+  fall like any other. Side hits and bonks never fold.
 - **Local clock ticks.** Phase platforms tick softly only when on-screen and near you (a touch
   louder underfoot); off-screen clocks are silent, so a tower full of them isn't a metronome.
   The ambient wind bed is uniform across towers.
 - **Main menu, pause & level select.** Boot lands on a start page: Continue / Start Game,
   Level Select (unlocked towers only, with your best height), How to Play. `Esc`/`P` or the
-  `II` button pauses with the clock frozen; pause and the summit (between-levels) screen both
-  link back to the main menu and level select.
+  `II` button pauses with the clock frozen; pause offers Resume / Reset Run / Level Select /
+  Main Menu, and the summit (between-levels) screen links back to the main menu and level
+  select. Every action has a button as well as a key.
 - **Altitude light.** The sky climbs from cold navy through steel teal and violet dusk to a
   warm rose dawn at each summit.
 
@@ -111,8 +113,8 @@ shared. The HUD tag (top-left) shows the current tower and opens the picker.
   <https://demerest.github.io/commit/editor.html>. The game itself never links to it — this
   README is the only place it is referenced.
 - **The Commit Contract:** preview ≡ simulation, pixel-exact, including wall hits, ceiling
-  bonks, bounce hops, moving platforms and warp folds (green/ice/magenta/pink ring = landing,
-  red ✕ = strike, teal ring = bounce).
+  bonks, bounce hops, moving platforms and warp folds (green/ice/magenta ring = landing,
+  pink ring = warp door, red ✕ = strike, teal ring = bounce).
 - **Honest failure economy:** falls ≥ 25 m flash red and float a `−Xm` popup; your last
   flight's trail hangs in the air until you launch again.
 - **Persistence (`commit.v3`):** per-tower runs + shared lifetime records in `localStorage`,
@@ -140,14 +142,15 @@ visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPO
 
 ## Verification
 
-`test.html` is an automated harness (**222 assertions**) that drives the game through a
+`test.html` is an automated harness (**230 assertions**) that drives the game through a
 manual-clock hook: commit contract, fuse, pre-aim queue, crumble break + reform, bounce-chain preview ≡ flight,
 ice slide / stand-still / walk-off / launch-discards-slide / persistence, mover carry / reversal /
 launch-discards-carry / moving-target contract / phase persistence / lift collision fairness, tower lock + unlock +
 switching, input FSM, fall economy, overlays, mute, summit flow, reduced-motion, altitude
-palette, zero-network, warp-fold contract / one-way rule / traps / down-jumps / queue-through-fold —
+palette, zero-network, warp-fold contract / one-way rule / traps / down-jumps / queue-through-fold,
+dead-vertical bounce escape, pause-reset flow —
 plus a phase-aware solver proving **all 36 Tower-1, 40 Tower-2, 42 Tower-3, 43 Tower-4,
-44 Tower-5 and 23 Tower-6 rest-to-rest jumps** are solvable at ≤ 98 % power with the real
+44 Tower-5 and 35 Tower-6 rest-to-rest jumps** are solvable at ≤ 98 % power with the real
 integrator (mover jumps must also survive a ±0.12 s launch-phase shift; warp hops solve through
 the door whose fold opens on the next rest).
 
@@ -158,7 +161,7 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **222/222 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **230/230 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 

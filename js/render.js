@@ -508,8 +508,9 @@ function render(now) {
     const v = pendingV || aimV();
     if (v) {
       const pr = preview(v), weak = v.m < MIN_LAUNCH_SPEED;
-      /* ghost the target mover at contact time so the ring visibly sits on its future position */
-      if (pr.mark && pr.mark.move) {
+      /* ghost the target mover at contact time so the ring visibly sits on its future position
+         (never for a fold: where a door opens is a secret) */
+      if (pr.mark && pr.mark.move && pr.mark.warp < 0) {
         const gs = PLATS[pr.mark.idx], gr = rectOf(gs, pr.markT), gsy = SY(gr.y + gr.h);
         ctx.save();
         ctx.strokeStyle = COL.mover;
@@ -528,32 +529,21 @@ function render(now) {
       }
       ctx.globalAlpha = 1;
       for (const m of pr.contacts) {
-        const sy = SY(m.y);
-        /* the fold made visible: dashed link from the door to where it opens */
-        if (m.warp >= 0) {
-          const src = PLATS[m.warp];
-          ctx.save();
-          ctx.strokeStyle = COL.warp;
-          ctx.globalAlpha = 0.5;
-          ctx.lineWidth = 1;
-          ctx.setLineDash([3, 6]);
-          ctx.beginPath();
-          ctx.moveTo(src.x + src.w / 2, SY(src.y + src.h));
-          ctx.lineTo(m.x, sy);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.restore();
-        }
+        /* a fold's destination stays a secret until you commit: ring the DOOR itself,
+           never where it opens (the contract data still carries the true destination) */
+        const src = m.warp >= 0 ? PLATS[m.warp] : null;
+        const mx = src ? src.x + src.w / 2 : m.x;
+        const sy = SY(src ? src.y + src.h : m.y);
         if (m.t === "bounce") {
           ctx.strokeStyle = COL.spring;
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(m.x, sy, 7, 0, 6.29);
+          ctx.arc(mx, sy, 7, 0, 6.29);
           ctx.stroke();
           ctx.beginPath();
-          ctx.moveTo(m.x - 4, sy + 2);
-          ctx.lineTo(m.x, sy - 4);
-          ctx.lineTo(m.x + 4, sy + 2);
+          ctx.moveTo(mx - 4, sy + 2);
+          ctx.lineTo(mx, sy - 4);
+          ctx.lineTo(mx + 4, sy + 2);
           ctx.stroke();
         } else if (m.ok) {
           const pulse = 3 + Math.sin(now * 0.012) * 1.5;
@@ -561,20 +551,20 @@ function render(now) {
           ctx.strokeStyle = rc;
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(m.x, sy, 6 + pulse, 0, 6.29);
+          ctx.arc(mx, sy, 6 + pulse, 0, 6.29);
           ctx.stroke();
           ctx.fillStyle = rc;
           ctx.beginPath();
-          ctx.arc(m.x, sy, 2, 0, 6.29);
+          ctx.arc(mx, sy, 2, 0, 6.29);
           ctx.fill();
         } else {
           ctx.strokeStyle = COL.red;
           ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.moveTo(m.x - 6, sy - 6);
-          ctx.lineTo(m.x + 6, sy + 6);
-          ctx.moveTo(m.x + 6, sy - 6);
-          ctx.lineTo(m.x - 6, sy + 6);
+          ctx.moveTo(mx - 6, sy - 6);
+          ctx.lineTo(mx + 6, sy + 6);
+          ctx.moveTo(mx + 6, sy - 6);
+          ctx.lineTo(mx - 6, sy + 6);
           ctx.stroke();
         }
       }

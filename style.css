@@ -36,7 +36,7 @@ border-radius:.7em;padding:1.5em 1.6em;box-shadow:0 24px 60px #000a;scrollbar-wi
 .panel h1 span{color:var(--green)}
 .panel p{font-size:.8em;line-height:1.65;color:var(--dim);margin-bottom:.8em}
 .panel p b{color:var(--ink)}
-.rules{list-style:none;font-size:.78em;line-height:1.9;margin:.4em 0 1em}
+.rules{list-style:none;font-size:.74em;line-height:1.6;margin:.4em 0 1em}
 .rules li::before{content:"▸ ";color:var(--blue)}
 .rules li.warn::before{color:var(--amber)}
 .rules li.spring::before{color:var(--spring)}
@@ -48,8 +48,8 @@ border-radius:.7em;padding:1.5em 1.6em;box-shadow:0 24px 60px #000a;scrollbar-wi
 .rules li.dir::before{color:var(--dir)}
 .rules li.warp::before{color:var(--warp)}
 .unlock{color:var(--ice);letter-spacing:.08em;font-weight:700}
-#towers{margin-bottom:.8em}
-#towers .cta{font-size:.7em;padding:.6em .6em}
+#towers{flex-wrap:wrap;gap:.45em;margin-bottom:.8em}
+#towers .cta{flex:1 1 30%;min-width:0;font-size:.68em;padding:.55em .4em}
 #towers .cta:disabled{opacity:.45;cursor:not-allowed}
 .keys{font-size:.68em;color:var(--dim);line-height:1.9;border-top:1px solid var(--line);padding-top:.8em;margin-bottom:1.1em}
 .keys b{color:var(--ink)}

@@ -36,6 +36,7 @@
  <p id="pauseInfo"></p>
  <div class="col">
   <button id="bResume" class="cta block">RESUME</button>
+  <button id="bPauseReset" class="cta block ghost">RESET RUN</button>
   <button id="bPauseSelect" class="cta block ghost">LEVEL SELECT</button>
   <button id="bPauseMenu" class="cta block ghost">MAIN MENU</button>
  </div>
@@ -50,6 +51,11 @@
 <div id="help" class="overlay" hidden><div class="panel">
  <h1>COMMIT<span>.</span></h1>
  <p>A tower. A square. <b>No air control.</b> Draw an arc, release, and live with exactly what you drew.</p>
+ <div class="row" id="towers"></div>
+ <div class="row"><button id="bStart" class="cta">BEGIN THE CLIMB</button></div>
+ <div class="keys">⌨ <kbd>←</kbd><kbd>→</kbd> angle · <kbd>↑</kbd><kbd>↓</kbd> power (hold to sweep) · <kbd>space</kbd> aim, again to commit<br>
+ <kbd>shift</kbd> fine aim · <kbd>esc</kbd>/<kbd>P</kbd> pause · <kbd>R</kbd> reset · <kbd>H</kbd> help · <kbd>M</kbd> sound</div>
+ <div class="keys" id="lifeStats"></div>
  <ul class="rules">
   <li><b>Drag anywhere</b> to aim — the dotted arc is the truth.</li>
   <li><b>Release</b> to commit. There is no cancel in flight.</li>
@@ -63,15 +69,10 @@
   <li class="phase"><b>Gold platforms blink.</b> Solid while the clock-bar drains, ghost when it refills — fall straight through. Time your landing.</li>
   <li class="orbit"><b>Green rings orbit.</b> They carry you around the circle; the arc knows where they'll be.</li>
   <li class="dir"><b>Orange pads throw you.</b> A fixed vector, not your momentum — follow the arrow.</li>
-  <li class="warp"><b>Pink pads are one-way doors.</b> Landing folds you to their target — the arc rings where the door opens. Some doors open downward; some are unkind.</li>
+  <li class="warp"><b>Pink pads are one-way doors.</b> Landing folds you somewhere — the arc rings the door, never its destination. Some doors open downward; some are unkind.</li>
   <li>Miss, and you fall for real. The floor remembers.</li>
   <li>Reach the summit at <b id="helpSummit">508m</b>.</li>
  </ul>
- <div class="keys">⌨ <kbd>←</kbd><kbd>→</kbd> angle · <kbd>↑</kbd><kbd>↓</kbd> power (hold to sweep) · <kbd>space</kbd> aim, again to commit<br>
- <kbd>shift</kbd> fine aim · <kbd>esc</kbd>/<kbd>P</kbd> pause · <kbd>R</kbd> reset · <kbd>H</kbd> help · <kbd>M</kbd> sound</div>
- <div class="keys" id="lifeStats"></div>
- <div class="row" id="towers"></div>
- <div class="row"><button id="bStart" class="cta">BEGIN THE CLIMB</button></div>
 </div></div>
 <div id="confirm" class="overlay" hidden><div class="panel">
  <h1>ERASE RUN<span>?</span></h1>

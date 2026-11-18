@@ -854,7 +854,7 @@ async function main() {
 
   /* 36 · tower 6 (one-way warp pads): the fold obeys the Commit Contract */
   C.setLevel(6);
-  ok("switch to tower 6 (480m)", C.level === 6 && C.C.SUMMIT === 4800);
+  ok("switch to tower 6 (780m)", C.level === 6 && C.C.SUMMIT === 7800);
   ok("T6 has warp pads", C.RAW_PLATS.some(p => p[3] === C.C.PLAT_WARP));
   C.resetRun();
   const wj = findLaunch(C, 3, 4, 5);
@@ -863,7 +863,7 @@ async function main() {
     C.setWorldT(wj.ph);
     C.setBody(wj.bx, C.RAW_PLATS[3][1]);
     const pw = C.preview({ x: wj.vx, y: wj.vy });
-    ok("preview rings the fold destination, not the pad", !!pw.mark && pw.mark.ok && pw.mark.idx === 5 && pw.mark.warp === 4);
+    ok("fold mark carries destination + source (contract data; render hides it)", !!pw.mark && pw.mark.ok && pw.mark.idx === 5 && pw.mark.warp === 4);
     C.launch({ x: wj.vx, y: wj.vy });
     settle();
     ok("warp flight contacts ≡ preview (pixel-exact)", JSON.stringify(C.flightContacts) === JSON.stringify(pw.contacts));
@@ -934,20 +934,49 @@ async function main() {
   /* 37 · tower 6 solver + summit */
   solveTower(C, "T6");
   C.resetRun();
-  const fin6 = findLaunch(C, 28, -1);
+  const fin6 = findLaunch(C, 45, -1);
   ok("T6 final jump previews goal", !!fin6 && fin6.contacts[fin6.contacts.length - 1].goal);
   const sb6 = C.life.summits[6] || 0;
   if (fin6) {
     C.setWorldT(fin6.ph);
-    C.setBody(fin6.bx, C.RAW_PLATS[28][1]);
+    C.setBody(fin6.bx, C.RAW_PLATS[45][1]);
     C.launch({ x: fin6.vx, y: fin6.vy });
   }
   settle();
   ok("T6 summit wins", C.state === "win" && C.life.summits[6] === sb6 + 1);
-  ok("T6 share text uses 480m", d.getElementById("share").value.indexOf("480m") >= 0);
+  ok("T6 share text uses 780m", d.getElementById("share").value.indexOf("780m") >= 0);
   ok("last tower hides NEXT", d.getElementById("bNext").hidden);
   ok("tower 6 is the last unlock", C.life.unlocked === 6);
   C.closeOv();
+  C.resetRun();
+
+  /* 38 · dead-vertical spring landing escapes (no infinite bounce) */
+  C.setLevel(1);
+  C.resetRun();
+  const bp = C.RAW_PLATS[18];
+  C.setBody(bp[0] + bp[2] / 2 - C.C.CHAR_SIZE / 2, bp[1] + 250);
+  const pvB = C.preview({ x: 0, y: 0 });
+  ok("straight drop onto a spring previews the hop", pvB.contacts.some(c => c.t === "bounce"));
+  C.launch({ x: 0, y: 0 });
+  settle();
+  ok("vertical spring flight ≡ preview (nudge is in step)", JSON.stringify(C.flightContacts) === JSON.stringify(pvB.contacts));
+  ok("dead-vertical bounce escapes the pad (not stuck)", C.state === "ready" && C.body.on !== C.PLATS[18] && C.bounceChain <= 3,
+    "chain=" + C.bounceChain + " on=" + (C.body.on && C.body.on.idx));
+  ok("escape nudge moved the square sideways", Math.abs(C.body.x - (bp[0] + bp[2] / 2 - C.C.CHAR_SIZE / 2)) > 20);
+  C.resetRun();
+
+  /* 39 · reset is reachable from pause (no keyboard-only actions) */
+  C.launch({ x: 0, y: 300 });
+  settle();
+  key(w, "Escape");
+  ok("pause offers RESET RUN", !d.getElementById("bPauseReset").hidden && C.overlayOpen === "pause");
+  d.getElementById("bPauseReset").click();
+  ok("pause RESET RUN asks confirmation", C.overlayOpen === "confirm");
+  d.getElementById("bNo").click();
+  ok("keep climbing returns to pause", C.overlayOpen === "pause");
+  d.getElementById("bPauseReset").click();
+  d.getElementById("bYes").click();
+  ok("erase from pause zeroes the run", C.run.launches === 0 && C.body.y === 0 && C.overlayOpen === null);
   C.resetRun();
 
   ok("no runtime errors during suite", errs.length === 0, errs.join(" | "));

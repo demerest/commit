@@ -119,12 +119,13 @@ invariant becomes "follow the arrows", not "monotonic x".
 
 **ONE-WAY WARP DOORS (type 9) — shipped in T6, exclusive to that tower:** `[x,top,w,9,targetIdx]`.
 A top landing folds the body to the target's top centre and resolves as an ordinary landing
-there; the fold lives inside `step()` so preview ≡ flight through the teleport (pink
-destination ring + dashed fold-link before commit). Side hits/bonks never fold; arrivals stand
-still; targets must be stable rests. The routing verb: doors open downward (jump down to go
-up) and some are unkind (fold you back down; the drop counts as a fall). Solver/VALIDATE treat
-pads as non-rests and accept a hop whose fold opens on the next rest; the dy invariant applies
-to the launch onto the pad, not the fold's rise.
+there; the fold lives inside `step()` so preview ≡ flight through the teleport. The preview
+rings only the DOOR — the destination is a secret until you commit (user decision); contract
+data still carries it, and the editor still draws fold-links for authoring. Side hits/bonks
+never fold; arrivals stand still; targets must be stable rests. The routing verb: doors open
+downward (jump down to go up) and some are unkind (fold you back down; the drop counts as a
+fall). Solver/VALIDATE treat pads as non-rests and accept a hop whose fold opens on the next
+rest; the dy invariant applies to the launch onto the pad, not the fold's rise.
 
 ## 4. Considered and rejected (for now)
 

@@ -352,12 +352,13 @@ $("bContinue").onclick = () => { sfx("ui"); if (runInProgress()) closeOv(); else
 $("bSelect").onclick = () => { sfx("ui"); openOv("select"); };
 $("bHow").onclick = () => { sfx("ui"); openOv("help"); };
 $("bResume").onclick = () => { sfx("ui"); closeOv(); };
+$("bPauseReset").onclick = () => { sfx("ui"); openOv("confirm"); };
 $("bPauseSelect").onclick = () => { sfx("ui"); openOv("select"); };
 $("bPauseMenu").onclick = () => { sfx("ui"); openOv("menu"); };
 $("bWinSelect").onclick = () => { sfx("ui"); openOv("select"); };
 $("bWinMenu").onclick = () => { sfx("ui"); resetRun(); openOv("menu"); };
 $("bReset").onclick = () => { sfx("ui"); openOv("confirm"); };
-$("bNo").onclick = () => { sfx("ui"); closeOv(); };
+$("bNo").onclick = () => { sfx("ui"); if (ovPrev === "pause") openOv("pause"); else closeOv(); };
 $("bYes").onclick = () => { closeOv(); resetRun(); sfx("erase"); toast("RUN ERASED · 0m"); };
 $("bAgain").onclick = () => { sfx("ui"); closeOv(); resetRun(); };
 $("bNext").onclick = () => { sfx("ui"); closeOv(); setLevel(level + 1); toast(LVL.name + " · " + LVL.tag); };

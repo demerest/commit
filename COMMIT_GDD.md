@@ -116,7 +116,7 @@ All named constants live in `js/constants.js` (grouped by system, one comment ea
 | `CHAR_SIZE` | 18 px | Character size (AABB) |
 | `TERMINAL_FALL_SPEED` | 1600 px/s | Downward speed cap, `vy ≥ −1600` (also guarantees no tunneling) |
 | `FALL_COUNT_MIN_PX` | 250 px | A landing this far below launch counts as a **fall** |
-| `SUMMIT` | per tower | Goal altitude (T1 5080, T2 5600, T3 6000, T4 6400, T5 6760, T6 4800 px) |
+| `SUMMIT` | per tower | Goal altitude (T1 5080, T2 5600, T3 6000, T4 6400, T5 6760, T6 7800 px) |
 | `AIM_FUSE_TIME` | 3.0 s | Aim fuse — auto-commits the drawn arc on expiry |
 | `CRUMBLE_DWELL_TIME` | 1.6 s | Standing this long on a cracked platform breaks it |
 | `BOUNCE_SPEED` | 800 px/s | Upward relaunch speed on a teal spring (keeps `vx`) |
@@ -129,7 +129,7 @@ Collision outcomes (axis-separated, X then Y, per substep):
 | Contact | Result |
 |---|---|
 | Top of solid while descending | **Land.** All velocity zeroed, grounded |
-| Top of a **spring** while descending | **Bounce.** `vy = +800`, keep `vx`, stay airborne |
+| Top of a **spring** while descending | **Bounce.** `vy = +800`, keep `vx`, stay airborne; a dead-vertical contact (`vx = 0`) gets a deterministic sideways nudge (`BOUNCE_SIDE_NUDGE`, nearer side) so it can never bounce forever |
 | Top of **ice** while descending | **Land + drift.** `vy = 0`; slide dir = sign of entry `vx` (0 if straight down) |
 | Top of a **mover** while descending | **Land + carry.** Velocity zeroed; the platform then carries you exactly (no relative slide) |
 | Top of a **warp pad** while descending | **Fold.** Teleport to the target's top centre, then resolve as an ordinary landing there (momentum discarded) |
@@ -179,11 +179,13 @@ to the target platform's top centre (`rectOf(target,t)`, so mover targets stay e
 resolves as an ordinary landing there — crumble dwell, ice, carry all apply at the destination,
 but the arrival stands still (the fold discards momentum). Side hits and bonks are not
 landings, so they never fold. The fold happens *inside* `step()`, therefore preview ≡ flight
-through the teleport: the dotted arc ends at the door and the landing ring pulses pink at the
-destination, joined by a dashed fold-link — the door's secret is always visible before you
-commit. Targets must be stable rests (non-warp, non-bounce, non-dir). Doors enable non-linear
-routing: some open downward (jump down to go up), some are unkind (they fold you back down the
-tower, and the drop counts as a fall like any other).
+through the teleport. **The destination is a secret:** the preview rings the *door* in pink and
+stops there — no destination ring, no fold-link (user decision, 2026-11-18). The contract data
+still carries the true destination; only the rendering hides it, so the mystery never costs
+pixel-truth. The editor still draws fold-links for authoring. Targets must be stable rests
+(non-warp, non-bounce, non-dir). Doors enable non-linear routing: some open downward (jump down
+to go up), some are unkind (they fold you back down the tower, and the drop counts as a fall
+like any other).
 
 Geometry, gravity, the fuse and the slide are the antagonists; the springs are the only mercy.
 There is no instant-death hazard.
@@ -258,18 +260,22 @@ fixed-vector redirect pads plus every prior mechanic.
 | IV | Spring Chain | 450–662 m | 32–60 px | Leftward bounce chain; narrow ice/crumble; orbiter + timed lift + redirect |
 | V | Summit | 676 m | 32 px | Mercy at the top, offset so the last arc is a real decision |
 
-**Tower 6 · The Switchboard (480 m)** — the puzzle tower: one-way warp doors plus a light
-recall of ice, crumble, one conveyor and one bounce chain. Shorter and gentler than the
-precision towers on purpose — the antagonist here is *routing*, not pixel tolerance.
+**Tower 6 · The Switchboard (780 m)** — the puzzle tower: one-way warp doors plus a light
+recall of ice, crumble, conveyors, a phase gate and one bounce chain. Gentler platforming than
+the precision towers on purpose — the antagonist here is *routing*, not pixel tolerance — but
+long: nine sections and eleven doors, so the switchboard keeps surprising you past halfway.
 
 | # | Name | Altitude | Platform width | Teaches / tests |
 |---|---|---|---|---|
-| I | The First Door | 0–136 m | 110–140 px | First warp pad: the arc rings where the door opens; crumble recall |
-| II | Down to Go Up | 136–240 m | 110–140 px | Ice shelf; an unkind door above it; the way up is a jump DOWN onto a door; conveyor optional via a second door |
+| I | The First Door | 0–136 m | 110–140 px | First warp pad: the arc rings the door, not where it opens; crumble recall |
+| II | Down to Go Up | 136–240 m | 110–150 px | Ice shelf; an unkind door above it; the way up is a jump DOWN onto a door; conveyor optional via a second door |
 | III | The Switchback | 240–310 m | 110–130 px | Crumble recall; rightward bounce chain; wide zig-zag |
-| IV | Two Doors, One Height | 310–382 m | 110–130 px | Two doors at the same altitude, one kind one unkind — choose; the preview tells the truth |
-| V | The Long Fold | 382–466 m | 120–140 px | Calm wide ladder; the last door folds 440 px |
-| VI | Summit | 480 m | 140 px | Mercy at the top |
+| IV | Two Doors, One Height | 310–382 m | 110–130 px | Two doors at the same altitude, one kind one unkind — choose; commit to learn |
+| V | The Long Fold | 382–466 m | 120–140 px | Calm wide ladder; a door folds 440 px |
+| VI | The Return Door | 466–574 m | 110–130 px | Twin doors again, one unkind (folds 38 m back down); the kind one folds 520 px |
+| VII | The Machine Room | 574–658 m | 110–130 px | Ice + conveyor + crumble + the tower's only phase gate; a door skips ahead |
+| VIII | The Gallery of Doors | 658–766 m | 110–130 px | Third down-jump door; staggered long folds |
+| IX | Summit | 780 m | 140 px | Mercy at the top |
 
 Design invariants for every tower (enforced by the solver): consecutive platforms alternate
 sides (a platform directly above another is unreachable — you'd bonk its underside); bounce
@@ -317,7 +323,7 @@ Everything is code-drawn: rectangles, lines, dots, gradients. No image files exi
 | `zone` | `#6fc3ff` | Gust zones: tinted column, dashed boundary, streaming wind streaks (vertical updraft / horizontal gust) |
 | `orbit` | `#7ee0a3` | Orbiters: green top edge, dashed orbit ring + centre dot, tangent direction chevrons |
 | `dir` | `#ff9f43` | Direction springs: orange top edge + launch-arrow stencil; direction-pitched throw boing |
-| `warp` | `#ff6ec7` | Warp doors: pink top edge, counter-rotating portal arcs, pink destination ring + dashed fold-link, ring-burst sparks, pink screen glow |
+| `warp` | `#ff6ec7` | Warp doors: pink top edge, counter-rotating portal arcs, pink door ring in the preview (destination hidden), ring-burst sparks + pink screen glow on arrival |
 
 ### World rendering
 - **Sky:** three-stop vertical gradient keyed to altitude — cold navy at the floor, steel
@@ -403,7 +409,9 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 | Gust zone | Silent by design (tint + streaming streaks only); no continuous zone audio, so wind columns never drone |
 | Orbiter carry | Continuous mechanical hum-free ride; tangent chevrons show travel; no reversal tick (circular) |
 | Dir spring throw | Boing pitched by launch angle + |vx| (direction-varied, not one identical cue) |
-| Warp fold | Pink ring-burst sparks at BOTH ends + pink screen glow + shake + "WARP" popup; layered shimmer glide pitched by fold direction (rising climb vs unkind drop); preview shows pink destination ring + dashed fold-link before you commit |
+| Warp fold | Pink ring-burst sparks at BOTH ends + pink screen glow + shake + "WARP" popup; layered shimmer glide pitched by fold direction (rising climb vs unkind drop); preview rings only the door — the destination is revealed on arrival |
+| Dead-vertical spring | Deterministic sideways nudge (nearer side) so a 90° landing escapes the pad instead of bouncing forever |
+| Reset from pause | RESET RUN button → confirm overlay; KEEP CLIMBING returns to pause, ERASE zeroes the run |
 | Ambient wind | Constant altitude wind bed, uniform across all towers (gain rises with height fraction) |
 | Tower unlock | Rising triad + ice-blue "TOWER N UNLOCKED" line on the win screen |
 | Idle > 2.2 s, 0 launches | Pulsing "drag anywhere · release to commit" |
@@ -445,6 +453,7 @@ guarded so a sound failure can never break the simulation.
 | `CRUMBLE_DWELL_TIME` | 1.6 | 1.0–2.5 | How long a cracked ledge holds you |
 | `CRUMBLE_REFORM_TIME` | 3.0 | 2.0–6.0 | How fast a crumbled ledge reforms |
 | `BOUNCE_SPEED` | 800 | 700–900 | Spring lift; re-verify chains if changed |
+| `BOUNCE_SIDE_NUDGE` | 120 | 60–200 | Sideways escape on a dead-vertical spring landing (0 would allow infinite bounce) |
 | `ICE_SLIDE_SPEED` | 42 | 25–70 | Drift speed; higher = less time to commit on ice |
 | `ICE_SLIDE_RAMP_TIME` | 0.5 | 0.2–1.0 | Grace period after an ice landing before full drift |
 | Mover `amp` | per platform | 10–90 | Sweep half-width; bigger = more travel, more timing pressure |
@@ -458,7 +467,7 @@ guarded so a sound failure can never break the simulation.
 
 ## 16. Scope Guard
 
-**Shipped:** six towers (T1 36 platforms, T2 40, T3 42, T4 43, T5 43, T6 29), crumble/bounce/ice/
+**Shipped:** six towers (T1 36 platforms, T2 40, T3 42, T4 43, T5 43, T6 46), crumble/bounce/ice/
 movers/ceilings, gust zones + phase platforms (T4), orbiters + direction springs (T5),
 one-way warp doors (T6, exclusive to that tower), stats,
 per-tower persistence (incl. mover phase), main menu / pause / level select, tower unlock, share,
@@ -489,4 +498,5 @@ leaderboard, moving ceilings, alternate game modes. None required for the core e
 18. Gust zones bend the arc identically in preview and flight (pure position-based accel, flight-only); a zone-assisted gap is unsolvable without the zone. Phase platforms keep preview ≡ flight via a pure solidAt(s,t); on-window ≥1.2 s and ±0.12 s launch tolerance; ghosting under a rider drops honestly and always returns.
 19. Boot lands on a main-menu start page (Continue/Start Game, Level Select of unlocked towers only, How to Play). Esc/P/II pause with the clock frozen and a drawn aim preserved; pause and the summit between-levels screen both reach the main menu and level select; Help/Select BACK returns to its caller.
 20. Orbiters carry in 2-D with preview ≡ flight (pure circular rectOf); orbit speed ≤140 px/s, period ≤3 s, ±0.12 s launch tolerance. Direction springs set a fixed launch vector (preview exact), |v|≤950, vy>0, and the downstream rest lies within the vector's reach. Phase-platform clock ticks are diegetic (on-screen + near/underfoot only, soft sine), never a global metronome; the ambient wind bed is uniform across towers.
-21. Warp pads fold only on top landings (side hits/bonks never fold); the fold resolves inside step() so preview ≡ flight through the teleport, with the destination ringed pink and linked by a dashed fold-link before commit; arrivals stand still; targets are stable rests; unkind folds count as falls; the warp mechanic appears only in Tower 6.
+21. Warp pads fold only on top landings (side hits/bonks never fold); the fold resolves inside step() so preview ≡ flight through the teleport; the preview rings the door and hides the destination (contract data still exact); arrivals stand still; targets are stable rests; unkind folds count as falls; the warp mechanic appears only in Tower 6.
+22. A dead-vertical spring landing escapes via a deterministic sideways nudge (preview ≡ flight); no action is keyboard-only — reset is reachable from the pause menu as well as ↺ / R.
