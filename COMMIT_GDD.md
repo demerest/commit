@@ -401,6 +401,7 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 
 | Event | Feedback |
 |---|---|
+| Platform identity | Type-themed procedural texture on every slab: rock strata + grit, crumble hairlines + chips, spring coils + rivets, ice facets + glints, machine seam + rivets, clock-face ticks, orbit clock-hand, dir flow stripes, warp door frame, stitched commit border, ceiling hazard stripes. Type reads without relying on colour alone; speckles are seeded per platform so they never flicker |
 | Aim start | Joystick glyph at press origin + dotted arc + power % (keyboard: `angle° · power%`) |
 | Weak release | Gray dots + cancel puff (no launch counted) |
 | Commit | Stretch, dust, trail begins, launch counter ticks |

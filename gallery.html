@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>COMMIT · element gallery</title>
+<style>
+:root{--bg:#07090f;--panel:#0e1320;--ink:#e9edf4;--dim:#8b93a7;--line:#26304a;--blue:#5aa7ff;--green:#57e389;--amber:#ffb454}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:ui-monospace,Menlo,Consolas,monospace;padding:20px 16px 48px}
+[hidden]{display:none!important}
+header{max-width:1240px;margin:0 auto 18px;display:flex;flex-wrap:wrap;gap:12px;align-items:baseline;justify-content:space-between}
+h1{font-size:16px;letter-spacing:.08em}
+h1 span{color:var(--green)}
+header p{color:var(--dim);font-size:11.5px;line-height:1.6;max-width:640px}
+button{background:var(--blue);color:#06101f;border:1px solid var(--blue);border-radius:4px;padding:7px 12px;font:inherit;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.05em}
+button:hover{filter:brightness(1.1)}
+main{max-width:1240px;margin:0 auto}
+h2{font-size:12px;letter-spacing:.14em;color:var(--dim);margin:26px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+h2 b{color:var(--ink)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.card canvas{display:block;width:100%;aspect-ratio:280/150;background:#0a0f1c}
+.card figcaption{padding:8px 10px 10px;border-top:1px solid var(--line)}
+.card b{font-size:12px;letter-spacing:.06em}
+.card .tag{float:right;color:var(--dim);font-size:10px;border:1px solid var(--line);border-radius:3px;padding:1px 5px}
+.card p{color:var(--dim);font-size:10.5px;line-height:1.55;margin-top:4px}
+footer{max-width:1240px;margin:30px auto 0;color:var(--dim);font-size:10.5px;line-height:1.7;border-top:1px solid var(--line);padding-top:10px}
+</style>
+<script>
+/* the gallery boots the game scripts headless (no ui/main): render() reads life/level only
+   when drawing the progress rail, so provide them here before the loader runs */
+var life = { best: {}, bestTime: {}, summits: {}, launches: 0, falls: 0, seen: true, unlocked: 6, endlessBest: 0 };
+var level = 1;
+</script>
+<script>
+/* Cache-busting without a build step: asset URLs carry this document's last-modified stamp
+   (Pages sets it per deploy; file:// uses the file mtime). defer keeps classic load order. */
+(function () {
+  var v = "?v=" + encodeURIComponent(document.lastModified);
+  ["js/constants.js", "js/core.js", "js/levels.js", "js/audio.js", "js/fx.js",
+    "js/sim.js", "js/endless.js", "js/render.js"].forEach(function (s) {
+    document.write('<script src="' + s + v + '" defer><\/script>');
+  });
+})();
+</script>
+</head>
+<body>
+<canvas id="cv" hidden></canvas><div id="frame" hidden></div>
+<header>
+  <div>
+    <h1>COMMIT<span>.</span> ELEMENT GALLERY</h1>
+    <p>Every card below is the game's own <b>render()</b> painting into a private canvas — the exact
+    pixels you play with, textures included. Movers ride the world clock, clocks blink, portals spin.
+    FREEZE holds the clock still for close inspection.</p>
+  </div>
+  <button id="bFreeze">FREEZE</button>
+</header>
+<main id="main"></main>
+<footer>
+  Procedural Canvas 2D only — no image files, no network. Honours <b>prefers-reduced-motion</b>
+  (no jitter, fewer streaks/particles). Works from <b>file://</b>. A dev/showcase page like the
+  editor: the game UI never links it. The assertion harness lives in <b>test.html</b>.
+</footer>
+<script>
+"use strict";
+document.addEventListener("DOMContentLoaded", function () {
+  const GW = 280, GH = 150;
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  let gt = 0, last = performance.now(), playing = true;
+
+  /* ---------- world helpers: each card stages a tiny private world ---------- */
+  function slab(top, o) {
+    return Object.assign({
+      x: 60, y: top - PLATFORM_HEIGHT, w: 120, h: PLATFORM_HEIGHT, idx: 2,
+      crumble: false, bounce: false, ice: false, move: 0, dir: 0, dvx: 0, dvy: 0,
+      clock: 0, duty: 0, warp: 0, warpTo: 0, bx: 60, by: top - PLATFORM_HEIGHT,
+      amp: 0, period: 2.4, phase: 0, dead: false, bounceT: 0, respawnT: 0,
+      claim: false, claimed: false
+    }, o);
+  }
+  function camAt(wy, sy) { camY = wy + sy - VIEW_H; }
+  /* place world-screen anchor (sx,sy) at card pixel (tx,ty) with zoom z; ox/oy stay <= 0 so
+     the sky fill (0..VIEW_W/H) always covers the card crop */
+  function look(c, sx, sy, z, tx, ty) { c.z = z; c.ox = tx - z * sx; c.oy = ty - z * sy; }
+  function base(c) {
+    PLATS = []; SOLIDS = []; ZONES = []; SECTIONS = []; NOTES = []; STARS = [];
+    GOAL = null; SUMMIT = 5080; mode = "tower"; claimHook = null; cullHook = null;
+    state = "ready"; aim = null; pendingV = null; aimT = AIM_FUSE_TIME; idleT = 0; crumbleT = 0;
+    body.x = 60; body.y = -3000; body.vx = 0; body.vy = 0; body.on = null; body.slide = 0; body.grounded = false;
+    landT = 0; launchT = 0; shake = 0; flash = 0; warpGlow = 0; blinkT = 0; run.launches = 1;
+    trail.length = 0; parts.length = 0; shards.length = 0; confetti.length = 0; floats.length = 0;
+  }
+  function stand(p, dx) {
+    body.x = p.x + (dx == null ? 30 : dx); body.y = p.y + p.h;
+    body.grounded = true; body.on = p;
+  }
+  const CARDS = [];
+  function card(sec, name, tag, desc, setup, opts) {
+    CARDS.push(Object.assign({ sec, name, tag, desc, setup }, opts));
+  }
+  function platCard(name, tag, desc, o, extra, z, top) {
+    z = z || 1.6; top = top == null ? 100 : top;
+    card("PLATFORMS", name, tag, desc, function (c, t) {
+      base(c);
+      const p = slab(top, o);
+      PLATS = [p]; SOLIDS = [p];
+      if (extra) extra(c, p, t);
+      camAt(p.y + p.h, 100);
+      /* claim pads sit higher in the crop (flag + label) and clear of the altitude labels */
+      look(c, p.x, 100, z, z === 1.3 ? 26 : (GW - z * p.w) / 2, z === 1.3 ? 95 : 70);
+    });
+  }
+
+  /* ---------- platforms ---------- */
+  platCard("SOLID", "type 0", "rock strata + speckle grit + base shade: the plain ledge every tower starts with", {});
+  platCard("CRUMBLE", "type 1", "weathered hairlines, grit and a chipped underside; live cracks widen while you stand", { crumble: true });
+  platCard("CRUMBLE · CRACKING", "type 1", "1.05 s into the 1.6 s fuse: amber-red edge, spreading cracks, jitter (off in reduced motion)", { crumble: true },
+    function (c, p) { stand(p, 40); crumbleT = 1.05; });
+  platCard("BOUNCE", "type 2", "end coils + membrane rivets under the pulsing teal edge; chevrons compress on a hop", { bounce: true });
+  platCard("ICE", "type 3", "frost facets, trapped glints and a travelling sheen over the pale slab", { ice: true });
+  platCard("ICE · SLIDING", "type 3", "drift chevrons point the way you came in; the square leans into the slide", { ice: true },
+    function (c, p) { stand(p, 40); body.slide = 1; });
+  card("PLATFORMS", "MOVE · H", "type 4", "magenta conveyor: dashed travel track, end stops, plate seam + rivets, chevrons flip with velocity",
+    function (c) {
+      base(c);
+      const p = slab(100, { move: PLAT_MOVE_H, amp: 50, bx: 70 });
+      PLATS = [p]; SOLIDS = [p];
+      camAt(100, 100); look(c, 125, 108, 1.2, 140, 70);
+    });
+  card("PLATFORMS", "MOVE · V", "type 5", "vertical lift on the same clock: track end stops mark the travel, chevrons point with the ride",
+    function (c) {
+      base(c);
+      const p = slab(100, { move: PLAT_MOVE_V, amp: 40 });
+      PLATS = [p]; SOLIDS = [p];
+      camAt(100, 100); look(c, 130, 100, 1.1, 130, 75);
+    });
+  platCard("CLOCK", "type 6", "clock-face tick row + draining duty bar while solid; dashed ghost with a refilling bar between beats", { clock: 1, duty: 0.6 });
+  card("PLATFORMS", "ORBIT", "type 7", "green rider on a dashed circle; the clock-hand shows where on the orbit it currently is",
+    function (c) {
+      base(c);
+      const p = slab(100, { move: PLAT_ORBIT, amp: 34, period: 2.6, bx: 80, by: 84 });
+      PLATS = [p]; SOLIDS = [p];
+      camAt(92, 108); look(c, 140, 108, 1.1, 140, 75);
+    });
+  platCard("DIR", "type 8", "flow stripes streamed along the authored throw vector; the arrow is the launch, not your momentum", { dir: 1, dvx: 260, dvy: 760 });
+  platCard("WARP", "type 9", "stitched door frame + counter-rotating portal arcs; where it opens stays a secret until you commit", { warp: 1, warpTo: 0 });
+  platCard("COMMIT PAD", "NO SUMMIT", "stitched survey border + base shade; the pulsing amber flag banks your height on landing", { claim: true, w: 140 }, null, 1.3, 1000);
+  platCard("COMMIT PAD · BANKED", "NO SUMMIT", "claimed: green flag with a cloth seam and a COMMITTED label; the bank is yours even after the void", { claim: true, claimed: true, w: 140 }, null, 1.3, 1000);
+
+  /* ---------- the square ---------- */
+  card("CHARACTER", "IDLE", "ready", "the square at rest on a solid ledge; in play its eyes blink on their own timer and its body squashes on impact",
+    function (c) {
+      base(c);
+      const p = slab(0, { w: 140 });
+      PLATS = [p]; SOLIDS = [p]; stand(p);
+      camAt(0, 120); look(c, body.x + CHAR_SIZE / 2, 120, 3, 140, 110);
+    });
+  card("CHARACTER", "AIMING · THE CONTRACT", "aim", "fuse ring drains blue→amber→red; the dotted arc is the real integrator, ringed where you will land",
+    function (c) {
+      base(c);
+      const lo = slab(0), hi = slab(120, { x: 180, w: 100 });
+      PLATS = [lo, hi]; SOLIDS = [lo, hi]; stand(lo, 20);
+      state = "aim"; aim = { mode: "k" }; kb.angle = 75; kb.power = 0.98; aimT = 1.7;
+      camAt(0, 160); look(c, 60, 160, 1, 20, 140);
+    });
+  card("CHARACTER", "QUEUED", "flight", "pre-aim released mid-flight: amber ring + QUEUED label; the arc fires the instant you touch down",
+    function (c) {
+      base(c);
+      const p = slab(0);
+      PLATS = [p]; SOLIDS = [p];
+      body.x = 90; body.y = 40; body.vx = 200; body.vy = 600; body.grounded = false;
+      state = "flight"; aim = { mode: "k" }; pendingV = { x: 200, y: 600, m: 632 }; launchT = 0.1;
+      camAt(40, 120); look(c, body.x + CHAR_SIZE / 2, 120, 2, 70, 100);
+    });
+  card("CHARACTER", "IN FLIGHT", "flight", "launch stretch + eyes locked along the velocity vector; no air control, ever",
+    function (c) {
+      base(c);
+      const p = slab(0);
+      PLATS = [p]; SOLIDS = [p];
+      body.x = 90; body.y = 60; body.vx = 260; body.vy = 520; body.grounded = false;
+      state = "flight"; launchT = 0.05;
+      camAt(60, 110); look(c, body.x + CHAR_SIZE / 2, 110, 3, 140, 100);
+    });
+  card("CHARACTER", "LANDING", "ready", "the impact frame: squash + a dust burst at the feet; hard landings add shake in play",
+    function (c) {
+      base(c);
+      const p = slab(0, { w: 140 });
+      PLATS = [p]; SOLIDS = [p]; stand(p);
+      landT = 0.12; spawnDust(body.x + CHAR_SIZE / 2, 0, 10, COL.dim);
+      camAt(0, 120); look(c, body.x + CHAR_SIZE / 2, 120, 3, 140, 110);
+    });
+  card("CHARACTER", "ICE LEAN", "ready", "the square tilts into its drift while sliding; a wall ends the slide in a stand, never a stuck loop",
+    function (c) {
+      base(c);
+      const p = slab(0, { ice: true, w: 140 });
+      PLATS = [p]; SOLIDS = [p]; stand(p, 40); body.slide = 1;
+      camAt(0, 120); look(c, body.x + CHAR_SIZE / 2, 120, 3, 140, 110);
+    });
+
+  /* ---------- world elements ---------- */
+  card("WORLD", "CEILING", "hazard", "amber band with hazard stripes and dashed teeth underneath: bonk it and the arc shows its ✕",
+    function (c) {
+      base(c);
+      const p = { x: 60, y: 84, w: 200, h: PLATFORM_HEIGHT, ceil: true };
+      SOLIDS = [p];
+      camAt(100, 60); look(c, 60, 60, 1.4, 20, 60);
+    });
+  card("WORLD", "SUMMIT FLAG", "goal", "the tower's end: green flag, summit label, and the silence at the top",
+    function (c) {
+      base(c);
+      SUMMIT = 5080;
+      GOAL = { x: 60, y: SUMMIT - PLATFORM_HEIGHT, w: 120, h: PLATFORM_HEIGHT, goal: true };
+      SOLIDS = [GOAL];
+      camAt(SUMMIT, 120); look(c, 60, 120, 1.4, 20, 120);
+    });
+  card("WORLD", "THE VOID", "endless", "NO SUMMIT's rising death line 50 m below your peak: red glow, crawling hazard dashes, no way back",
+    function (c) {
+      base(c);
+      mode = "endless"; END.floor = 800; END.genTop = 1800;
+      PLATS = [slab(1000, { claim: true, w: 140 }), slab(1400, { claim: true, w: 140 })];
+      life.endlessBest = 1200; body.y = 2600;
+      camAt(800, 100); look(c, 240, 100, 1, 120, 60);
+    });
+  card("WORLD", "GUST ZONE", "wind", "a horizontal gust column: drifting streaks show the push; the dotted arc bends through it",
+    function (c) {
+      base(c);
+      ZONES = [{ x: 70, y: 0, w: 110, h: 110, ax: 300, ay: 0 }];
+      camAt(110, 40); look(c, 70, 40, 1, 20, 10);
+    });
+  card("WORLD", "UPDRAFT ZONE", "wind", "vertical updraft: rising streaks, cut effective gravity — gaps no spring can reach",
+    function (c) {
+      base(c);
+      ZONES = [{ x: 70, y: 0, w: 110, h: 110, ax: 0, ay: 500 }];
+      camAt(110, 40); look(c, 70, 40, 1, 20, 10);
+    });
+  card("WORLD", "LAST-FLIGHT TRAIL", "trail", "your previous arc hangs in the air until you launch again — the honest record of a miss",
+    function (c) {
+      base(c);
+      for (let i = 0; i < TRAIL_MAX; i++) trail.push({ x: 60 + i * 8, y: i * 14 - i * i * 0.5 });
+      camAt(0, 130); look(c, 60, 130, 1.2, 20, 140);
+    });
+  card("WORLD", "PROGRESS RAIL", "endless", "the endless rail beside the right wall: blue climb, amber best, green commit ticks (red void sits at the bottom)",
+    function (c) {
+      base(c);
+      mode = "endless"; END.floor = 800; END.genTop = 1800;
+      PLATS = [slab(1250, { claim: true, w: 140 }), slab(1450, { claim: true, w: 140 })];
+      life.endlessBest = 1300; body.y = 1350;
+      /* camera sits in the tick band so the crop shows sky, not the void fill below the floor */
+      camY = 885; look(c, 471, 385, 1, 271, 75);
+    });
+  card("WORLD", "IMPACT FEEDBACK", "fx", "dust, crumble shards, warp sparks, confetti and the −Xm popup — one real burst held 0.25 s after impact",
+    function (c) {
+      base(c);
+      camAt(300, 90); look(c, 120, 90, 1.2, 140, 75);
+      spawnDust(80, 300, 10, COL.dim);
+      spawnShards(slab(320, { x: 110, w: 70 }));
+      spawnWarp(170, 320);
+      for (let i = 0; i < 6; i++) {
+        confetti.push({ x: 90 + i * 14, y: 310, vx: (i - 3) * 60, vy: 200 + i * 40, r: i, vr: 3 - i, c: [COL.green, COL.amber, COL.blue, COL.warp][i % 4], t: 0 });
+      }
+      floats.push({ x: 120, y: 330, t: 0, c: COL.red, txt: "−12m" });
+      for (let k = 0; k < 15; k++) updParts(1 / 60);
+    });
+
+  /* ---------- build the DOM in section order (processing order keeps feedback first) ---------- */
+  const main = $("main");
+  for (const sec of ["PLATFORMS", "CHARACTER", "WORLD"]) {
+    const h = document.createElement("h2");
+    h.innerHTML = "<b>" + sec + "</b>";
+    main.appendChild(h);
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    main.appendChild(grid);
+    for (const c of CARDS) {
+      if (c.sec !== sec) continue;
+      const fig = document.createElement("figure");
+      fig.className = "card";
+      const cv2 = document.createElement("canvas");
+      cv2.width = GW * dpr; cv2.height = GH * dpr;
+      c.g = cv2.getContext("2d");
+      const cap = document.createElement("figcaption");
+      const b = document.createElement("b"); b.textContent = c.name;
+      const tag = document.createElement("span"); tag.className = "tag"; tag.textContent = c.tag;
+      const p = document.createElement("p"); p.textContent = c.desc;
+      cap.appendChild(b); cap.appendChild(tag); cap.appendChild(p);
+      fig.appendChild(cv2); fig.appendChild(cap);
+      grid.appendChild(fig);
+    }
+  }
+
+  $("bFreeze").addEventListener("click", function () {
+    playing = !playing;
+    this.textContent = playing ? "FREEZE" : "RESUME";
+  });
+
+  function loop(t) {
+    const dt = Math.min(0.05, (t - last) / 1000);
+    last = t;
+    if (playing) { gt += dt; updParts(dt); }
+    worldT = gt;
+    for (const c of CARDS) {
+      c.setup(c, gt);
+      ctx = c.g;
+      c.g.setTransform(dpr * c.z, 0, 0, dpr * c.z, dpr * c.ox, dpr * c.oy);
+      render(gt * 1000);
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+});
+</script>
+</body>
+</html>

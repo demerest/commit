@@ -2,8 +2,17 @@
    Tuning numbers live in js/constants.js; small draw offsets stay inline. */
 "use strict";
 
-const cv = $("cv"), ctx = cv.getContext("2d"), frame = $("frame");
+const cv = $("cv"), frame = $("frame");
+/* ctx is a let so gallery.html can retarget this same draw code at its own card canvases;
+   normal play never reassigns it. */
+let ctx = cv.getContext("2d");
 let scale = 1, dpr = 1, camY = CAM_MIN, blinkT = 0, blinkTimer = 3;
+
+/* deterministic per-platform texture rand: speckles/facets must sit still, not flicker */
+function texR(plat, i) {
+  const h = Math.sin((plat.idx + 1) * 127.1 + i * 311.7) * 43758.5453;
+  return h - Math.floor(h);
+}
 
 const clampCam = t => mode === "endless"
   ? Math.max(CAM_MIN, t)
@@ -70,6 +79,18 @@ function drawPlatform(plat, now) {
       ctx.lineTo(cx + 3, y + plat.h - 3);
       ctx.stroke();
     }
+    /* frost facets + trapped glints */
+    ctx.strokeStyle = "rgba(191,227,255,.14)";
+    for (let i = 0; i < 3; i++) {
+      const cx = x + plat.w * texR(plat, i + 2), cy = y + 4 + texR(plat, i + 6) * 8;
+      ctx.beginPath();
+      ctx.moveTo(cx - 4, cy + 3);
+      ctx.lineTo(cx + 4, cy - 3);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(255,255,255,.4)";
+    ctx.fillRect(x + plat.w * texR(plat, 1), y + 3, 1, 1);
+    ctx.fillRect(x + plat.w * texR(plat, 4), y + plat.h - 5, 1, 1);
     const sh = ((now * 0.02) % (plat.w + 40)) - 20;
     ctx.save();
     ctx.beginPath();
@@ -137,6 +158,14 @@ function drawPlatform(plat, now) {
       ctx.setLineDash([]);
       ctx.fillStyle = mc;
       ctx.fillRect(cxp - 2, cyp - 2, 4, 4);
+      /* orbit clock-hand: where on the circle the ride currently is */
+      const oa = 2 * Math.PI * (worldT / plat.period + plat.phase);
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.moveTo(cxp, cyp);
+      ctx.lineTo(cxp + Math.cos(oa) * plat.amp, cyp - Math.sin(oa) * plat.amp);
+      ctx.stroke();
+      ctx.globalAlpha = 0.3;
     }
     ctx.restore();
     ctx.fillStyle = plat.move === PLAT_ORBIT ? COL.orbitBody : COL.moverBody;
@@ -146,6 +175,19 @@ function drawPlatform(plat, now) {
     ctx.strokeStyle = plat.move === PLAT_ORBIT ? "rgba(126,224,163,.35)" : "rgba(209,123,255,.35)";
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, plat.w - 1, plat.h - 1);
+    /* machine plate: centre seam + corner rivets */
+    ctx.strokeStyle = plat.move === PLAT_ORBIT ? "rgba(126,224,163,.22)" : "rgba(209,123,255,.22)";
+    ctx.beginPath();
+    ctx.moveTo(x + 3, y + plat.h / 2 + 2);
+    ctx.lineTo(x + plat.w - 3, y + plat.h / 2 + 2);
+    ctx.stroke();
+    ctx.fillStyle = mc;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(x + 2, y + 3, 1.5, 1.5);
+    ctx.fillRect(x + plat.w - 3.5, y + 3, 1.5, 1.5);
+    ctx.fillRect(x + 2, y + plat.h - 4.5, 1.5, 1.5);
+    ctx.fillRect(x + plat.w - 3.5, y + plat.h - 4.5, 1.5, 1.5);
+    ctx.globalAlpha = 1;
     const v = moverV(plat, worldT);
     const n = Math.max(2, Math.floor(plat.w / 18));
     ctx.fillStyle = mc;
@@ -188,6 +230,21 @@ function drawPlatform(plat, now) {
     ctx.strokeRect(x + 0.5, y + 0.5, plat.w - 1, plat.h - 1);
     const m = Math.hypot(plat.dvx, plat.dvy) || 1, ux = plat.dvx / m, uy = -plat.dvy / m;
     const cx = x + plat.w / 2, cy = y + plat.h / 2;
+    /* vector flow: stripes streamed along the authored throw direction */
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, plat.w, plat.h);
+    ctx.clip();
+    ctx.strokeStyle = "rgba(255,159,67,.22)";
+    ctx.lineWidth = 2;
+    for (let k = -2; k <= 2; k++) {
+      const sx = cx - uy * k * 6, sy2 = cy + ux * k * 6;
+      ctx.beginPath();
+      ctx.moveTo(sx - ux * 24, sy2 - uy * 24);
+      ctx.lineTo(sx + ux * 24, sy2 + uy * 24);
+      ctx.stroke();
+    }
+    ctx.restore();
     ctx.strokeStyle = COL.dir;
     ctx.lineWidth = 2;
     ctx.globalAlpha = 0.9;
@@ -216,9 +273,13 @@ function drawPlatform(plat, now) {
       ctx.strokeStyle = "rgba(255,209,102,.35)";
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y + 0.5, plat.w - 1, plat.h - 1);
+      /* clock-face tick row: minors every eighth, majors on the quarters */
       ctx.fillStyle = COL.phase;
       ctx.globalAlpha = 0.6;
-      for (let i = 1; i < 4; i++) ctx.fillRect(x + plat.w * i / 4 - 1, y + 4, 2, 4);
+      for (let i = 1; i < 8; i++) {
+        if (i % 2 === 0) ctx.fillRect(x + plat.w * i / 8 - 1, y + 4, 2, 4);
+        else ctx.fillRect(x + plat.w * i / 8 - 0.5, y + 3, 1, 2);
+      }
       ctx.globalAlpha = 0.85;
       ctx.fillRect(x, y + plat.h - 3, plat.w * clamp01(frac), 3);
       ctx.globalAlpha = 1;
@@ -230,8 +291,10 @@ function drawPlatform(plat, now) {
       ctx.setLineDash([4, 4]);
       ctx.strokeRect(x + 0.5, y + 0.5, plat.w - 1, plat.h - 1);
       ctx.setLineDash([]);
-      ctx.globalAlpha = 0.85;
+      ctx.globalAlpha = 0.12;
       ctx.fillStyle = COL.phase;
+      for (let i = 1; i < 8; i++) ctx.fillRect(x + plat.w * i / 8 - 0.5, y + 3, 1, 2);
+      ctx.globalAlpha = 0.85;
       ctx.fillRect(x, y + plat.h - 3, plat.w * clamp01(frac), 3);
       ctx.restore();
     }
@@ -245,6 +308,14 @@ function drawPlatform(plat, now) {
     ctx.fillRect(x, y, plat.w, plat.h);
     ctx.fillStyle = COL.amber;
     ctx.fillRect(x, y, plat.w, 2);
+    /* stitched survey border + base shade */
+    ctx.strokeStyle = "rgba(255,180,84,.3)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(x + 1.5, y + 1.5, plat.w - 3, plat.h - 3);
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(0,0,0,.28)";
+    ctx.fillRect(x, y + plat.h - 2, plat.w, 2);
     const fx = x + plat.w / 2, fy = y;
     ctx.strokeStyle = COL.ink;
     ctx.lineWidth = 2;
@@ -260,6 +331,12 @@ function drawPlatform(plat, now) {
       ctx.lineTo(fx, fy - 26);
       ctx.closePath();
       ctx.fill();
+      ctx.strokeStyle = "rgba(7,9,15,.35)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(fx + 2, fy - 33);
+      ctx.lineTo(fx + 16, fy - 33);
+      ctx.stroke();
     } else {
       ctx.strokeStyle = COL.amber;
       ctx.globalAlpha = 0.6 + 0.4 * Math.sin(now * 0.005);
@@ -288,6 +365,14 @@ function drawPlatform(plat, now) {
     ctx.strokeStyle = "rgba(255,110,199,.4)";
     ctx.lineWidth = 1;
     ctx.strokeRect(x + 0.5, y + 0.5, plat.w - 1, plat.h - 1);
+    /* door frame: stitched inner border + frame glints */
+    ctx.strokeStyle = "rgba(255,110,199,.3)";
+    ctx.setLineDash([3, 3]);
+    ctx.strokeRect(x + 2.5, y + 2.5, plat.w - 5, plat.h - 5);
+    ctx.setLineDash([]);
+    ctx.fillStyle = "rgba(255,110,199,.5)";
+    ctx.fillRect(x + 4 + texR(plat, 2) * (plat.w - 8), y + 4, 1, 1);
+    ctx.fillRect(x + 4 + texR(plat, 5) * (plat.w - 8), y + plat.h - 5, 1, 1);
     const cx = x + plat.w / 2, cy = y + plat.h / 2, a = worldT * 2.4;
     ctx.strokeStyle = COL.warp;
     ctx.lineWidth = 2;
@@ -325,6 +410,19 @@ function drawPlatform(plat, now) {
     ctx.globalAlpha = 0.55 + 0.45 * pulse;
     ctx.fillRect(x, y, plat.w, 2);
     ctx.globalAlpha = 1;
+    /* end coils + membrane rivets: a spring, not a stripe */
+    ctx.strokeStyle = "rgba(63,224,197,.45)";
+    ctx.lineWidth = 1;
+    for (const ex of [x + 5, x + plat.w - 5]) {
+      ctx.beginPath();
+      ctx.moveTo(ex, y + 4);
+      for (let k = 0; k < 4; k++) ctx.lineTo(ex + (k % 2 ? -2 : 2), y + 5 + k * 3);
+      ctx.lineTo(ex, y + plat.h - 2);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(63,224,197,.6)";
+    ctx.fillRect(x + 2, y + 3, 1.5, 1.5);
+    ctx.fillRect(x + plat.w - 3.5, y + 3, 1.5, 1.5);
     const comp = plat.bounceT > 0 ? plat.bounceT / SPRING_COMP_TIME : 0;
     ctx.fillStyle = COL.spring;
     ctx.globalAlpha = 0.8;
@@ -346,8 +444,25 @@ function drawPlatform(plat, now) {
     const edge = prog > CRUMBLE_RED_AT ? COL.red : prog > CRUMBLE_AMBER_AT ? COL.amber : COL.crumble;
     ctx.fillStyle = edge;
     ctx.fillRect(x, y, plat.w, 2);
-    ctx.strokeStyle = COL.crack;
+    /* weathered hairlines + grit + chipped underside, before the live cracks */
+    ctx.strokeStyle = "rgba(7,9,15,.55)";
     ctx.lineWidth = 1;
+    for (let i = 0; i < 2; i++) {
+      const cx = x + plat.w * (0.2 + 0.6 * texR(plat, i + 3));
+      ctx.beginPath();
+      ctx.moveTo(cx, y + 2);
+      ctx.lineTo(cx + 2, y + 7);
+      ctx.lineTo(cx - 1, y + 11);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(138,106,58,.3)";
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(x + 2 + texR(plat, i + 5) * (plat.w - 5), y + 4 + texR(plat, i + 11) * 9, 2, 1);
+    }
+    ctx.fillStyle = "rgba(0,0,0,.3)";
+    ctx.fillRect(x + plat.w * 0.3, y + plat.h - 2, 6, 2);
+    ctx.fillRect(x + plat.w * 0.7, y + plat.h - 3, 5, 3);
+    ctx.strokeStyle = COL.crack;
     const cracks = 2 + Math.floor(prog * 5);
     for (let i = 0; i < cracks; i++) {
       const cx = x + plat.w * (i + 0.5) / cracks;
@@ -360,8 +475,18 @@ function drawPlatform(plat, now) {
     return;
   }
 
+  /* solid rock: strata lines + speckle grit + base shade */
   ctx.fillStyle = COL.edge;
   ctx.fillRect(x, y, plat.w, 2);
+  ctx.fillStyle = "rgba(67,84,124,.22)";
+  ctx.fillRect(x + 2, y + 6, plat.w - 4, 1);
+  ctx.fillRect(x + 2, y + 11, plat.w - 4, 1);
+  ctx.fillStyle = "rgba(233,237,244,.1)";
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(x + 3 + texR(plat, i) * (plat.w - 6), y + 4 + texR(plat, i + 9) * (plat.h - 7), 1.5, 1.5);
+  }
+  ctx.fillStyle = "rgba(0,0,0,.28)";
+  ctx.fillRect(x, y + plat.h - 2, plat.w, 2);
 }
 
 function render(now) {
@@ -534,6 +659,20 @@ function render(now) {
       if (sy > VIEW_H + DRAW_CULL_MARGIN || sy + plat.h < -DRAW_CULL_MARGIN) continue;
       ctx.fillStyle = COL.plat;
       ctx.fillRect(plat.x, sy, plat.w, plat.h);
+      /* hazard stripes inside the band */
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(plat.x, sy, plat.w, plat.h);
+      ctx.clip();
+      ctx.strokeStyle = "rgba(255,180,84,.14)";
+      ctx.lineWidth = 3;
+      for (let hx = plat.x - plat.h; hx < plat.x + plat.w; hx += 10) {
+        ctx.beginPath();
+        ctx.moveTo(hx, sy + plat.h);
+        ctx.lineTo(hx + plat.h, sy);
+        ctx.stroke();
+      }
+      ctx.restore();
       ctx.fillStyle = COL.amber;
       ctx.fillRect(plat.x, sy, plat.w, 2);
       ctx.globalAlpha = 0.35;

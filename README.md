@@ -126,6 +126,18 @@ so the air never stops changing.
   script/style URL with the document's `lastModified` stamp (`?v=…`, set per deploy by Pages,
   per mtime on `file://`), so a new build always loads fresh assets — no manual cache clears,
   no build step, no version constant to remember. Scripts stay classic and ordered (`defer`).
+- **Procedural platform textures.** Every slab carries a type-themed texture drawn from
+  primitives: rock strata + speckle grit, crumble hairlines + chipped underside, spring end
+  coils + rivets, ice frost facets + glints, machine seam + corner rivets, clock-face tick row,
+  an orbit clock-hand on the travel circle, dir flow stripes along the throw vector, a stitched
+  warp door frame, stitched commit-pad borders, ceiling hazard stripes. Speckles are seeded per
+  platform so they sit still; the type reads even without relying on colour alone.
+- **Element gallery.** `gallery.html` is a visual showcase: every platform type (plus cracking
+  and sliding states), the square's idle/aim/queued/flight/landing/ice-lean states, and world
+  elements — ceiling, summit flag, the void, gust/updraft columns, last-flight trail, progress
+  rail, impact feedback — each painted live by the game's own `render()` into a private canvas,
+  with a FREEZE control for close inspection. Published with the game at
+  <https://demerest.github.io/commit/gallery.html>; like the editor, the game UI never links it.
 - **Readable, named tuning.** `js/constants.js` holds every gameplay/feel number as a named,
   commented constant grouped by system (physics, aim, mechanics, particles, audio bed, solver
   and design invariants); the logic files stay formatted and free of magic numbers.
