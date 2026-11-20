@@ -6,8 +6,24 @@
 <meta name="description" content="COMMIT — a minimalist precision rage-platformer. Draw an arc, release, and live with exactly what you drew. No air control. No mercy.">
 <meta name="theme-color" content="#07090f">
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Crect%20x='1'%20y='1'%20width='14'%20height='14'%20rx='3'%20fill='%23e9edf4'/%3E%3Crect%20x='4'%20y='6'%20width='2'%20height='3'%20fill='%230a0e1a'/%3E%3Crect%20x='10'%20y='6'%20width='2'%20height='3'%20fill='%230a0e1a'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css">
 <title>COMMIT — no air control. no mercy.</title>
+<script>
+/* Cache-busting without a build step: every asset URL carries this document's last-modified
+   stamp (GitHub Pages sets it per deploy; file:// uses the file mtime), so a new build can
+   never mix cached old scripts with new ones. document.write keeps the classic load order;
+   defer runs the scripts, in order, once the DOM is parsed. */
+(function () {
+  var v = "?v=" + encodeURIComponent(document.lastModified);
+  document.write('<link rel="stylesheet" href="style.css' + v + '">');
+  ["js/constants.js", "js/core.js", "js/levels.js",
+    "levels/tower-1.js", "levels/tower-2.js", "levels/tower-3.js",
+    "levels/tower-4.js", "levels/tower-5.js", "levels/tower-6.js",
+    "js/audio.js", "js/fx.js", "js/sim.js", "js/endless.js",
+    "js/render.js", "js/ui.js", "js/main.js"].forEach(function (s) {
+    document.write('<script src="' + s + v + '" defer><\/script>');
+  });
+})();
+</script>
 </head>
 <body>
 <div id="stage"><div id="frame">
@@ -106,21 +122,5 @@
  <div class="row"><button id="bDeadMenu" class="cta ghost">MAIN MENU</button></div>
 </div></div>
 </div></div>
-<script src="js/constants.js"></script>
-<script src="js/core.js"></script>
-<script src="js/levels.js"></script>
-<script src="levels/tower-1.js"></script>
-<script src="levels/tower-2.js"></script>
-<script src="levels/tower-3.js"></script>
-<script src="levels/tower-4.js"></script>
-<script src="levels/tower-5.js"></script>
-<script src="levels/tower-6.js"></script>
-<script src="js/audio.js"></script>
-<script src="js/fx.js"></script>
-<script src="js/sim.js"></script>
-<script src="js/endless.js"></script>
-<script src="js/render.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/main.js"></script>
 </body>
 </html>

@@ -122,6 +122,10 @@ so the air never stops changing.
   `endless`, `render`, `ui`, `main`). Every visual is a Canvas 2D primitive; every sound is
   synthesized at runtime with Web Audio. No images, no audio files, no network requests.
   Works from `file://`.
+- **Build-proof caching.** A tiny inline loader in `index.html`/`editor.html` suffixes every
+  script/style URL with the document's `lastModified` stamp (`?v=…`, set per deploy by Pages,
+  per mtime on `file://`), so a new build always loads fresh assets — no manual cache clears,
+  no build step, no version constant to remember. Scripts stay classic and ordered (`defer`).
 - **Readable, named tuning.** `js/constants.js` holds every gameplay/feel number as a named,
   commented constant grouped by system (physics, aim, mechanics, particles, audio bed, solver
   and design invariants); the logic files stay formatted and free of magic numbers.
@@ -130,7 +134,8 @@ so the air never stops changing.
   `3` ice `4` move·h `5` move·v `6` clock `7` orbit `8` dir `9` warp; movers append
   `amp, period, phase`, clocks `duty, period, phase`, dir springs `vx, vy`, warp pads
   `targetIdx`). `js/levels.js` is just the
-  loader/engine. Adding a tower = drop a descriptor + one `<script>` tag. Format spec:
+  loader/engine. Adding a tower = drop a descriptor + one entry in the head loader array.
+  Format spec:
   `COMMIT_LEVELS.md` §0.
 - **Web level editor.** `editor.html` is a visual editor (drag/resize/type platforms, ceilings,
   goal, notes; live solver validation; export/import descriptors), published with the game at
@@ -168,7 +173,7 @@ from `file://` (classic scripts + stylesheet, no modules).
 Open <https://demerest.github.io/commit/editor.html> — or `editor.html` locally (double-click,
 or serve the folder and visit `/editor.html`). Pick a tower or import a descriptor, edit
 visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPORT** a
-`tower-N.js` to drop into `levels/` (and add a `<script>` tag in `index.html`).
+`tower-N.js` to drop into `levels/` (and add its path to the loader array in `index.html`).
 
 ## Verification
 

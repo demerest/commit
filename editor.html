@@ -28,6 +28,20 @@ button:hover{filter:brightness(1.1)}
 #issues .good{color:var(--green)}
 .hint{color:var(--dim);font-size:10.5px;line-height:1.6;margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
 </style>
+<script>
+/* Cache-busting without a build step: asset URLs carry this document's last-modified stamp
+   (Pages sets it per deploy; file:// uses the file mtime). defer keeps classic load order
+   and runs the scripts once the DOM is parsed. */
+(function () {
+  var v = "?v=" + encodeURIComponent(document.lastModified);
+  ["js/constants.js", "js/core.js", "js/levels.js",
+    "levels/tower-1.js", "levels/tower-2.js", "levels/tower-3.js",
+    "levels/tower-4.js", "levels/tower-5.js", "levels/tower-6.js",
+    "js/sim.js", "js/editor.js"].forEach(function (s) {
+    document.write('<script src="' + s + v + '" defer><\/script>');
+  });
+})();
+</script>
 </head>
 <body>
 <div id="wrap">
@@ -56,19 +70,8 @@ button:hover{filter:brightness(1.1)}
 <input id="file" type="file" accept=".js,.json" hidden>
 <div id="issues"></div>
 <div class="hint">drag = move · drag right edge = width · double-click empty = add platform · wheel = pan · click ceiling to select · Del = delete · 0-8 = type.<br>Movers (4/5): x/top = oscillation centre; amp px · period s (≤3, the fuse window) · phase 0..1. Dashed line = travel track.<br>Clock (6): duty 0-1 · period s (≤3) · phase 0..1; solid duty fraction of each cycle, ghost otherwise (on-window ≥1.2s).<br>Orbit (7): amp px · period s (≤3) · phase; circular carry, speed ≤140 px/s, sweep inside walls.<br>Dir (8): launch vx · vy (fixed vector, |v|≤950, vy&gt;0); throws you on the arrow, not your momentum.<br>
-Warp (9): target index — a top landing folds you to that platform's top centre (one-way; the dashed pink line shows the door's destination). Target must be a non-warp rest (not bounce/dir).<br>Zones: [x,y,w,h,ax,ay] constant accel px/s² in flight only (|a|≤1600); ay&gt;0 updraft, ax gust.<br>Export downloads a <b>tower-N.js</b> descriptor; drop it in <b>levels/</b> and add a &lt;script&gt; tag in index.html.</div>
+Warp (9): target index — a top landing folds you to that platform's top centre (one-way; the dashed pink line shows the door's destination). Target must be a non-warp rest (not bounce/dir).<br>Zones: [x,y,w,h,ax,ay] constant accel px/s² in flight only (|a|≤1600); ay&gt;0 updraft, ax gust.<br>Export downloads a <b>tower-N.js</b> descriptor; drop it in <b>levels/</b> and add its path to the loader array in index.html.</div>
 </div>
 </div>
-<script src="js/constants.js"></script>
-<script src="js/core.js"></script>
-<script src="js/levels.js"></script>
-<script src="levels/tower-1.js"></script>
-<script src="levels/tower-2.js"></script>
-<script src="levels/tower-3.js"></script>
-<script src="levels/tower-4.js"></script>
-<script src="levels/tower-5.js"></script>
-<script src="levels/tower-6.js"></script>
-<script src="js/sim.js"></script>
-<script src="js/editor.js"></script>
 </body>
 </html>

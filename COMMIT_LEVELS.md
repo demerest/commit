@@ -27,8 +27,9 @@ COMMIT_LEVEL({ "id":3, "name":"TOWER 3", "tag":"THE CLOCKWORK SPIRE", "summit":6
 
 The argument is plain JSON (the editor parses/exports exactly this). `js/levels.js` is only the
 *engine* (`COMMIT_LEVEL` registrar + `buildLevel`); it holds no data. `index.html` loads the
-engine then each descriptor as classic `<script>` tags, so the game still runs from `file://`
-with zero fetch. To add a tower: drop `levels/tower-N.js` and add one `<script>` tag.
+engine then each descriptor as classic scripts (emitted by the head loader with `?v=`
+cache-bust suffixes), so the game still runs from `file://`
+with zero fetch. To add a tower: drop `levels/tower-N.js` and add its path to the loader array.
 
 **Authoring tool:** `editor.html` (+ `js/editor.js`) is a web level editor, published with the
 game at <https://demerest.github.io/commit/editor.html> (also works from `file://`/localhost).

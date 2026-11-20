@@ -30,7 +30,15 @@ CSS + Web Audio. Zero dependencies, zero network requests, zero image assets, ze
 | `editor.html` + `js/editor.js` | **Public** web level editor, published with the game (the game UI never links to it; the README does). Loads the real `sim.js` so VALIDATE uses the same `step()`/`preview()`; exports/imports descriptors |
 | GitHub Pages | Standard branch deployment (`main`, repo root) — everything committed ships, editor included; no custom workflow |
 
-Adding a tower = drop `levels/tower-N.js` + one `<script>` tag (or author it in the web editor);
+**Asset loading / cache-busting:** `index.html` and `editor.html` carry a tiny inline head
+loader that `document.write`s the stylesheet link and every `<script src … defer>` with
+`?v=` + `encodeURIComponent(document.lastModified)`. Pages sets Last-Modified per deploy and
+`file://` uses the file mtime, so each build gets fresh asset URLs with no build step and no
+version constant to bump; `defer` preserves classic in-order execution after DOM parse.
+Adding a script = add its path to the loader array (not a raw tag).
+
+Adding a tower = drop `levels/tower-N.js` + one entry in the loader array (or author it in the
+web editor);
 adding a mechanic = a new type flag + a branch in `sim`/`render`. Game modes wrap the same sim:
 `js/endless.js` (NO SUMMIT) is the first — it swaps the world arrays and plugs `claimHook`/`cullHook`
 into `sim.js`, leaving `step()` untouched. Load order: constants, core, levels, towers, audio, fx,
