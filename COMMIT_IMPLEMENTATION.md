@@ -590,7 +590,7 @@ editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VA
 | 36 | NO SUMMIT contract (`test.html` §42) | First generated jump solvable; endless flight contacts ≡ preview contacts pixel-exact |
 | 37 | Bonk continuation (`test.html` §43) | Ceiling-over-rest fixture: preview contacts = bonk then land, mark ok on the launch rest; flight ≡ preview; square lands back after the bonk |
 | 38 | Ice against walls (`test.html` §44) | Ledge pinned to each wall, land moving into it: drift stops and stands at the wall (slide 0, on the ledge), no slide loop, both sides |
-| 39 | Generation geometry (`test.html` §45) | Rises ≥ ENDLESS_DY_MIN; no near-stacked consecutive rests; seeds 7/99/20261118 chains solvable by the fine solver with the full world present |
+| 39 | Generation geometry (`test.html` §45) | Rises ≥ ENDLESS_DY_MIN; no graze-stacks (chain rests at any rise, bonus pads vs their neighbours, overlap ≤ ENDLESS_MAX_OVERLAP); seeds 7/99/20261118 chains solvable by the fine solver with the full world present |
 
 ## 6. Tuning Pointers
 
@@ -609,13 +609,14 @@ editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VA
   dial when a door sits below an overhanging rest — the fall corridor beside the overhang must
   stay wide (see `COMMIT_LEVELS.md` §2 warp-door math).
 - Endless dials: `ENDLESS_WINDOW` (500 = the 50 m half-window), `ENDLESS_START_GRACE` (250),
-  `ENDLESS_CLAIM_MIN/MAX` (1000/2000), `ENDLESS_DY_MIN/MAX` (90/150), `ENDLESS_STACK_DY` (110),
+  `ENDLESS_CLAIM_MIN/MAX` (1000/2000), `ENDLESS_DY_MIN/MAX` (90/150), `ENDLESS_MAX_OVERLAP` (0.35),
   `ENDLESS_DX_MAX` (210), `ENDLESS_W_MIN/VAR` (70/70), `ENDLESS_CLAIM_W` (140),
   `ENDLESS_SPECIAL_CHANCE` (0.35), `ENDLESS_SKY_CYCLE` (10000), probe ladder
   `ENDLESS_PROBE_ANGLE_STEP`/`ENDLESS_PROBE_POWERS`.
   The generator probes with `previewArc` (the visible arc, which continues through bonks to the
-  eventual landing), never raw flight; rejects near-stacks (heavy overlap below
-  `ENDLESS_STACK_DY`); and re-checks the previous TWO jumps with each new rest present
+  eventual landing), never raw flight; rejects heavy horizontal overlap (>35 % of the
+  narrower width) at ANY rise, for chain rests and bonus pads alike; and re-checks the
+  previous TWO jumps with each new rest present
   (two-rest lookahead — a full-power apex reaches ~205 px, past two small rises). Keep all
   three or the shaft will generate jumps the dotted arc contradicts. Placement reads base
   coords `bx/by`: `render` mutates `x/y` of movers every frame.

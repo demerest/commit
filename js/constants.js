@@ -117,7 +117,9 @@ const ENDLESS_CLAIM_MIN = 1000;    // px, minimum gap between commit pads (100m)
 const ENDLESS_CLAIM_MAX = 2000;    // px, maximum gap between commit pads (200m)
 const ENDLESS_DY_MIN = 90;         // px, rest-to-rest rise floor (closer pairs read as stacks)
 const ENDLESS_DY_MAX = 150;        // px, rest-to-rest rise cap (under DESIGN_MAX_DY)
-const ENDLESS_STACK_DY = 110;      // px, below this rise consecutive rests must not heavily overlap
+const ENDLESS_MAX_OVERLAP = 0.35;  // fraction of the narrower width: max horizontal overlap between
+                                   // vertically adjacent platforms at ANY rise (heavier overlap
+                                   // leaves only graze corridors around the underside)
 const ENDLESS_DX_MAX = 210;        // px, rest-to-rest horizontal drift cap
 const ENDLESS_W_MIN = 70;          // px, narrowest generated rest
 const ENDLESS_W_VAR = 70;          // px, generated rest width variance (70..140)

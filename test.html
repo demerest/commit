@@ -1202,12 +1202,21 @@ async function main() {
   const ch45 = C.PLATS.filter(p => p && !p.bounce && !p.dir && !p.warp);
   const top45 = p => (p.move ? p.by : p.y) + p.h;
   ok("generated rises respect the floor", ch45.every((p, i) => i === 0 || top45(p) - top45(ch45[i - 1]) >= C.C.ENDLESS_DY_MIN));
-  ok("no near-stacked consecutive rests", ch45.every((p, i) => {
-    if (i === 0) return true;
-    const a = ch45[i - 1];
-    const ov = Math.min(a.bx + a.w, p.bx + p.w) - Math.max(a.bx, p.bx);
-    return ov <= 0.5 * Math.min(a.w, p.w) || top45(p) - top45(a) >= C.C.ENDLESS_STACK_DY;
-  }));
+  ok("no graze-stacks: chain rests at any rise, pads vs their neighbours", (() => {
+    const lim = (a, b) => {
+      const ov = Math.min(a.bx + a.w, b.bx + b.w) - Math.max(a.bx, b.bx);
+      return ov <= C.C.ENDLESS_MAX_OVERLAP * Math.min(a.w, b.w);
+    };
+    for (let i = 1; i < ch45.length; i++) if (!lim(ch45[i - 1], ch45[i])) return false;
+    for (const p of C.PLATS) {
+      if (!p || !(p.bounce || p.dir || p.warp)) continue;
+      const below = ch45.filter(r => top45(r) < top45(p)).pop();
+      const above = ch45.find(r => top45(r) > top45(p));
+      if (below && !lim(below, p)) return false;
+      if (above && !lim(p, above)) return false;
+    }
+    return true;
+  })());
   let seedSol = true;
   const seedFails = [];
   for (const sd of [7, 99, 20261118]) {

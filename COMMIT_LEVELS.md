@@ -431,10 +431,11 @@ math as §2 governs every link, checked by simulation rather than by hand:
 - **Chain rests.** Rise `dy ∈ [90,150]` (≤ `DESIGN_MAX_DY`), horizontal drift ≤ 210 px from the
   previous rest centre, widths 70–140. Types drawn from solid×3 / crumble / ice / moveH /
   moveV / clock / orbit (movers amp 30–60, period 1.8–2.8; orbit amp 25–40 with rim speed
-  ≤ 140; clock duty .6). **Near-stack ban:** below `ENDLESS_STACK_DY` (110 px) of rise,
-  consecutive rests may not overlap by more than half the narrower width — similar-size
-  ledges one under another have no honest arc (going around the side needs apex room the
-  next rests would bonk). Each candidate is accepted only if `previewArc` from the previous
+  ≤ 140; clock duty .6). **Overlap cap:** at ANY rise, vertically adjacent platforms (chain
+  rests, and bonus pads vs their two neighbours) may overlap by at most
+  `ENDLESS_MAX_OVERLAP` (0.35) of the narrower width — similar-size ledges one under another
+  have no honest arc: going around the underside leaves only a ~±1° graze corridor, which
+  reads as impossible in play. Each candidate is accepted only if `previewArc` from the previous
   rest lands on it at ≤ 98 % power — the *visible* arc, which continues through bonks and
   wall scrapes to the eventual landing — and only if the previous TWO jumps still solve with
   the candidate present (two-rest lookahead: a full-power apex reaches ~205 px, past two

@@ -109,7 +109,8 @@ so the air never stops changing.
   1000 m, forever.
 - **NO SUMMIT (endless).** Seeded random generation, probe-verified through the real integrator
   at ≤ 98 % power with a two-rest lookahead (a new ledge never bonks the previous arcs) and a
-  near-stack ban (similar-width ledges one under another with a small rise are rejected).
+  overlap cap (ledges one under another may overlap by at most 35 % of the narrower width,
+  at any rise — heavier overlap leaves only graze corridors around the underside).
   Springs and warp doors appear as optional bonuses beside the chain, never load-bearing;
   endless doors only fold forward. The void trails your peak by 50 m; commit pads bank your
   score every 100–200 m.

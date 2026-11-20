@@ -113,6 +113,10 @@ function insertSpecial(prev, rest) {
      would (correctly) delete almost every bonus */
   const mid = (prev.bx + prev.w / 2 + rest.bx + rest.w / 2) / 2;
   const x = endClampX(mid + (rnd() < 0.5 ? -1 : 1) * (120 + rnd() * 80) - w / 2, w);
+  /* a bonus stacked over either neighbour would be a graze trap; skip it instead */
+  const ovA = Math.min(prev.bx + prev.w, x + w) - Math.max(prev.bx, x);
+  const ovB = Math.min(rest.bx + rest.w, x + w) - Math.max(rest.bx, x);
+  if (ovA > ENDLESS_MAX_OVERLAP * Math.min(prev.w, w) || ovB > ENDLESS_MAX_OVERLAP * Math.min(rest.w, w)) return;
   let pad;
   if (kind === 2) {
     pad = endPlat(x, y, w, PLAT_WARP, { warpTo: rest.idx });
@@ -152,10 +156,10 @@ function genNext() {
   }
   let rest = null;
   for (let tries = 0; tries < 4 && !rest; tries++) {
-    /* near-stacks (similar widths, one under the other, small rise) have no honest arc:
-       going around the side needs apex room the next rests would bonk. Ban them. */
+    /* near-stacks (similar widths, one under the other) have no honest arc at ANY rise:
+       going around the underside leaves only a graze corridor. Ban heavy overlap outright. */
     const overlap = Math.min(prev.bx + prev.w, x + w) - Math.max(prev.bx, x);
-    const stacked = overlap > 0.5 * Math.min(prev.w, w) && y - END.genTop < ENDLESS_STACK_DY;
+    const stacked = overlap > ENDLESS_MAX_OVERLAP * Math.min(prev.w, w);
     const cand = endPlat(x, y, w, ty, o);
     /* two-rest lookahead: a full-power arc apexes ~205px up, i.e. past TWO small rises, so
        the new rest must not bonk the previous jump NOR the one before it */
@@ -170,8 +174,12 @@ function genNext() {
       if (tries >= 1) { ty = PLAT_SOLID; o = {}; w = Math.max(w, 110); }
     }
   }
-  /* geometric guarantee: a wide ledge beside (not above) the previous rest's arc apex */
-  if (!rest) rest = endPlat(endClampX(prev.bx + prev.w / 2 + 130 - 60, 120), END.genTop + ENDLESS_DY_MIN, 120, PLAT_SOLID, {});
+  /* geometric guarantee: a wide ledge fully beside the previous rest (10px gap), never above it */
+  if (!rest) {
+    let fx = prev.bx + prev.w + 10;
+    if (fx + 120 > VIEW_W - 12) fx = prev.bx - 130;
+    rest = endPlat(endClampX(fx, 120), END.genTop + ENDLESS_DY_MIN, 120, PLAT_SOLID, {});
+  }
   if (rest.claim) {
     END.nextClaim = rest.y + rest.h + ENDLESS_CLAIM_MIN + rnd() * (ENDLESS_CLAIM_MAX - ENDLESS_CLAIM_MIN);
     END.claims++;
