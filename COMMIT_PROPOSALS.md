@@ -138,7 +138,7 @@ generator over every platform type; live 100 m window (generate 50 m above the p
 100–200 m bank the height; death scores the last commit, so uncommitted height is lost —
 the COMMIT verb becomes the score mechanic. Reachability is probe-verified through the real
 `previewArc` at ≤98 % with a one-rest lookahead; bonuses sit beside the chain, never
-load-bearing. Geometry rules: `COMMIT_LEVELS.md` §15; harness §40–42 (265 assertions total).
+load-bearing. Geometry rules: `COMMIT_LEVELS.md` §15; harness §40–45 (275 assertions total).
 
 ## 4. Considered and rejected (for now)
 

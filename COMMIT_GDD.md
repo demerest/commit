@@ -35,7 +35,8 @@ consequence.
 ### Why the rage is fair
 - No RNG anywhere in the simulation (randomness exists only in cosmetic particles).
 - Falls are physical: you lose exactly the height you drop, landing on whatever is below.
-- The preview shows the first contact truthfully, including wall hits and ceiling bonks.
+- The preview shows every contact truthfully, including wall hits and ceiling bonks, and runs
+  to the eventual landing: bonks/scrapes do not end flight, so they do not end the arc either.
 - Restart is instant; progress persists across refresh. The game never wastes your time,
   only your pride.
 
@@ -139,7 +140,10 @@ Collision outcomes (axis-separated, X then Y, per substep):
 **Ice rule (Tower 2+):** you slowly slide toward the side *opposite* the one you came from —
 i.e. in the direction you were travelling at landing. A straight-down landing (`vx = 0`) stands
 still. Drift ramps in over `ICE_SLIDE_RAMP_TIME` then holds `ICE_SLIDE_SPEED`; reaching the far edge walks you off
-into an honest fall (keeping the small drift `vx`). Launching discards the drift, so the Commit
+into an honest fall (keeping the small drift `vx`). A side wall blocks the drift: the square
+stops and stands at the wall (no slide/walk-off/eject/re-land loop). The drift sign uses the
+entry velocity *after* the step, so a wall scrape that zeroed `vx` counts as a straight-down
+landing. Launching discards the drift, so the Commit
 Contract holds: the arc is exactly what you drew from your current (sliding) position.
 
 **Mover rule (Tower 3+):** magenta platforms ping-pong at constant speed (`4·amp/period`,
@@ -287,9 +291,10 @@ mover jump must survive a ±0.12 s launch-phase shift (fair timing, never frame-
 **NO SUMMIT (endless mode)** — a separate mode from the main menu, not a tower. An infinite
 seeded shaft using every platform type; the world is a live 100 m window (generate 50 m above
 the peak, despawn 50 m below, never regenerate). The despawn line is **the void**: touching it
-ends the run. Rest-to-rest rises stay 70–150 px and every chain jump is probe-verified through
-the real integrator at ≤ 98 % power, with a one-rest lookahead so a newly generated ledge can
-never bonk the apex of the previous jump's arc. Bounce/dir/warp pads are inserted *beside* the
+ends the run. Rest-to-rest rises stay 90–150 px, consecutive rests may not heavily overlap
+below a 110 px rise (near-stacks have no honest arc), and every chain jump is probe-verified
+through the real integrator at ≤ 98 % power with a two-rest lookahead so a newly generated
+ledge can never bonk the apex of the previous two jumps' arcs. Bounce/dir/warp pads are inserted *beside* the
 chain as optional bonuses (verified, removed if they would break the chain); endless warp doors
 only fold forward. Every 100–200 m a flagged **commit pad** banks your height: on death the
 score is the last committed height, never the raw peak — uncommitted height is lost. The sky
@@ -484,7 +489,8 @@ guarded so a sound failure can never break the simulation.
 | Warp `target` | per pad | any stable rest idx | Where the door opens; routing puzzle dial (T6 only; endless doors fold forward only) |
 | `ENDLESS_WINDOW` | 500 | 300–800 | Live window half-height: generation headroom above the peak and void trail below |
 | `ENDLESS_CLAIM_MIN/MAX` | 1000/2000 | 800–3000 | Commit-pad spacing; smaller = more banking, less loss tension |
-| `ENDLESS_DY_MIN/MAX` | 70/150 | 60–160 | Generated rest rise; must stay ≤ `DESIGN_MAX_DY` |
+| `ENDLESS_DY_MIN/MAX` | 90/150 | 60–160 | Generated rest rise; must stay ≤ `DESIGN_MAX_DY` |
+| `ENDLESS_STACK_DY` | 110 | 90–140 | Below this rise, consecutive rests must not overlap > half the narrower width |
 | `ENDLESS_SPECIAL_CHANCE` | 0.35 | 0–0.6 | How often a bonus spring/door is inserted beside the chain |
 | Platform widths | per level | ≥ 28 | Primary difficulty dial (endless rests 70–140, commit pads 140) |
 | Camera lerp | 6 / 10 | 4–12 | Fall visibility vs. motion comfort |
@@ -512,7 +518,7 @@ leaderboard, moving ceilings, further game modes. None required for the core exp
 7. Zero network requests, zero image/audio assets, zero runtime errors.
 8. The aim fuse auto-commits a valid drawn arc on expiry; a sub-threshold aim cancels instead.
 9. Crumbled platforms drop the player honestly and reform after a cooldown (never a softlock); reset rebuilds them instantly.
-10. Ice drifts you the way you came in; a straight-down landing stands still; walking off is an honest fall; launching discards drift (preview ≡ flight from the sliding position).
+10. Ice drifts you the way you came in; a straight-down landing stands still; walking off is an honest fall; launching discards drift (preview ≡ flight from the sliding position); a wall blocks the drift into a stand (no slide loop), and a wall-scraped arrival stands still.
 11. Clearing a tower unlocks the next; locked towers cannot be entered; each tower keeps its own run and lifetime records are shared; switching never loses progress.
 12. Every rest-to-rest jump in every tower is solvable at ≤ 98% power (solver), with no same-x vertical stacks and single-direction bounce chains.
 13. Movers carry the rider exactly (through reversals and edge overhang); launching discards carry; preview ≡ flight against moving platforms, pixel-exact; the world clock persists so refresh restores phase + footing.
@@ -525,4 +531,5 @@ leaderboard, moving ceilings, further game modes. None required for the core exp
 20. Orbiters carry in 2-D with preview ≡ flight (pure circular rectOf); orbit speed ≤140 px/s, period ≤3 s, ±0.12 s launch tolerance. Direction springs set a fixed launch vector (preview exact), |v|≤950, vy>0, and the downstream rest lies within the vector's reach. Phase-platform clock ticks are diegetic (on-screen + near/underfoot only, soft sine), never a global metronome; the ambient wind bed is uniform across towers.
 21. Warp pads fold only on top landings (side hits/bonks never fold); the fold resolves inside step() so preview ≡ flight through the teleport; the preview rings the door and hides the destination (contract data still exact); arrivals stand still; targets are stable rests; unkind folds count as falls; among towers the warp mechanic appears only in Tower 6 (NO SUMMIT may insert forward-folding doors as bonuses).
 22. A dead-vertical spring landing escapes via a deterministic sideways nudge (preview ≡ flight); no action is keyboard-only — reset is reachable from the pause menu as well as ↺ / R.
-23. NO SUMMIT: every generated chain jump is solvable at ≤98% power by an independent fine solver (preview semantics, incl. the one-rest lookahead); the live window stays ≤100 m (generate above / despawn below, never regenerate); commit pads land 100–200 m apart and bank the score; void contact ends the run and the death score equals the last committed height; endless best persists; endless preview ≡ flight; switching back to a tower restores its world and run intact.
+23. NO SUMMIT: every generated chain jump is solvable at ≤98% power by an independent fine solver (preview semantics, incl. the two-rest lookahead and the near-stack ban), on several seeds with the full world present; the live window stays ≤100 m (generate above / despawn below, never regenerate); commit pads land 100–200 m apart and bank the score; void contact ends the run and the death score equals the last committed height; endless best persists; endless preview ≡ flight; switching back to a tower restores its world and run intact.
+24. The dotted arc continues through bonks and wall scrapes to the eventual landing (✕ at each strike, ring at the touchdown), pixel-exact with flight; ice drift stops and stands at a side wall instead of looping.

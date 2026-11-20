@@ -180,7 +180,10 @@ function contactOf(b, ev) {
 }
 
 /* the dotted arc: same integrator, same world clock. Pure in (start, v, t0, cullY) so the
-   endless generator can probe reachability with exactly the arc the player will see. */
+   endless generator can probe reachability with exactly the arc the player will see.
+   The arc runs to the eventual LANDING: bonks and wall scrapes do not end flight, so they
+   must not end the preview either — each shows its ✕ and the dots continue to where you
+   actually touch down. Only a landing (or the cull line) stops it. */
 function previewArc(b, v, t0, cullY) {
   b.vx = v.x;
   b.vy = v.y;
@@ -196,7 +199,7 @@ function previewArc(b, v, t0, cullY) {
       contacts.push(c);
       mark = c;
       markT = t;
-      if (ev.t !== "bounce") break;
+      if (ev.t === "land") break;
     }
     if (b.y < cullY) break;
   }
@@ -279,8 +282,11 @@ function launch(v) {
 
 function simStep() {
   if (state !== "flight") return;
-  const prevVy = body.vy, prevVx = body.vx;
+  const prevVy = body.vy;
   const ev = step(body, worldT);
+  /* entry velocity AFTER the step: a wall scrape zeroes vx inside step, and an ice landing
+     after a scrape must stand still (pre-step vx would re-arm the drift into the wall forever) */
+  const entryVx = body.vx;
   stepN++;
   if (stepN % TRAIL_EVERY === 0) {
     trail.push({ x: body.x + CHAR_SIZE / 2, y: body.y + CHAR_SIZE / 2 });
@@ -323,7 +329,7 @@ function simStep() {
     crumbleStage = 0;
     bounceChain = 0;
     /* a warp arrival stands still: the fold discards momentum, ice drift included */
-    body.slide = warped ? 0 : (ev.s.ice ? (prevVx > 0 ? 1 : prevVx < 0 ? -1 : 0) : 0);
+    body.slide = warped ? 0 : (ev.s.ice ? (entryVx > 0 ? 1 : entryVx < 0 ? -1 : 0) : 0);
     body.slideT = 0;
     run.slide = body.slide;
     if (warped) {
@@ -449,6 +455,17 @@ function updateIce(dt) {
     body.x += body.slide * v * dt;
     if (Math.random() < dt * ICE_SPRAY_RATE) {
       spawnSpray(body.x + CHAR_SIZE / 2 - body.slide * CHAR_SIZE / 2, body.y, body.slide);
+    }
+    /* the wall blocks the drift: stop and stand instead of sliding into (and off) the world.
+       Without this, an ice ledge against a wall loops slide → walk-off → wall eject → re-land
+       with the drift re-armed, forever. */
+    if (body.x < 0 || body.x > VIEW_W - CHAR_SIZE) {
+      body.x = Math.min(Math.max(body.x, 0), VIEW_W - CHAR_SIZE);
+      body.slide = 0;
+      body.slideT = 0;
+      run.slide = 0;
+      stopSlide();
+      save();
     }
     if (body.x + CHAR_SIZE <= plat.x || body.x >= plat.x + plat.w) {
       body.on = null;

@@ -11,7 +11,7 @@ const END = {
   seed: 0, rnd: Math.random,
   peak: 0, floor: 0, startFloor: 0, genTop: 0,
   bank: 0, nextClaim: 0, claims: 0,
-  lastRest: null, prevRest: null, dead: false
+  lastRest: null, prevRest: null, prevRest2: null, dead: false
 };
 const ENDLESS_META = { id: 0, name: "NO SUMMIT", tag: "ENDLESS ASCENT", summit: 0 };
 
@@ -72,8 +72,8 @@ function endReach(src, dst, acceptIdx) {
       for (let ang = SOLVER_ANGLE_MIN; ang <= SOLVER_ANGLE_MAX; ang += ENDLESS_PROBE_ANGLE_STEP) {
         const rad = ang * Math.PI / 180;
         for (const pw of ENDLESS_PROBE_POWERS) {
-          /* judge by the visible arc (preview semantics), not raw flight: a path the
-             dotted arc truncates at a bonk is not an honest solution */
+          /* judge by the visible arc (preview semantics): the mark is the eventual landing,
+             bonks and wall scrapes along the way included, exactly as the player sees them */
           const pr = previewArc(
             { x: bx, y: fr.y + fr.h },
             { x: Math.cos(rad) * pw * MAX_LAUNCH_SPEED, y: Math.sin(rad) * pw * MAX_LAUNCH_SPEED },
@@ -128,7 +128,8 @@ function insertSpecial(prev, rest) {
         !endThrow(pad, -120, BOUNCE_SPEED, rest.idx)) { endPop(); return; }
   }
   if (!endReach(prev, rest, rest.idx)) { endPop(); return; }
-  if (END.prevRest && !endReach(END.prevRest, prev, prev.idx)) endPop();
+  if (END.prevRest && !endReach(END.prevRest, prev, prev.idx)) { endPop(); return; }
+  if (END.prevRest2 && !endReach(END.prevRest2, END.prevRest, END.prevRest.idx)) endPop();
 }
 
 function genNext() {
@@ -151,10 +152,16 @@ function genNext() {
   }
   let rest = null;
   for (let tries = 0; tries < 4 && !rest; tries++) {
+    /* near-stacks (similar widths, one under the other, small rise) have no honest arc:
+       going around the side needs apex room the next rests would bonk. Ban them. */
+    const overlap = Math.min(prev.bx + prev.w, x + w) - Math.max(prev.bx, x);
+    const stacked = overlap > 0.5 * Math.min(prev.w, w) && y - END.genTop < ENDLESS_STACK_DY;
     const cand = endPlat(x, y, w, ty, o);
-    /* lookahead: the new rest must not bonk the apex of the PREVIOUS jump either —
-       at this point it is the only future platform that jump's arc can reach */
-    if (endReach(prev, cand, cand.idx) && (!END.prevRest || endReach(END.prevRest, prev, prev.idx))) rest = cand;
+    /* two-rest lookahead: a full-power arc apexes ~205px up, i.e. past TWO small rises, so
+       the new rest must not bonk the previous jump NOR the one before it */
+    if (!stacked && endReach(prev, cand, cand.idx) &&
+        (!END.prevRest || endReach(END.prevRest, prev, prev.idx)) &&
+        (!END.prevRest2 || endReach(END.prevRest2, END.prevRest, END.prevRest.idx))) rest = cand;
     else {
       endPop();
       /* escape the previous arc's apex zone: step sideways, keep the rise modest */
@@ -164,13 +171,14 @@ function genNext() {
     }
   }
   /* geometric guarantee: a wide ledge beside (not above) the previous rest's arc apex */
-  if (!rest) rest = endPlat(endClampX(prev.bx + prev.w / 2 + 130 - 60, 120), END.genTop + 80, 120, PLAT_SOLID, {});
+  if (!rest) rest = endPlat(endClampX(prev.bx + prev.w / 2 + 130 - 60, 120), END.genTop + ENDLESS_DY_MIN, 120, PLAT_SOLID, {});
   if (rest.claim) {
     END.nextClaim = rest.y + rest.h + ENDLESS_CLAIM_MIN + rnd() * (ENDLESS_CLAIM_MAX - ENDLESS_CLAIM_MIN);
     END.claims++;
   } else if (!due && rnd() < ENDLESS_SPECIAL_CHANCE) {
     insertSpecial(prev, rest);
   }
+  END.prevRest2 = END.prevRest;
   END.prevRest = END.lastRest;
   END.lastRest = rest;
   END.genTop = rest.y + rest.h;
@@ -261,6 +269,7 @@ function startEndless(seed) {
   const spawn = endPlat(VIEW_W / 2 - 70, 120, 140, PLAT_SOLID, {});
   END.lastRest = spawn;
   END.prevRest = null;
+  END.prevRest2 = null;
   END.genTop = 120;
   END.peak = 120;
   END.startFloor = 120 - ENDLESS_START_GRACE;

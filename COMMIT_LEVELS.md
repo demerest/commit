@@ -428,22 +428,27 @@ Not a descriptor: `js/endless.js` generates the shaft at runtime from a seeded `
 stream, so a seed reproduces a run exactly (the harness asserts this). The same reachability
 math as §2 governs every link, checked by simulation rather than by hand:
 
-- **Chain rests.** Rise `dy ∈ [70,150]` (≤ `DESIGN_MAX_DY`), horizontal drift ≤ 210 px from the
+- **Chain rests.** Rise `dy ∈ [90,150]` (≤ `DESIGN_MAX_DY`), horizontal drift ≤ 210 px from the
   previous rest centre, widths 70–140. Types drawn from solid×3 / crumble / ice / moveH /
   moveV / clock / orbit (movers amp 30–60, period 1.8–2.8; orbit amp 25–40 with rim speed
-  ≤ 140; clock duty .6). Each candidate is accepted only if `previewArc` from the previous
-  rest lands on it at ≤ 98 % power — the *visible* arc, bonk-truncation included — and only if
-  the previous jump still solves with the candidate present (one-rest lookahead: a new ledge
-  directly above an arc's apex would bonk it). Retries step sideways out of the apex zone;
-  the final fallback is a 120 px ledge beside (not above) the previous rest.
-- **Commit pads.** Every 1000–2000 px of scheduled height, clamped into the next 70–150 px
+  ≤ 140; clock duty .6). **Near-stack ban:** below `ENDLESS_STACK_DY` (110 px) of rise,
+  consecutive rests may not overlap by more than half the narrower width — similar-size
+  ledges one under another have no honest arc (going around the side needs apex room the
+  next rests would bonk). Each candidate is accepted only if `previewArc` from the previous
+  rest lands on it at ≤ 98 % power — the *visible* arc, which continues through bonks and
+  wall scrapes to the eventual landing — and only if the previous TWO jumps still solve with
+  the candidate present (two-rest lookahead: a full-power apex reaches ~205 px, past two
+  small rises, so a new ledge directly above an older arc's apex would bonk it). Retries step
+  sideways out of the apex zone; the final fallback is a 120 px ledge beside (not above) the
+  previous rest.
+- **Commit pads.** Every 1000–2000 px of scheduled height, clamped into the next 90–150 px
   rise so spacing stays in [100 m, ~210 m]; 140 px wide, solid, flagged. Landing banks
   `END.bank`; death scores the bank, not the peak.
 - **Bonuses.** With p = .35 a bounce / dir / warp pad is inserted *beside* the corridor
   (midpoint ± 120–200 px) between two rests, at prevTop+40…restTop−40. Warp targets the upper
   rest (forward-only folds); dir vectors aim at it (|vx| 60–180, vy 800); bounce hops are
-  ballistic-checked. Any bonus that breaks either adjacent chain jump is removed — bonuses
-  are never load-bearing.
+  ballistic-checked. Any bonus that breaks either adjacent chain jump (or the jump before
+  it) is removed — bonuses are never load-bearing.
 - **Window.** Generate while `genTop < peak + 500`; despawn (null the PLATS/SOLIDS slot pair,
   never regenerate) when a platform's highest reach `< peak − 500`. Feet below that line =
   void death. Mover placement and despawn read base coords `bx/by` because `render` mutates
@@ -452,7 +457,8 @@ math as §2 governs every link, checked by simulation rather than by hand:
   keep cycling; stars wrap in a `VIEW_H+40` band; the rail maps the live window with green
   commit ticks, an amber best tick and a red void tick.
 
-Harness §40–42: entry/HUD, determinism, type mix, pad spacing, rise cap, forward-only doors,
-window/despawn/no-regen, an independent 2°/2%/8-phase fine solver over the live chain, banking,
-void death + score + persistence, restart/pause/menu/help flows, tower restore, and
-endless preview ≡ flight.
+Harness §40–45: entry/HUD, determinism, type mix, pad spacing, rise cap + floor, near-stack
+ban, forward-only doors, window/despawn/no-regen, an independent 2°/2%/8-phase fine solver
+over the live chain (plus seeds 7/99/20261118 with the full world present), banking,
+void death + score + persistence, restart/pause/menu/help flows, tower restore,
+endless preview ≡ flight, bonk-continuation arc (§43) and ice-against-wall stand (§44).

@@ -74,7 +74,8 @@ so the air never stops changing.
   vertical landing gets a small deterministic sideways nudge, so you can never bounce forever.
 - **Ice (Tower 2+).** Pale glossy ledges slide you slowly in the direction you were travelling
   when you landed. Land straight down to stand still; otherwise commit fast or slide off the
-  far edge. The preview shows an ice-blue landing ring, and chevrons show your drift.
+  far edge. A wall blocks the drift: you stop and stand instead of sliding into it forever.
+  The preview shows an ice-blue landing ring, and chevrons show your drift.
 - **Moving platforms (Tower 3+).** Magenta ledges ping-pong along a dashed track (horizontal
   conveyors and vertical lifts). They carry you exactly — even over the edge — and your launch
   ignores their motion. The preview runs the same world clock, so the magenta landing ring sits
@@ -107,7 +108,8 @@ so the air never stops changing.
   warm rose dawn at each summit. In NO SUMMIT it ping-pongs through the same palette every
   1000 m, forever.
 - **NO SUMMIT (endless).** Seeded random generation, probe-verified through the real integrator
-  at ≤ 98 % power (with a one-rest lookahead so a new ledge never bonks the previous arc).
+  at ≤ 98 % power with a two-rest lookahead (a new ledge never bonks the previous arcs) and a
+  near-stack ban (similar-width ledges one under another with a small rise are rejected).
   Springs and warp doors appear as optional bonuses beside the chain, never load-bearing;
   endless doors only fold forward. The void trails your peak by 50 m; commit pads bank your
   score every 100–200 m.
@@ -135,7 +137,9 @@ so the air never stops changing.
   README is the only place it is referenced.
 - **The Commit Contract:** preview ≡ simulation, pixel-exact, including wall hits, ceiling
   bonks, bounce hops, moving platforms and warp folds (green/ice/magenta ring = landing,
-  pink ring = warp door, red ✕ = strike, teal ring = bounce).
+  pink ring = warp door, red ✕ = strike, teal ring = bounce). The arc runs to the eventual
+  landing: a bonk or wall scrape shows its ✕ and the dots continue to where you actually
+  touch down, exactly as the flight will.
 - **Honest failure economy:** falls ≥ 25 m flash red and float a `−Xm` popup; your last
   flight's trail hangs in the air until you launch again.
 - **Shareable runs:** the win screen's and the void screen's copy text carry your stats plus a
@@ -167,7 +171,7 @@ visually, **VALIDATE** (real-integrator solver + design invariants), then **EXPO
 
 ## Verification
 
-`test.html` is an automated harness (**265 assertions**) that drives the game through a
+`test.html` is an automated harness (**275 assertions**) that drives the game through a
 manual-clock hook: commit contract, fuse, pre-aim queue, crumble break + reform, bounce-chain preview ≡ flight,
 ice slide / stand-still / walk-off / launch-discards-slide / persistence, mover carry / reversal /
 launch-discards-carry / moving-target contract / phase persistence / lift collision fairness, tower lock + unlock +
@@ -176,7 +180,9 @@ palette, zero-network, warp-fold contract / one-way rule / traps / down-jumps / 
 dead-vertical bounce escape, pause-reset flow, and NO SUMMIT (menu entry, seeded determinism,
 type mix, commit-pad spacing, rise cap, forward-only doors, void window + despawn + no-regen,
 an independent fine solver over the generated chain, commit banking, void death + score +
-persistence, restart/pause/menu/help flows, tower restore, endless preview ≡ flight) —
+persistence, restart/pause/menu/help flows, tower restore, endless preview ≡ flight,
+bonk-continuation arc, ice-against-wall stand, no near-stacks + rise floor, and multi-seed
+chain solvability with the full world present) —
 plus a phase-aware solver proving **all 36 Tower-1, 40 Tower-2, 42 Tower-3, 43 Tower-4,
 44 Tower-5 and 35 Tower-6 rest-to-rest jumps** are solvable at ≤ 98 % power with the real
 integrator (mover jumps must also survive a ±0.12 s launch-phase shift; warp hops solve through
@@ -189,7 +195,7 @@ python -m http.server 8123     # or any static server
 # → http://localhost:8123/test.html
 ```
 
-Last full run: **265/265 pass**, standard and `prefers-reduced-motion` modes.
+Last full run: **275/275 pass**, standard and `prefers-reduced-motion` modes.
 
 ## Design documents
 

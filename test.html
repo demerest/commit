@@ -199,11 +199,13 @@ async function main() {
   /* 6 · ceiling bonk */
   C.setBody(176, 2280);
   const prb = C.preview({ x: 60, y: 830 });
-  ok("steep arc under ceiling previews red ✕", prb.mark && !prb.mark.ok);
+  ok("steep arc under ceiling previews ✕ then the eventual landing",
+    prb.contacts[0].t === "bonk" && !prb.contacts[0].ok && !!prb.mark && prb.mark.ok);
   C.launch({ x: 60, y: 830 });
   settle();
-  ok("bonk contact pixel-exact, then honest fall",
-    C.flightContact && C.flightContact.t === "bonk" && C.flightContact.x === prb.mark.x && C.flightContact.y === prb.mark.y && C.state === "ready");
+  ok("bonk contact pixel-exact, then honest fall to the marked rest",
+    C.flightContact && C.flightContact.t === "bonk" && C.flightContact.x === prb.contacts[0].x && C.flightContact.y === prb.contacts[0].y &&
+    JSON.stringify(C.flightContacts) === JSON.stringify(prb.contacts) && C.state === "ready");
 
   /* 7 · crumble + reform */
   C.resetRun();
@@ -1048,8 +1050,8 @@ async function main() {
           const pw0 = Math.max(C.C.SOLVER_MIN_POWER, Math.ceil(vyNeed / (sin * maxV) / C.C.SOLVER_POWER_STEP) * C.C.SOLVER_POWER_STEP);
           for (let pw = pw0; pw <= C.C.SOLVER_MAX_POWER + 0.001; pw += C.C.SOLVER_POWER_STEP) {
             const vx = Math.cos(rad) * pw * maxV, vy = sin * pw * maxV;
-            /* search through preview(), exactly like the tower solver: the arc the player
-               sees truncates at bonks, so raw-step paths with bonks are not honest solutions */
+            /* search through preview(), exactly like the tower solver: the mark is the
+               eventual landing (the arc continues through bonks/walls, as flight does) */
             C.setBody(bx, fr.y);
             const pr = C.preview({ x: vx, y: vy });
             if (pr.mark && pr.mark.ok && pr.mark.idx === b.idx) return { bx, vx, vy, ph };
@@ -1118,6 +1120,110 @@ async function main() {
     ok("endless flight contacts ≡ preview", JSON.stringify(C.flightContacts) === JSON.stringify(pe7.contacts),
       JSON.stringify(C.flightContacts) === JSON.stringify(pe7.contacts) ? "" : "flight=" + JSON.stringify(C.flightContacts) + " preview=" + JSON.stringify(pe7.contacts));
   }
+  C.setLevel(1);
+  C.resetRun();
+
+  /* 43 · the arc continues through bonks: X at the strike, ring at the eventual landing */
+  let bonkCeil = null, bonkRest = -1;
+  for (let lv = 1; lv <= 6 && !bonkCeil; lv++) {
+    C.setLevel(lv);
+    for (const c of C.CEIL) {
+      for (let i = 0; i < C.RAW_PLATS.length; i++) {
+        const p = C.RAW_PLATS[i];
+        const pc = p[0] + p[2] / 2;
+        if (p[3] === C.C.PLAT_SOLID && p[1] < c[1] && p[1] > c[1] - 190 && pc > c[0] + 12 && pc < c[0] + c[2] - 12) {
+          bonkCeil = c; bonkRest = i; break;
+        }
+      }
+      if (bonkCeil) break;
+    }
+  }
+  ok("ceiling-over-rest fixture exists", !!bonkCeil && bonkRest >= 0);
+  if (bonkCeil) {
+    C.resetRun();
+    C.setWorldT(0);
+    C.setBody(C.RAW_PLATS[bonkRest][0] + C.RAW_PLATS[bonkRest][2] / 2 - C.C.CHAR_SIZE / 2, C.RAW_PLATS[bonkRest][1]);
+    const pb = C.preview({ x: 0, y: 850 });
+    ok("bonk shows X but the arc continues to a landing", pb.contacts[0].t === "bonk" && !!pb.mark && pb.mark.ok && pb.mark.idx === bonkRest,
+      "contacts=" + pb.contacts.map(c => c.t).join(","));
+    C.launch({ x: 0, y: 850 });
+    settle();
+    ok("bonk-continue flight contacts ≡ preview", JSON.stringify(C.flightContacts) === JSON.stringify(pb.contacts));
+    ok("square lands back on the launch rest after the bonk", C.state === "ready" && C.body.on && C.body.on.idx === bonkRest);
+  }
+  C.setLevel(1);
+  C.resetRun();
+
+  /* 44 · ice against a wall: the drift stops at the wall instead of looping forever */
+  C.startEndless(555);
+  let iceW = null;
+  for (let i = 0; i < 4 && !iceW; i++) {
+    iceW = C.PLATS.find(p => p && p.ice);
+    if (!iceW) {
+      const rs44 = C.PLATS.filter(p => p && !p.bounce && !p.dir && !p.warp);
+      const t44 = rs44[rs44.length - 1];
+      C.setBody(t44.bx + t44.w / 2 - C.C.CHAR_SIZE / 2, (t44.move ? t44.by : t44.y) + t44.h);
+      tick(16.7);
+    }
+  }
+  ok("endless ice ledge fixture exists", !!iceW);
+  if (iceW) {
+    /* right wall: pin the ledge against it, land moving right, drift must stop and stand */
+    iceW.bx = C.C.VIEW_W - 12 - iceW.w; iceW.x = iceW.bx;
+    C.setWorldT(0);
+    C.setBody(iceW.x + 4, iceW.y + iceW.h);
+    C.launch({ x: 150, y: 0 });
+    settle();
+    for (let i = 0; i < 240; i++) tick(16.7);
+    ok("ice drift into the right wall stops and stands (no slide loop)",
+      C.state === "ready" && C.body.slide === 0 && C.body.on === iceW && C.body.x === C.C.VIEW_W - C.C.CHAR_SIZE,
+      "state=" + C.state + " slide=" + C.body.slide + " x=" + C.body.x + " on=" + (C.body.on && C.body.on.idx) + " ice=" + iceW.idx);
+    /* left wall mirror */
+    iceW.bx = 12; iceW.x = 12;
+    C.setBody(iceW.x + iceW.w - C.C.CHAR_SIZE - 4, iceW.y + iceW.h);
+    C.launch({ x: -150, y: 0 });
+    settle();
+    for (let i = 0; i < 240; i++) tick(16.7);
+    ok("ice drift into the left wall stops and stands (no slide loop)",
+      C.state === "ready" && C.body.slide === 0 && C.body.on === iceW && C.body.x === 0,
+      "state=" + C.state + " slide=" + C.body.slide + " x=" + C.body.x);
+  }
+  C.setLevel(1);
+  C.resetRun();
+
+  /* 45 · generation geometry: no near-stacks, rise floor, and multi-seed chain solvability */
+  C.startEndless(12345);
+  for (let i = 0; i < 8; i++) {
+    const rs45 = C.PLATS.filter(p => p && !p.bounce && !p.dir && !p.warp);
+    const t45 = rs45[rs45.length - 1];
+    C.setBody(t45.bx + t45.w / 2 - C.C.CHAR_SIZE / 2, (t45.move ? t45.by : t45.y) + t45.h);
+    tick(16.7);
+  }
+  const ch45 = C.PLATS.filter(p => p && !p.bounce && !p.dir && !p.warp);
+  const top45 = p => (p.move ? p.by : p.y) + p.h;
+  ok("generated rises respect the floor", ch45.every((p, i) => i === 0 || top45(p) - top45(ch45[i - 1]) >= C.C.ENDLESS_DY_MIN));
+  ok("no near-stacked consecutive rests", ch45.every((p, i) => {
+    if (i === 0) return true;
+    const a = ch45[i - 1];
+    const ov = Math.min(a.bx + a.w, p.bx + p.w) - Math.max(a.bx, p.bx);
+    return ov <= 0.5 * Math.min(a.w, p.w) || top45(p) - top45(a) >= C.C.ENDLESS_STACK_DY;
+  }));
+  let seedSol = true;
+  const seedFails = [];
+  for (const sd of [7, 99, 20261118]) {
+    C.startEndless(sd);
+    for (let i = 0; i < 4; i++) {
+      const rs45 = C.PLATS.filter(p => p && !p.bounce && !p.dir && !p.warp);
+      const t45 = rs45[rs45.length - 1];
+      C.setBody(t45.bx + t45.w / 2 - C.C.CHAR_SIZE / 2, (t45.move ? t45.by : t45.y) + t45.h);
+      tick(16.7);
+    }
+    const chS = C.PLATS.filter(p => p && !p.bounce && !p.dir && !p.warp);
+    for (let i = 1; i < Math.min(6, chS.length); i++) {
+      if (!endFine(C, chS[i - 1], chS[i])) { seedSol = false; seedFails.push(sd + ":jump" + i); break; }
+    }
+  }
+  ok("three more seeds: chain solvable with the full world present", seedSol, seedFails.join(",") || "seeds 7/99/20261118");
   C.setLevel(1);
   C.resetRun();
 

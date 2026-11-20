@@ -39,11 +39,11 @@ sim, **endless**, render, ui, main (the editor loads sim without endless; the ho
 | Concern | Responsibility |
 |---|---|
 | Physics | `step(body,t)` — the **single** integrator used by flight AND preview; handles land/bounce/wall/bonk; mover rects read purely from `t` |
-| Preview | Clones the body **and the world clock**, runs `step()` ≤ 900 times, returns dots + **all** contacts (bounce hops + final, each tagged with platform idx/ice/move) |
+| Preview | Clones the body **and the world clock**, runs `step()` ≤ 900 times, returns dots + **all** contacts (bounce hops + final, each tagged with platform idx/ice/move). `previewArc(b,v,t0,cullY)` is pure so the endless generator probes with it; the arc continues through bonks/wall scrapes (they don't end flight) and stops only at the eventual landing or the cull line |
 | Movers | Types 4/5 ping-pong at constant speed (`4·amp/period`) on the shared fixed-step `worldT`; `groundStep` carries the rider exactly (no relative slide); launch discards carry; a lift pressing you into a solid drops you. `step()` classifies contacts against the platform's rect at `t-FIXED_DT`: a body that was above the old top **lands** even if the lift rose into it (no sideways eject), a body below the old bottom bonks; only genuine side approaches wall-hit |
 | Fuse | Aim countdown; auto-commits the drawn arc on expiry, cancels if sub-threshold. Expiry is evaluated **before** the accumulator advances `worldT`, so a forced launch starts on the exact phase the last preview drew. Mid-air expiry (or early release/Space) queues the arc in `pendingV` instead; it fires on true landing |
 | Crumble | Per-visit dwell timer; shatters + drops; auto-reforms after `CRUMBLE_REFORM_TIME` (no softlock); transient `run.dead` |
-| Ice | On land, `slide = sign(entry vx)`; `updateIce` ramps drift, walks off the edge into an honest fall; launch discards drift |
+| Ice | On land, `slide = sign(entry vx)` where entry vx is read **after** `step()` (a wall scrape zeroes it → stand still); `updateIce` ramps drift, walks off the edge into an honest fall, and stops+stands at a side wall (no slide/eject/re-land loop); launch discards drift |
 | Input | Pointer Events (capture, relative drag) + keyboard aim FSM |
 | Loop | Single rAF, fixed-timestep accumulator (dt clamp 0.25 s); each fixed step advances `worldT` then runs `simStep` (flight) or `groundStep` (carry) |
 
@@ -547,7 +547,7 @@ mover/phase/orbit jumps must also land with the launch phase shifted ±0.12 s (n
 Warp hops solve by launching onto the door whose fold opens on the next rest. The endless
 sections add an independent fine solver (2°/2%/8 phases, preview semantics) over the generated
 chain plus window/despawn/claim/death/score/persistence/flow assertions. Last full run:
-**265/265 pass** in both standard and `prefers-reduced-motion` modes (headless Chrome). The
+**275/275 pass** in both standard and `prefers-reduced-motion` modes (headless Chrome). The
 editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VALID 36/40/42/43/44/35).
 
 | # | Test | Expected |
@@ -556,7 +556,7 @@ editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VA
 | 2 | Drag up-right, release | Dotted arc matches flight exactly; green ring = actual landing |
 | 3 | Tiny drag (< ~28 px), release | Cancels, no launch counted, puff only |
 | 4 | Release outside canvas | Pointer capture delivers release; launch still commits |
-| 5 | Aim into a ceiling | Red ✕ at bonk point; real flight bonks at the same pixel |
+| 5 | Aim into a ceiling | Red ✕ at bonk point, arc continues to the eventual landing ring; real flight bonks at the same pixel and lands where the ring said |
 | 6 | Fall > 25 m | Red flash, `−Xm` popup, fall counter increments once |
 | 7 | Keyboard: arrows, Shift, Space, Esc | Fine aim works; Space commits the standing aim; Esc does not cancel |
 | 8 | `H`, `?`, `R`, ↺, Esc | Overlays open/close; sim and timer pause while open |
@@ -588,6 +588,9 @@ editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VA
 | 34 | NO SUMMIT entry + window (`test.html` §40–41) | Menu button enters endless; HUD tag/CLAIMED label; no goal; void grace below spawn; seeded runs identical; type mix incl. bonuses; commit pads 100–200 m apart; rise ≤ design cap; doors fold forward only; void trails peak 50 m; below-void slots null and never regenerate |
 | 35 | NO SUMMIT score + death (`test.html` §41) | Independent fine solver proves the live chain ≤98%; landing on a commit pad banks height + HUD + lifetime best; void contact → dead overlay with committed score / peak / share URL; best persists; climb-again rerolls seed; pause/reset/menu/help flows; tower world restores intact |
 | 36 | NO SUMMIT contract (`test.html` §42) | First generated jump solvable; endless flight contacts ≡ preview contacts pixel-exact |
+| 37 | Bonk continuation (`test.html` §43) | Ceiling-over-rest fixture: preview contacts = bonk then land, mark ok on the launch rest; flight ≡ preview; square lands back after the bonk |
+| 38 | Ice against walls (`test.html` §44) | Ledge pinned to each wall, land moving into it: drift stops and stands at the wall (slide 0, on the ledge), no slide loop, both sides |
+| 39 | Generation geometry (`test.html` §45) | Rises ≥ ENDLESS_DY_MIN; no near-stacked consecutive rests; seeds 7/99/20261118 chains solvable by the fine solver with the full world present |
 
 ## 6. Tuning Pointers
 
@@ -606,12 +609,15 @@ editor's VALIDATE runs the same solver + invariants (`editor.html#validateN`: VA
   dial when a door sits below an overhanging rest — the fall corridor beside the overhang must
   stay wide (see `COMMIT_LEVELS.md` §2 warp-door math).
 - Endless dials: `ENDLESS_WINDOW` (500 = the 50 m half-window), `ENDLESS_START_GRACE` (250),
-  `ENDLESS_CLAIM_MIN/MAX` (1000/2000), `ENDLESS_DY_MIN/MAX` (70/150), `ENDLESS_DX_MAX` (210),
-  `ENDLESS_W_MIN/VAR` (70/70), `ENDLESS_CLAIM_W` (140), `ENDLESS_SPECIAL_CHANCE` (0.35),
-  `ENDLESS_SKY_CYCLE` (10000), probe ladder `ENDLESS_PROBE_ANGLE_STEP`/`ENDLESS_PROBE_POWERS`.
-  The generator probes with `previewArc` (the visible arc), never raw flight, and re-checks the
-  previous jump with each new rest present (one-rest lookahead) — keep both or the shaft will
-  generate jumps the dotted arc contradicts. Placement reads base coords `bx/by`: `render`
-  mutates `x/y` of movers every frame.
+  `ENDLESS_CLAIM_MIN/MAX` (1000/2000), `ENDLESS_DY_MIN/MAX` (90/150), `ENDLESS_STACK_DY` (110),
+  `ENDLESS_DX_MAX` (210), `ENDLESS_W_MIN/VAR` (70/70), `ENDLESS_CLAIM_W` (140),
+  `ENDLESS_SPECIAL_CHANCE` (0.35), `ENDLESS_SKY_CYCLE` (10000), probe ladder
+  `ENDLESS_PROBE_ANGLE_STEP`/`ENDLESS_PROBE_POWERS`.
+  The generator probes with `previewArc` (the visible arc, which continues through bonks to the
+  eventual landing), never raw flight; rejects near-stacks (heavy overlap below
+  `ENDLESS_STACK_DY`); and re-checks the previous TWO jumps with each new rest present
+  (two-rest lookahead — a full-power apex reaches ~205 px, past two small rises). Keep all
+  three or the shaft will generate jumps the dotted arc contradicts. Placement reads base
+  coords `bx/by`: `render` mutates `x/y` of movers every frame.
 - The preview must never get its own physics. If you touch `step()`, both flight and
   preview change together — that is the Commit Contract, and it is the game.
