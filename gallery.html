@@ -88,7 +88,7 @@ document.addEventListener("DOMContentLoaded", function () {
     GOAL = null; SUMMIT = 5080; mode = "tower"; claimHook = null; cullHook = null;
     state = "ready"; aim = null; pendingV = null; aimT = AIM_FUSE_TIME; idleT = 0; crumbleT = 0;
     body.x = 60; body.y = -3000; body.vx = 0; body.vy = 0; body.on = null; body.slide = 0; body.grounded = false;
-    landT = 0; launchT = 0; shake = 0; flash = 0; warpGlow = 0; blinkT = 0; run.launches = 1;
+    landT = 0; launchT = 0; shake = 0; flash = 0; warpGlow = 0; blinkT = 0; run.launches = 1; ringT = 0;
     trail.length = 0; parts.length = 0; shards.length = 0; confetti.length = 0; floats.length = 0;
   }
   function stand(p, dx) {
@@ -117,7 +117,9 @@ document.addEventListener("DOMContentLoaded", function () {
   platCard("CRUMBLE", "type 1", "weathered hairlines, grit and a chipped underside; live cracks widen while you stand", { crumble: true });
   platCard("CRUMBLE · CRACKING", "type 1", "1.05 s into the 1.6 s fuse: amber-red edge, spreading cracks, jitter (off in reduced motion)", { crumble: true },
     function (c, p) { stand(p, 40); crumbleT = 1.05; });
-  platCard("BOUNCE", "type 2", "end coils + membrane rivets under the pulsing teal edge; chevrons compress on a hop", { bounce: true });
+  platCard("BOUNCE", "type 2", "end coils + membrane rivets under the pulsing teal edge; lit face + contact shadow seat it in space", { bounce: true });
+  platCard("BOUNCE · COMPRESSED", "type 2", "the frame after a hop: the membrane dips under the rider instead of staying a straight rule", { bounce: true },
+    function (c, p) { p.bounceT = 0.12; });
   platCard("ICE", "type 3", "frost facets, trapped glints and a travelling sheen over the pale slab", { ice: true });
   platCard("ICE · SLIDING", "type 3", "drift chevrons point the way you came in; the square leans into the slide", { ice: true },
     function (c, p) { stand(p, 40); body.slide = 1; });
@@ -145,7 +147,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   platCard("DIR", "type 8", "flow stripes streamed along the authored throw vector; the arrow is the launch, not your momentum", { dir: 1, dvx: 260, dvy: 760 });
   platCard("WARP", "type 9", "stitched door frame + counter-rotating portal arcs; where it opens stays a secret until you commit", { warp: 1, warpTo: 0 });
-  platCard("COMMIT PAD", "NO SUMMIT", "stitched survey border + base shade; the pulsing amber flag banks your height on landing", { claim: true, w: 140 }, null, 1.3, 1000);
+  platCard("COMMIT PAD", "NO SUMMIT", "stitched border + survey beacon column above an unbanked pad; the pulsing amber flag banks your height", { claim: true, w: 140 }, null, 1.3, 1000);
   platCard("COMMIT PAD · BANKED", "NO SUMMIT", "claimed: green flag with a cloth seam and a COMMITTED label; the bank is yours even after the void", { claim: true, claimed: true, w: 140 }, null, 1.3, 1000);
 
   /* ---------- the square ---------- */
@@ -155,6 +157,22 @@ document.addEventListener("DOMContentLoaded", function () {
       const p = slab(0, { w: 140 });
       PLATS = [p]; SOLIDS = [p]; stand(p);
       camAt(0, 120); look(c, body.x + CHAR_SIZE / 2, 120, 3, 140, 110);
+    });
+  card("CHARACTER", "GROUND SHADOW · STANDING", "ready", "a tight dark ellipse under the feet: the square rests ON the ledge, not in front of it",
+    function (c) {
+      base(c);
+      const p = slab(0, { w: 140 });
+      PLATS = [p]; SOLIDS = [p]; stand(p);
+      camAt(0, 120); look(c, body.x + CHAR_SIZE / 2, 120, 3, 140, 110);
+    });
+  card("CHARACTER", "GROUND SHADOW · 6m UP", "flight", "the shadow stays on the ledge below, wider and fainter with distance — a free altitude cue",
+    function (c) {
+      base(c);
+      const p = slab(0, { w: 140 });
+      PLATS = [p]; SOLIDS = [p];
+      body.x = 90; body.y = 60; body.vx = 120; body.vy = 300; body.grounded = false;
+      state = "flight";
+      camAt(60, 70); look(c, body.x + CHAR_SIZE / 2, 70, 1.6, 140, 50);
     });
   card("CHARACTER", "AIMING · THE CONTRACT", "aim", "fuse ring drains blue→amber→red; the dotted arc is the real integrator, ringed where you will land",
     function (c) {
@@ -182,12 +200,13 @@ document.addEventListener("DOMContentLoaded", function () {
       state = "flight"; launchT = 0.05;
       camAt(60, 110); look(c, body.x + CHAR_SIZE / 2, 110, 3, 140, 100);
     });
-  card("CHARACTER", "LANDING", "ready", "the impact frame: squash + a dust burst at the feet; hard landings add shake in play",
+  card("CHARACTER", "LANDING", "ready", "the impact frame: squash + dust + the hard-landing shockwave ring (spawned by real impacts in play)",
     function (c) {
       base(c);
       const p = slab(0, { w: 140 });
       PLATS = [p]; SOLIDS = [p]; stand(p);
       landT = 0.12; spawnDust(body.x + CHAR_SIZE / 2, 0, 10, COL.dim);
+      spawnRing(body.x + CHAR_SIZE / 2, 0); ringT = 0.2;
       camAt(0, 120); look(c, body.x + CHAR_SIZE / 2, 120, 3, 140, 110);
     });
   card("CHARACTER", "ICE LEAN", "ready", "the square tilts into its drift while sliding; a wall ends the slide in a stand, never a stuck loop",
@@ -199,6 +218,21 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
   /* ---------- world elements ---------- */
+  card("WORLD", "DEPTH PASS · STAGED SHAFT", "depth", "lit faces + slivers + bevels + contact shadows on every slab, the square's ground shadow, far spires at 0.15 parallax",
+    function (c) {
+      base(c);
+      mode = "endless"; END.floor = 400; END.genTop = 1400;
+      const rows = [
+        slab(540, { x: 120, w: 110, move: PLAT_MOVE_H, amp: 50, bx: 120 }),
+        slab(660, { x: 60, w: 120 }),
+        slab(780, { x: 300, w: 100, clock: 1, duty: 0.6 }),
+        slab(900, { x: 180, w: 140, claim: true })
+      ];
+      PLATS = rows; SOLIDS = rows;
+      stand(rows[1], 30);
+      camAt(body.y, 120);
+      look(c, 0, 0, GW / VIEW_W, 0, 0);
+    });
   card("WORLD", "CEILING", "hazard", "amber band with hazard stripes and dashed teeth underneath: bonk it and the arc shows its ✕",
     function (c) {
       base(c);
@@ -206,7 +240,7 @@ document.addEventListener("DOMContentLoaded", function () {
       SOLIDS = [p];
       camAt(100, 60); look(c, 60, 60, 1.4, 20, 60);
     });
-  card("WORLD", "SUMMIT FLAG", "goal", "the tower's end: green flag, summit label, and the silence at the top",
+  card("WORLD", "SUMMIT FLAG", "goal", "the tower's end: green flag waving on a sine (static in reduced motion), summit label, silence at the top",
     function (c) {
       base(c);
       SUMMIT = 5080;
@@ -214,7 +248,7 @@ document.addEventListener("DOMContentLoaded", function () {
       SOLIDS = [GOAL];
       camAt(SUMMIT, 120); look(c, 60, 120, 1.4, 20, 120);
     });
-  card("WORLD", "THE VOID", "endless", "NO SUMMIT's rising death line 50 m below your peak: red glow, crawling hazard dashes, no way back",
+  card("WORLD", "THE VOID", "endless", "NO SUMMIT's rising death line 50 m below your peak: red glow, crawling dashes, embers rising off it — no way back",
     function (c) {
       base(c);
       mode = "endless"; END.floor = 800; END.genTop = 1800;

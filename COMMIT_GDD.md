@@ -402,6 +402,12 @@ oscillators and filtered noise only, created at runtime, mutable at all times:
 | Event | Feedback |
 |---|---|
 | Platform identity | Type-themed procedural texture on every slab: rock strata + grit, crumble hairlines + chips, spring coils + rivets, ice facets + glints, machine seam + rivets, clock-face ticks, orbit clock-hand, dir flow stripes, warp door frame, stitched commit border, ceiling hazard stripes. Type reads without relying on colour alone; speckles are seeded per platform so they never flicker |
+| Depth pass | Lit front-face gradient + 1px top-face sliver + consistent bevel + contact shadow per slab (ghosts and actively-cracking ledges exempt); the square's ground shadow scales with height; far silhouette spires at 0.15 parallax. One light direction, low alphas, no collision offsets |
+| Claim beacon | Faint amber column above unbanked commit pads (static alpha in reduced motion) — banks read from a screen away |
+| Void embers | Six motes rising off the death line, seeded drift (fixed offsets in reduced motion) |
+| Summit flag wave | Flag tip rides a slow sine; static under reduced motion |
+| Hard-landing ring | One expanding ellipse at the impact point on impacts > HARD_LAND_IMPACT (none in reduced motion), alongside the existing shake |
+| Bounce membrane | While compressed, the pad's top edge dips under the rider instead of staying a straight rule |
 | Aim start | Joystick glyph at press origin + dotted arc + power % (keyboard: `angle° · power%`) |
 | Weak release | Gray dots + cancel puff (no launch counted) |
 | Commit | Stretch, dust, trail begins, launch counter ticks |

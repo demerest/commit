@@ -316,6 +316,15 @@ function drawPlatform(plat, now) {
     ctx.setLineDash([]);
     ctx.fillStyle = "rgba(0,0,0,.28)";
     ctx.fillRect(x, y + plat.h - 2, plat.w, 2);
+    /* survey beacon: faint amber column above an unbanked pad, so banks read from afar */
+    if (!plat.claimed) {
+      const ba = RM ? 0.1 : 0.08 + 0.04 * Math.sin(now * 0.003);
+      const bg = ctx.createLinearGradient(0, y - 150, 0, y);
+      bg.addColorStop(0, "rgba(255,180,84,0)");
+      bg.addColorStop(1, "rgba(255,180,84," + ba.toFixed(3) + ")");
+      ctx.fillStyle = bg;
+      ctx.fillRect(x + plat.w / 2 - 12, y - 150, 24, 150);
+    }
     const fx = x + plat.w / 2, fy = y;
     ctx.strokeStyle = COL.ink;
     ctx.lineWidth = 2;
@@ -408,7 +417,18 @@ function drawPlatform(plat, now) {
     const pulse = 0.6 + 0.4 * Math.sin(now * 0.004);
     ctx.fillStyle = COL.spring;
     ctx.globalAlpha = 0.55 + 0.45 * pulse;
-    ctx.fillRect(x, y, plat.w, 2);
+    const comp0 = plat.bounceT > 0 ? plat.bounceT / SPRING_COMP_TIME : 0;
+    if (comp0 > 0) {
+      /* membrane dips under the rider instead of staying a straight rule */
+      ctx.strokeStyle = COL.spring;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 1);
+      ctx.quadraticCurveTo(x + plat.w / 2, y + 1 + comp0 * 5, x + plat.w, y + 1);
+      ctx.stroke();
+    } else {
+      ctx.fillRect(x, y, plat.w, 2);
+    }
     ctx.globalAlpha = 1;
     /* end coils + membrane rivets: a spring, not a stripe */
     ctx.strokeStyle = "rgba(63,224,197,.45)";
@@ -489,6 +509,34 @@ function drawPlatform(plat, now) {
   ctx.fillRect(x, y + plat.h - 2, plat.w, 2);
 }
 
+/* depth pass: lit front face + top-face sliver + bevel + contact shadow, additive over the
+   base slab so the type colour and edge line stay dominant. Skipped for ghosts (a ghost is
+   an outline, never a filled face) and for actively-cracking ledges (jitter would misalign). */
+function drawDepth(plat) {
+  const sy = SY(plat.y + plat.h);
+  if (sy > VIEW_H + DRAW_CULL_MARGIN || sy + plat.h < -DRAW_CULL_MARGIN) return;
+  if (plat.dead) return;
+  if (plat.clock && !solidAt(plat, worldT)) return;
+  if (plat.crumble && body.on === plat && crumbleT > 0) return;
+  const x = plat.x, y = sy, w = plat.w, h = plat.h;
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, "rgba(233,237,244,.05)");
+  g.addColorStop(1, "rgba(0,0,0,.22)");
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = "rgba(233,237,244,.25)";
+  ctx.fillRect(x, y - 1, w, 1);
+  ctx.fillStyle = "rgba(233,237,244,.08)";
+  ctx.fillRect(x, y, 1, h);
+  ctx.fillStyle = "rgba(0,0,0,.25)";
+  ctx.fillRect(x + w - 1, y, 1, h);
+  const cs = ctx.createLinearGradient(0, y + h, 0, y + h + 6);
+  cs.addColorStop(0, "rgba(0,0,0,.2)");
+  cs.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = cs;
+  ctx.fillRect(x + 2, y + h, w - 4, 6);
+}
+
 function render(now) {
   /* altitude sky (endless ping-pongs through it every 1000m) */
   const t = altFrac(camY);
@@ -499,6 +547,23 @@ function render(now) {
   g.addColorStop(1, rgb(bot));
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+  /* far silhouette spires: depth of field without blur, one shade, slow parallax */
+  ctx.fillStyle = "rgba(0,0,0,.18)";
+  const spSpan = VIEW_H + 600;
+  for (let i = 0; i < SPIRE_COUNT; i++) {
+    const sx = (i * 83 + 29) % VIEW_W;
+    const w = 26 + (i * 37) % 44;
+    const h = 260 + (i * 53) % 340;
+    const sy = VIEW_H - ((((i * 211 + 120) - camY * SPIRE_PARALLAX) % spSpan) + spSpan) % spSpan;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy + h);
+    ctx.lineTo(sx + w * 0.18, sy);
+    ctx.lineTo(sx + w * 0.82, sy);
+    ctx.lineTo(sx + w, sy + h);
+    ctx.closePath();
+    ctx.fill();
+  }
 
   let ox = 0, oy = 0;
   if (shake > 0.1 && !RM) {
@@ -605,6 +670,15 @@ function render(now) {
         ctx.textAlign = "left";
         ctx.globalAlpha = 1;
       }
+      /* embers rising off the death line: the void eats upward */
+      ctx.fillStyle = COL.red;
+      for (let i = 0; i < EMBER_COUNT; i++) {
+        const ex = (i * 71 + 13) % VIEW_W;
+        const rise = RM ? (i * 17) % 46 : ((now * 0.02) + (i * 37)) % 46;
+        ctx.globalAlpha = 0.5 * (1 - rise / 46);
+        ctx.fillRect(ex, vy - 4 - rise, 1.5, 1.5);
+      }
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -685,6 +759,7 @@ function render(now) {
         plat.y = r.y;
       }
       drawPlatform(plat, now);
+      drawDepth(plat);
     }
   }
 
@@ -698,10 +773,11 @@ function render(now) {
     ctx.lineTo(fx, fy - 46);
     ctx.stroke();
     ctx.fillStyle = COL.green;
+    const wv = RM ? 0 : Math.sin(now * 0.004) * 3;
     ctx.beginPath();
     ctx.moveTo(fx, fy - 46);
-    ctx.lineTo(fx + 26, fy - 38);
-    ctx.lineTo(fx, fy - 30);
+    ctx.lineTo(fx + 26, fy - 38 + wv);
+    ctx.lineTo(fx, fy - 30 + wv * 0.4);
     ctx.closePath();
     ctx.fill();
     ctx.fillStyle = COL.dim;
@@ -809,6 +885,29 @@ function render(now) {
     }
   }
 
+  /* the square's ground shadow: nearest surface below, alpha/size scale with distance */
+  {
+    let best = null;
+    for (const s of SOLIDS) {
+      if (!s || s.dead || s.wall) continue;
+      if (s.clock && !solidAt(s, worldT)) continue;
+      const top = s.y + s.h;
+      if (top <= body.y + 0.01 && body.x + CHAR_SIZE > s.x && body.x < s.x + s.w) {
+        if (best == null || top > best) best = top;
+      }
+    }
+    if (best != null) {
+      const d = body.y - best;
+      if (d < 400) {
+        const k = 1 - d / 400;
+        ctx.fillStyle = "rgba(0,0,0," + (0.22 * k).toFixed(3) + ")";
+        ctx.beginPath();
+        ctx.ellipse(body.x + CHAR_SIZE / 2, SY(best) + 2, 9 + 5 * k, 3, 0, 0, 6.283);
+        ctx.fill();
+      }
+    }
+  }
+
   /* the square: fuse ring, squash & stretch, lean, eyes */
   {
     let sx = 1, sy = 1;
@@ -876,6 +975,18 @@ function render(now) {
     ctx.fillRect(-5 + lx, -12 + ly, 3, 4 * blink);
     ctx.fillRect(2 + lx, -12 + ly, 3, 4 * blink);
     ctx.restore();
+  }
+
+  /* hard-landing shockwave: one expanding ellipse at the impact point */
+  if (ringT > 0) {
+    const k = 1 - ringT / LAND_RING_TIME;
+    ctx.strokeStyle = COL.ink;
+    ctx.globalAlpha = (1 - k) * 0.35;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(ringX, SY(ringY) + 2, 6 + k * 26, 2 + k * 7, 0, 0, 6.283);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 
   /* particles, shards, confetti, popups */

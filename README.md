@@ -132,6 +132,13 @@ so the air never stops changing.
   an orbit clock-hand on the travel circle, dir flow stripes along the throw vector, a stitched
   warp door frame, stitched commit-pad borders, ceiling hazard stripes. Speckles are seeded per
   platform so they sit still; the type reads even without relying on colour alone.
+- **Depth & life passes.** Slabs sit in space: a lit front-face gradient, 1px top-face sliver,
+  consistent bevel and a contact shadow under every ledge; the square casts a ground shadow that
+  widens and fades with height; far silhouette spires scroll at 0.15 parallax. Ambient life:
+  a survey beacon column above unbanked commit pads, embers rising off the void line, a waving
+  summit flag, an expanding shockwave ring on hard landings, and a bounce membrane that dips
+  under the rider. All cues stay subordinate to readability (low alpha, one light direction,
+  no collision offsets); animated ones respect reduced-motion. The gallery shows each in isolation.
 - **Element gallery.** `gallery.html` is a visual showcase: every platform type (plus cracking
   and sliding states), the square's idle/aim/queued/flight/landing/ice-lean states, and world
   elements — ceiling, summit flag, the void, gust/updraft columns, last-flight trail, progress

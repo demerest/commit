@@ -346,7 +346,10 @@ function simStep() {
       spawnDust(body.x + CHAR_SIZE / 2, body.y, Math.min(LAND_DUST_MAX, LAND_DUST_BASE + impact / LAND_DUST_IMPACT_DIV), COL.dim);
       sfx("land", { impact });
     }
-    if (impact > HARD_LAND_IMPACT && !RM) shake = Math.min(HARD_SHAKE_MAX, (impact - HARD_LAND_IMPACT) / HARD_SHAKE_DIV);
+    if (impact > HARD_LAND_IMPACT && !RM) {
+      shake = Math.min(HARD_SHAKE_MAX, (impact - HARD_LAND_IMPACT) / HARD_SHAKE_DIV);
+      spawnRing(body.x + CHAR_SIZE / 2, body.y);
+    }
 
     /* fall economy: a counted drop flashes red and floats a -Xm popup */
     const drop = launchY - body.y;

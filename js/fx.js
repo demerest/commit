@@ -3,7 +3,15 @@
 "use strict";
 
 let shake = 0, flash = 0, warpGlow = 0, landT = 0, launchT = 0;
+let ringT = 0, ringX = 0, ringY = 0;
 const trail = [], parts = [], shards = [], floats = [], confetti = [];
+
+/* hard-landing shockwave: one expanding ellipse at the impact point */
+function spawnRing(x, y) {
+  ringT = LAND_RING_TIME;
+  ringX = x;
+  ringY = y;
+}
 
 function spawnDust(x, y, n, c) {
   if (RM) n = Math.ceil(n / 2);
@@ -71,6 +79,7 @@ function spawnShards(plat) {
 }
 
 function updParts(dt) {
+  ringT = Math.max(0, ringT - dt);
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i];
     p.t += dt;
